@@ -18,4 +18,8 @@ import java.util.Map;
 public class RoutingDataSource extends AbstractRoutingDataSource {
     private static final Map<Object, Object> dataSourceMap = new HashMap<>();
 
+    @Override
+    protected Object determineCurrentLookupKey() {
+        return TenantContext.getTenant();
+    }
 }

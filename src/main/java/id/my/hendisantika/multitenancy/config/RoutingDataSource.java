@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import id.my.hendisantika.multitenancy.entity.Tenant;
 import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
 
+import javax.sql.DataSource;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -32,4 +33,9 @@ public class RoutingDataSource extends AbstractRoutingDataSource {
         setDefaultTargetDataSource(getDefaultDataSource());
         setTargetDataSources(dataSourceMap);
     }
+
+    DataSource getDataSourceByTenant(Tenant tenant) {
+        return (DataSource) dataSourceMap.get(tenant);
+    }
+
 }

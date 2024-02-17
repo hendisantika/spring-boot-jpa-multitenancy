@@ -36,4 +36,11 @@ public enum Tenant {
                 .findFirst()
                 .orElse(DEFAULT);
     }
+
+    public static Tenant findById(Integer id) {
+        return Arrays.stream(Tenant.values())
+                .filter(t -> t.getId().equals(id))
+                .findFirst()
+                .orElse(DEFAULT);
+    }
 }

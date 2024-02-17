@@ -1,6 +1,7 @@
 package id.my.hendisantika.multitenancy.config;
 
 import id.my.hendisantika.multitenancy.entity.BaseEntity;
+import org.hibernate.engine.jdbc.connections.spi.MultiTenantConnectionProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
@@ -57,4 +58,10 @@ public class RepositoryConfiguration {
         jpaVendorAdapter.setDatabase(org.springframework.orm.jpa.vendor.Database.MYSQL);
         return jpaVendorAdapter;
     }
+
+    @Bean
+    public MultiTenantConnectionProvider multiTenantConnectionProvider() {
+        return new MultitenantConnectionProvider();
+    }
+
 }

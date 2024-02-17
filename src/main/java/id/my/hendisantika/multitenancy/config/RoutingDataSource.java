@@ -38,4 +38,7 @@ public class RoutingDataSource extends AbstractRoutingDataSource {
         return (DataSource) dataSourceMap.get(tenant);
     }
 
+    DataSource getDefaultDataSource() {
+        return getDataSourceByTenant(Tenant.DEFAULT);
+    }
 }

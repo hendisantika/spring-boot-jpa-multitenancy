@@ -2,6 +2,7 @@ package id.my.hendisantika.multitenancy.config;
 
 import id.my.hendisantika.multitenancy.entity.BaseEntity;
 import jakarta.persistence.EntityManagerFactory;
+import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.engine.jdbc.connections.spi.MultiTenantConnectionProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,6 +17,8 @@ import org.springframework.orm.jpa.vendor.HibernateJpaDialect;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
+
+import java.util.Properties;
 
 /**
  * Created by IntelliJ IDEA.
@@ -83,5 +86,31 @@ public class RepositoryConfiguration {
     @Bean(initMethod = "migrate")
     public FlywayMigrationInitializer flywayMigrationInitializer() {
         return new FlywayMigrationInitializer();
+    }
+
+    private Properties hibernateProperties() {
+        Properties properties = new Properties();
+        properties.setProperty(AvailableSettings.HBM2DDL_AUTO, "none");
+        properties.setProperty(AvailableSettings.DIALECT, "org.hibernate.dialect.MySQL57InnoDBDialect");
+        properties.setProperty(AvailableSettings.IGNORE_EXPLICIT_DISCRIMINATOR_COLUMNS_FOR_JOINED_SUBCLASS, "true");
+        properties.setProperty("hibernate.jpa.compliance.transaction", "true");
+        properties.setProperty("hibernate.jpa.compliance.query", "true");
+        properties.setProperty("hibernate.jpa.compliance.list", "true");
+        properties.setProperty(AvailableSettings.JPA_ID_GENERATOR_GLOBAL_SCOPE_COMPLIANCE, "true");
+        properties.setProperty(AvailableSettings.JPAQL_STRICT_COMPLIANCE, "true");
+        properties.setProperty(AvailableSettings.ENABLE_LAZY_LOAD_NO_TRANS, "true");
+        properties.setProperty(AvailableSettings.SHOW_SQL, "false");
+        properties.setProperty(AvailableSettings.FORMAT_SQL, "false");
+        properties.setProperty(AvailableSettings.CONNECTION_PROVIDER_DISABLES_AUTOCOMMIT, "true");
+        properties.setProperty(AvailableSettings.MAX_FETCH_DEPTH, "4");
+        properties.setProperty(AvailableSettings.DEFAULT_BATCH_FETCH_SIZE, "16");
+        properties.setProperty(AvailableSettings.ORDER_UPDATES, "true");
+
+        properties.setProperty(AvailableSettings.MULTI_TENANT, "DATABASE");
+        properties.setProperty(AvailableSettings.MULTI_TENANT_IDENTIFIER_RESOLVER,
+                TenantIdentifierResolver.class.getName());
+
+        properties.put(AvailableSettings.MULTI_TENANT_CONNECTION_PROVIDER, multiTenantConnectionProvider());
+        return properties;
     }
 }

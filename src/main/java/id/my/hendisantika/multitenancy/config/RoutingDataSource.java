@@ -1,5 +1,6 @@
 package id.my.hendisantika.multitenancy.config;
 
+import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import id.my.hendisantika.multitenancy.entity.Tenant;
 import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
@@ -40,5 +41,25 @@ public class RoutingDataSource extends AbstractRoutingDataSource {
 
     DataSource getDefaultDataSource() {
         return getDataSourceByTenant(Tenant.DEFAULT);
+    }
+
+    private HikariConfig hikariConfig(Tenant tenant,
+                                      DatabaseConfiguration configuration) {
+        HikariConfig hikariConfig = new HikariConfig();
+        hikariConfig.setDriverClassName("com.mysql.cj.jdbc.Driver");
+        hikariConfig.setJdbcUrl(configuration.getUrl().replace("tenantName", tenant.getName()));
+        hikariConfig.setUsername(configuration.getUser());
+        hikariConfig.setPassword(configuration.getPassword());
+        hikariConfig.setAutoCommit(Boolean.FALSE);
+        hikariConfig.addDataSourceProperty("dataSource.cachePrepStmts", Boolean.TRUE);
+        hikariConfig.addDataSourceProperty("dataSource.prepStmtCacheSize", 250);
+        hikariConfig.addDataSourceProperty("dataSource.prepStmtCacheSqlLimit", 2048);
+        hikariConfig.addDataSourceProperty("dataSource.useServerPrepStmts", Boolean.TRUE);
+        hikariConfig.addDataSourceProperty("dataSource.useLocalSessionState", Boolean.TRUE);
+        hikariConfig.addDataSourceProperty("dataSource.rewriteBatchedStatements", Boolean.TRUE);
+        hikariConfig.addDataSourceProperty("dataSource.cacheResultSetMetadata", Boolean.TRUE);
+        hikariConfig.addDataSourceProperty("dataSource.cacheServerConfiguration", Boolean.TRUE);
+        hikariConfig.addDataSourceProperty("dataSource.maintainTimeStats", Boolean.FALSE);
+        return hikariConfig;
     }
 }

@@ -1,5 +1,7 @@
 package id.my.hendisantika.multitenancy.entity;
 
+import jakarta.persistence.AttributeConverter;
+import jakarta.persistence.Converter;
 import lombok.Getter;
 
 import java.util.Arrays;
@@ -42,5 +44,18 @@ public enum Tenant {
                 .filter(t -> t.getId().equals(id))
                 .findFirst()
                 .orElse(DEFAULT);
+    }
+
+    @Converter
+    public static class TypeConverter implements AttributeConverter<Tenant, Integer> {
+        @Override
+        public Integer convertToDatabaseColumn(Tenant tenantName) {
+            return tenantName != null ? tenantName.getId() : null;
+        }
+
+        @Override
+        public Tenant convertToEntityAttribute(Integer id) {
+            return id != null ? Tenant.findById(id) : null;
+        }
     }
 }

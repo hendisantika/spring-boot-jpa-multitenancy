@@ -41,4 +41,12 @@ public class RepositoryConfiguration {
         entityManagerFactoryBean.setJpaDialect(new HibernateJpaDialect());
         return entityManagerFactoryBean;
     }
+
+    @Bean
+    public RoutingDataSource routingDataSource() {
+        RoutingDataSource routingDataSource = new RoutingDataSource();
+        routingDataSource.initDataSources(databaseConfiguration());
+        return routingDataSource;
+    }
+
 }

@@ -2,6 +2,8 @@ package id.my.hendisantika.multitenancy.entity;
 
 import lombok.Getter;
 
+import java.util.Arrays;
+
 /**
  * Created by IntelliJ IDEA.
  * Project : spring-boot-jpa-multitenancy
@@ -28,4 +30,10 @@ public enum Tenant {
         this.description = description;
     }
 
+    public static Tenant findByName(String name) {
+        return Arrays.stream(Tenant.values())
+                .filter(t -> t.getName().equalsIgnoreCase(name))
+                .findFirst()
+                .orElse(DEFAULT);
+    }
 }

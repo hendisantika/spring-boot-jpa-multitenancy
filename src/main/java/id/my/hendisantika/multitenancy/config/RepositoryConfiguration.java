@@ -1,5 +1,6 @@
 package id.my.hendisantika.multitenancy.config;
 
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.aspectj.EnableSpringConfigured;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
@@ -20,4 +21,9 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @EnableSpringConfigured
 @EnableTransactionManagement
 public class RepositoryConfiguration {
+    @Bean
+    public DatabaseConfiguration databaseConfiguration() {
+        return new DatabaseConfiguration();
+    }
+
 }

@@ -1,5 +1,6 @@
 package id.my.hendisantika.multitenancy.support;
 
+import id.my.hendisantika.multitenancy.config.TenantContext;
 import id.my.hendisantika.multitenancy.entity.Tenant;
 
 /**

@@ -80,4 +80,8 @@ public class RepositoryConfiguration {
         return new PersistenceExceptionTranslationPostProcessor();
     }
 
+    @Bean(initMethod = "migrate")
+    public FlywayMigrationInitializer flywayMigrationInitializer() {
+        return new FlywayMigrationInitializer();
+    }
 }

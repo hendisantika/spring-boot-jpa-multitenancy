@@ -1,9 +1,13 @@
 package id.my.hendisantika.multitenancy.config;
 
+import id.my.hendisantika.multitenancy.entity.BaseEntity;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.aspectj.EnableSpringConfigured;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+import org.springframework.orm.jpa.vendor.HibernateJpaDialect;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 /**
@@ -26,4 +30,15 @@ public class RepositoryConfiguration {
         return new DatabaseConfiguration();
     }
 
+    @Bean
+    @DependsOn(value = "flywayMigrationInitializer")
+    public LocalContainerEntityManagerFactoryBean entityManagerFactory() {
+        LocalContainerEntityManagerFactoryBean entityManagerFactoryBean = new LocalContainerEntityManagerFactoryBean();
+        entityManagerFactoryBean.setPackagesToScan(BaseEntity.class.getPackage().getName());
+        entityManagerFactoryBean.setDataSource(routingDataSource().getDefaultDataSource());
+        entityManagerFactoryBean.setJpaVendorAdapter(hibernateJpaVendorAdapter());
+        entityManagerFactoryBean.setJpaProperties(hibernateProperties());
+        entityManagerFactoryBean.setJpaDialect(new HibernateJpaDialect());
+        return entityManagerFactoryBean;
+    }
 }

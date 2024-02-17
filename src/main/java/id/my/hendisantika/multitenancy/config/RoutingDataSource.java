@@ -1,5 +1,7 @@
 package id.my.hendisantika.multitenancy.config;
 
+import com.zaxxer.hikari.HikariDataSource;
+import id.my.hendisantika.multitenancy.entity.Tenant;
 import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
 
 import java.util.HashMap;
@@ -21,5 +23,13 @@ public class RoutingDataSource extends AbstractRoutingDataSource {
     @Override
     protected Object determineCurrentLookupKey() {
         return TenantContext.getTenant();
+    }
+
+    void initDataSources(DatabaseConfiguration configuration) {
+        for (Tenant tenant : Tenant.values()) {
+            dataSourceMap.put(tenant, new HikariDataSource(hikariConfig(tenant, configuration)));
+        }
+        setDefaultTargetDataSource(getDefaultDataSource());
+        setTargetDataSources(dataSourceMap);
     }
 }

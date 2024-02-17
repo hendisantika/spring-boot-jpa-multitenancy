@@ -18,7 +18,14 @@ public enum Tenant {
     ORGTEST1(2, "orgtest1", "Sample database for organization 1"),
     ORGTEST2(3, "orgtest2", "Sample database for organization 2");
 
-    private Integer id;
-    private String name;
-    private String description;
+    private final Integer id;
+    private final String name;
+    private final String description;
+
+    Tenant(Integer id, String name, String description) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+    }
+
 }

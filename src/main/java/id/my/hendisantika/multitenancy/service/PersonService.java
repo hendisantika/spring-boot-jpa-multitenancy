@@ -1,8 +1,11 @@
 package id.my.hendisantika.multitenancy.service;
 
+import id.my.hendisantika.multitenancy.entity.Person;
 import id.my.hendisantika.multitenancy.repository.PersonRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import java.util.Optional;
 
 /**
  * Created by IntelliJ IDEA.
@@ -18,4 +21,8 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class PersonService {
     private final PersonRepository personRepository;
+
+    public Optional<Person> findById(Long id) {
+        return personRepository.findById(id);
+    }
 }

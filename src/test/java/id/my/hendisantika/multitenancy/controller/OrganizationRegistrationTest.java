@@ -153,7 +153,7 @@ class OrganizationRegistrationTest {
                 .andExpect(jsonPath("$.jobTitle").value("Practice Manager"))
                 .andExpect(jsonPath("$.orgStructure").value("MULTI_LOCATION_CLINIC"))
                 .andExpect(jsonPath("$.practiceSpeciality").value("AESTHETIC_AND_DERMA"))
-                .andExpect(jsonPath("$.subdomain").value(SLUG + ".mhdc.co.id"));
+                .andExpect(jsonPath("$.subdomain").value(SLUG + ".jvm.my.id"));
 
         TenantRegistration tenant = tenantRegistrationRepository.findBySlug(SLUG).orElseThrow();
         assertThat(tenant.getContactFirstName()).isEqualTo("Hendi");

@@ -28,7 +28,7 @@ public class JwtProperties {
      */
     private String secret;
 
-    private String issuer = "mhdc.co.id";
+    private String issuer = "jvm.my.id";
 
     private Duration accessTokenTtl = Duration.ofMinutes(30);
 

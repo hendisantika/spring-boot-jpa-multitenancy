@@ -47,7 +47,7 @@ public class TenantRegistration extends BaseEntity {
     private String databaseName;
 
     /**
-     * Fully qualified host, e.g. "sehat.mhdc.co.id".
+     * Fully qualified host, e.g. "sehat.jvm.my.id".
      */
     @Column(name = "subdomain", nullable = false, unique = true)
     private String subdomain;

@@ -66,7 +66,7 @@ class TenantProvisioningServiceTest {
 
         assertThat(tenant.getSlug()).isEqualTo(SLUG);
         assertThat(tenant.getDatabaseName()).isEqualTo(SLUG);
-        assertThat(tenant.getSubdomain()).isEqualTo(SLUG + ".mhdc.co.id");
+        assertThat(tenant.getSubdomain()).isEqualTo(SLUG + ".jvm.my.id");
         assertThat(tenant.getStatus()).isEqualTo(TenantStatus.ACTIVE);
 
         // The database really exists and carries the tenant schema.

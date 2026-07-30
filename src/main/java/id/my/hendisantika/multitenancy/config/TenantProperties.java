@@ -26,7 +26,7 @@ public class TenantProperties {
     /**
      * Subdomains are built as {slug}.{baseDomain}.
      */
-    private String baseDomain = "mhdc.co.id";
+    private String baseDomain = "jvm.my.id";
 
     /**
      * Slug of the central database, used when a request carries no tenant.

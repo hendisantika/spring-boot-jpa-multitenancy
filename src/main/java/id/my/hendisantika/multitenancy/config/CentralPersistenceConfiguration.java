@@ -31,6 +31,8 @@ import javax.sql.DataSource;
  * User: hendisantika
  * Email: hendisantika@gmail.com
  * Telegram : @hendisantika34
+ * Date: 31/07/26
+ * Time: 06.09
  */
 @Configuration
 @EnableTransactionManagement

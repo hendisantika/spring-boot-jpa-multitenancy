@@ -1,7 +1,7 @@
 package id.my.hendisantika.multitenancy.entity.central;
 
 /**
- * Lifecycle of a provisioned tenant.
+ * What an account may do inside one tenant.
  * <p>
  * Created by IntelliJ IDEA.
  * Project : spring-boot-jpa-multitenancy
@@ -11,20 +11,15 @@ package id.my.hendisantika.multitenancy.entity.central;
  * Date: 31/07/26
  * Time: 06.09
  */
-public enum TenantStatus {
+public enum TenantRole {
 
     /**
-     * Database created and migrated, requests are served.
+     * Registered the organization; may create users inside it.
      */
-    ACTIVE,
+    OWNER,
 
     /**
-     * Registered but the database is not ready yet.
+     * Created by the owner.
      */
-    PROVISIONING,
-
-    /**
-     * Database still exists, requests are refused.
-     */
-    SUSPENDED
+    MEMBER
 }

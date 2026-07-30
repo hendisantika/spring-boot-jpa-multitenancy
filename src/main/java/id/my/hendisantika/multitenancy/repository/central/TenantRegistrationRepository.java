@@ -14,6 +14,8 @@ import java.util.Optional;
  * User: hendisantika
  * Email: hendisantika@gmail.com
  * Telegram : @hendisantika34
+ * Date: 31/07/26
+ * Time: 06.09
  */
 @Repository
 public interface TenantRegistrationRepository extends JpaRepository<TenantRegistration, Long> {

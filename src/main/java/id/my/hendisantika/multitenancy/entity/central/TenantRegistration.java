@@ -53,10 +53,39 @@ public class TenantRegistration extends BaseEntity {
     private String subdomain;
 
     /**
-     * Organization name as the owner typed it.
+     * Business name as the owner typed it; the slug is derived from it.
      */
     @Column(name = "display_name")
     private String displayName;
+
+    @Column(name = "business_email")
+    private String businessEmail;
+
+    /**
+     * Object key of the organization photo, not a URL.
+     */
+    @Column(name = "photo_key")
+    private String photoKey;
+
+    @Column(name = "contact_first_name")
+    private String contactFirstName;
+
+    @Column(name = "contact_last_name")
+    private String contactLastName;
+
+    @Column(name = "job_title")
+    private String jobTitle;
+
+    @Column(name = "phone_number")
+    private String phoneNumber;
+
+    @Column(name = "org_structure")
+    @Enumerated(EnumType.STRING)
+    private OrgStructure orgStructure;
+
+    @Column(name = "practice_speciality")
+    @Enumerated(EnumType.STRING)
+    private PracticeSpeciality practiceSpeciality;
 
     /**
      * The account that registered this organization.

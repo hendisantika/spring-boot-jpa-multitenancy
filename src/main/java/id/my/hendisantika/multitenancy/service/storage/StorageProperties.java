@@ -23,7 +23,7 @@ import java.util.List;
 @ConfigurationProperties(prefix = "application.storage")
 public class StorageProperties {
 
-    private String bucket = "mhdc-uploads";
+    private String bucket = "jvm-uploads";
 
     private String region = "us-east-1";
 

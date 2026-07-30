@@ -51,7 +51,7 @@ class S3StorageServiceTest {
         assertThat(key).startsWith("accounts/").endsWith(".png");
         ArgumentCaptor<PutObjectRequest> request = ArgumentCaptor.forClass(PutObjectRequest.class);
         verify(s3Client).putObject(request.capture(), any(RequestBody.class));
-        assertThat(request.getValue().bucket()).isEqualTo("mhdc-uploads");
+        assertThat(request.getValue().bucket()).isEqualTo("jvm-uploads");
         assertThat(request.getValue().key()).isEqualTo(key);
         assertThat(request.getValue().contentType()).isEqualTo(MediaType.IMAGE_PNG_VALUE);
     }
@@ -89,7 +89,7 @@ class S3StorageServiceTest {
     void buildsAUrlFromTheEndpointOrTheConfiguredPublicBase() {
         storageProperties.setEndpoint("http://localhost:9000/");
         assertThat(storageService.urlOf("accounts/a.png"))
-                .isEqualTo("http://localhost:9000/mhdc-uploads/accounts/a.png");
+                .isEqualTo("http://localhost:9000/jvm-uploads/accounts/a.png");
 
         storageProperties.setPublicBaseUrl("https://cdn.example.test/");
         assertThat(storageService.urlOf("accounts/a.png"))

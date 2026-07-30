@@ -4,9 +4,13 @@ import id.my.hendisantika.multitenancy.config.DatabaseProperties;
 import id.my.hendisantika.multitenancy.config.HibernateSettings;
 import id.my.hendisantika.multitenancy.config.TenantDataSourceRegistry;
 import id.my.hendisantika.multitenancy.config.TenantProperties;
+import id.my.hendisantika.multitenancy.entity.central.Account;
 import id.my.hendisantika.multitenancy.entity.central.TenantRegistration;
 import id.my.hendisantika.multitenancy.entity.central.TenantStatus;
+import id.my.hendisantika.multitenancy.entity.central.TenantRole;
+import id.my.hendisantika.multitenancy.entity.central.UserTenant;
 import id.my.hendisantika.multitenancy.repository.central.TenantRegistrationRepository;
+import id.my.hendisantika.multitenancy.repository.central.UserTenantRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.flywaydb.core.Flyway;
@@ -31,6 +35,8 @@ import java.util.Locale;
  * User: hendisantika
  * Email: hendisantika@gmail.com
  * Telegram : @hendisantika34
+ * Date: 31/07/26
+ * Time: 06.09
  */
 @Slf4j
 @Service
@@ -38,6 +44,7 @@ import java.util.Locale;
 public class TenantProvisioningService {
 
     private final TenantRegistrationRepository tenantRegistrationRepository;
+    private final UserTenantRepository userTenantRepository;
     private final TenantDataSourceRegistry tenantDataSourceRegistry;
     private final TenantProperties tenantProperties;
     private final DatabaseProperties databaseProperties;
@@ -48,6 +55,15 @@ public class TenantProvisioningService {
      */
     @Transactional("centralTransactionManager")
     public TenantRegistration provision(String displayName) {
+        return provision(displayName, null);
+    }
+
+    /**
+     * @param owner the account registering the organization, which becomes its
+     *              OWNER member
+     */
+    @Transactional("centralTransactionManager")
+    public TenantRegistration provision(String displayName, Account owner) {
         String slug = TenantSlugs.slugify(displayName);
         validate(slug);
 
@@ -56,6 +72,7 @@ public class TenantProvisioningService {
         tenant.setDatabaseName(slug);
         tenant.setSubdomain(slug + "." + tenantProperties.getBaseDomain());
         tenant.setDisplayName(displayName);
+        tenant.setOwner(owner);
         tenant.setStatus(TenantStatus.PROVISIONING);
         tenant.setCreatedAt(Instant.now());
         tenant = tenantRegistrationRepository.saveAndFlush(tenant);
@@ -74,6 +91,17 @@ public class TenantProvisioningService {
         tenant.setStatus(TenantStatus.ACTIVE);
         tenant = tenantRegistrationRepository.saveAndFlush(tenant);
         tenantDataSourceRegistry.open(tenant);
+
+        if (owner != null) {
+            // The registering account becomes the owner member, which is what the
+            // access token will carry on the next login.
+            UserTenant membership = new UserTenant();
+            membership.setAccount(owner);
+            membership.setUserName(owner.getEmail());
+            membership.setTenantSlug(tenant.getSlug());
+            membership.setRole(TenantRole.OWNER);
+            userTenantRepository.save(membership);
+        }
 
         log.info("Provisioned tenant {} on database {} at {}",
                 tenant.getSlug(), tenant.getDatabaseName(), tenant.getSubdomain());
@@ -183,6 +211,8 @@ public class TenantProvisioningService {
         } catch (SQLException e) {
             throw new TenantProvisioningException("Could not drop database " + tenant.getDatabaseName(), e);
         }
+        // Memberships reference the slug rather than the row, so they have to go too.
+        userTenantRepository.deleteAll(userTenantRepository.findAllByTenantSlug(normalized));
         tenantRegistrationRepository.delete(tenant);
         log.info("Deprovisioned tenant {}", normalized);
     }

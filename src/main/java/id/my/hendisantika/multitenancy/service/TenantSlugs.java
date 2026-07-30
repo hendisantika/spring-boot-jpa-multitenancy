@@ -12,6 +12,8 @@ import java.util.regex.Pattern;
  * User: hendisantika
  * Email: hendisantika@gmail.com
  * Telegram : @hendisantika34
+ * Date: 31/07/26
+ * Time: 06.09
  */
 public final class TenantSlugs {
 

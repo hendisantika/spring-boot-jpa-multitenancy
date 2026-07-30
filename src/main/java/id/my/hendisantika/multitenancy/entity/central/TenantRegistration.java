@@ -5,6 +5,9 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -20,6 +23,8 @@ import java.time.Instant;
  * User: hendisantika
  * Email: hendisantika@gmail.com
  * Telegram : @hendisantika34
+ * Date: 31/07/26
+ * Time: 06.09
  */
 @Data
 @Entity
@@ -52,6 +57,13 @@ public class TenantRegistration extends BaseEntity {
      */
     @Column(name = "display_name")
     private String displayName;
+
+    /**
+     * The account that registered this organization.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_account_id")
+    private Account owner;
 
     @Column(name = "status", nullable = false)
     @Enumerated(EnumType.STRING)

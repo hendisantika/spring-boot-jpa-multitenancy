@@ -1,7 +1,9 @@
 package id.my.hendisantika.multitenancy.controller;
 
+import id.my.hendisantika.multitenancy.entity.central.Account;
 import id.my.hendisantika.multitenancy.entity.central.TenantRegistration;
 import id.my.hendisantika.multitenancy.repository.central.TenantRegistrationRepository;
+import id.my.hendisantika.multitenancy.service.AuthService;
 import id.my.hendisantika.multitenancy.service.TenantProvisioningService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -9,6 +11,8 @@ import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,6 +31,8 @@ import java.util.List;
  * User: hendisantika
  * Email: hendisantika@gmail.com
  * Telegram : @hendisantika34
+ * Date: 31/07/26
+ * Time: 06.09
  */
 @RestController
 @RequestMapping("/api/tenants")
@@ -34,6 +40,7 @@ import java.util.List;
 public class TenantController {
 
     private final TenantProvisioningService tenantProvisioningService;
+    private final AuthService authService;
     private final TenantRegistrationRepository tenantRegistrationRepository;
 
     @GetMapping
@@ -41,9 +48,15 @@ public class TenantController {
         return tenantRegistrationRepository.findAll().stream().map(TenantView::of).toList();
     }
 
+    /**
+     * The authenticated account becomes the owner of the organization it
+     * registers, and gains an OWNER membership for it.
+     */
     @PostMapping
-    public ResponseEntity<TenantView> create(@Valid @RequestBody CreateTenantRequest request) {
-        TenantRegistration tenant = tenantProvisioningService.provision(request.name());
+    public ResponseEntity<TenantView> create(@Valid @RequestBody CreateTenantRequest request,
+                                             @AuthenticationPrincipal Jwt jwt) {
+        Account owner = authService.accountOf(jwt.getSubject());
+        TenantRegistration tenant = tenantProvisioningService.provision(request.name(), owner);
         return ResponseEntity.status(HttpStatus.CREATED).body(TenantView.of(tenant));
     }
 

@@ -19,6 +19,11 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    # The dependency submission API writes a snapshot to the repository, which
+    # the default read-only GITHUB_TOKEN is not allowed to do.
+    permissions:
+      contents: write
+
     # The application boots every tenant DataSource on startup, so the tests
     # need a reachable MySQL on localhost:3306 with the credentials from
     # src/main/resources/application.properties. Flyway creates the schemas.

@@ -12,7 +12,7 @@ tenant-unaware.
 
 | Component        | Version                        |
 |------------------|--------------------------------|
-| Java             | 21 (toolchain), builds on 21+  |
+| Java             | 25                             |
 | Spring Boot      | 4.1.0                          |
 | Hibernate ORM    | 7.4.1 (via Boot)               |
 | Spring Data JPA  | via Boot                       |
@@ -75,7 +75,7 @@ the Flyway migration are created automatically.
 
 ## Prerequisites
 
-* JDK 21 or newer
+* JDK 25
 * MySQL running on `localhost:3306`
 * Maven (or just use the bundled `./mvnw`)
 

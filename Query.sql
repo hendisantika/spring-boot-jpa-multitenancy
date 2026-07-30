@@ -143,16 +143,17 @@ VALUES (NULL, 1, 'martin@test.com', 'plainText', 3);
 INSERT INTO `users`
 VALUES (NULL, 1, 'mikhael@test.com', 'plainText', 4);
 
-INSERT INTO `db_default`.`user_tenants`
-VALUES (NULL, 1, 1, 'john@test.com'),
-       (NULL, 1, 1, 'arif@test.com'),
-       (NULL, 1, 1, 'martin@test.com'),
-       (NULL, 1, 1, 'mikhael@test.com'),
-       (NULL, 1, 2, 'john1@test.com'),
-       (NULL, 1, 2, 'arif1@test.com'),
-       (NULL, 1, 2, 'martin1@test.com'),
-       (NULL, 1, 2, 'mikhael1@test.com'),
-       (NULL, 1, 3, 'john2@test.com'),
-       (NULL, 1, 3, 'arif2@test.com'),
-       (NULL, 1, 3, 'martin2@test.com'),
-       (NULL, 1, 3, 'mikhael2@test.com');
+-- Memberships reference a tenant slug from db_default.tenants.
+INSERT INTO `db_default`.`user_tenants` (`id`, `version`, `tenant_slug`, `user_name`)
+VALUES (NULL, 1, 'default', 'john@test.com'),
+       (NULL, 1, 'default', 'arif@test.com'),
+       (NULL, 1, 'default', 'martin@test.com'),
+       (NULL, 1, 'default', 'mikhael@test.com'),
+       (NULL, 1, 'orgtest1', 'john1@test.com'),
+       (NULL, 1, 'orgtest1', 'arif1@test.com'),
+       (NULL, 1, 'orgtest1', 'martin1@test.com'),
+       (NULL, 1, 'orgtest1', 'mikhael1@test.com'),
+       (NULL, 1, 'orgtest2', 'john2@test.com'),
+       (NULL, 1, 'orgtest2', 'arif2@test.com'),
+       (NULL, 1, 'orgtest2', 'martin2@test.com'),
+       (NULL, 1, 'orgtest2', 'mikhael2@test.com');

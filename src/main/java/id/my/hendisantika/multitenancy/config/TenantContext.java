@@ -1,10 +1,8 @@
 package id.my.hendisantika.multitenancy.config;
 
-import id.my.hendisantika.multitenancy.entity.Tenant;
-
-import java.util.Objects;
-
 /**
+ * Holds the tenant slug resolved for the current thread.
+ * <p>
  * Created by IntelliJ IDEA.
  * Project : spring-boot-jpa-multitenancy
  * User: hendisantika
@@ -14,19 +12,25 @@ import java.util.Objects;
  * Time: 13:48
  * To change this template use File | Settings | File Templates.
  */
-public class TenantContext {
-    private static final ThreadLocal<Tenant> tenantHolder = new ThreadLocal<>();
+public final class TenantContext {
 
-    public static Tenant getTenant() {
-        Tenant tenant = tenantHolder.get();
-        return Objects.isNull(tenant) ? Tenant.DEFAULT : tenant;
+    private static final ThreadLocal<String> TENANT_HOLDER = new ThreadLocal<>();
+
+    private TenantContext() {
     }
 
-    public static void setTenant(Tenant tenant) {
-        tenantHolder.set(tenant);
+    /**
+     * @return the current tenant slug, or {@code null} when the request carries no tenant
+     */
+    public static String getTenant() {
+        return TENANT_HOLDER.get();
+    }
+
+    public static void setTenant(String tenant) {
+        TENANT_HOLDER.set(tenant);
     }
 
     public static void clearTenant() {
-        tenantHolder.remove();
+        TENANT_HOLDER.remove();
     }
 }

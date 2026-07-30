@@ -1,4 +1,4 @@
-package id.my.hendisantika.multitenancy.entity;
+package id.my.hendisantika.multitenancy.entity.support;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.GeneratedValue;
@@ -12,6 +12,9 @@ import lombok.Setter;
 import java.io.Serializable;
 
 /**
+ * Shared by the central and the tenant persistence units, so it lives in its own
+ * package that both scan.
+ * <p>
  * Created by IntelliJ IDEA.
  * Project : spring-boot-jpa-multitenancy
  * User: hendisantika

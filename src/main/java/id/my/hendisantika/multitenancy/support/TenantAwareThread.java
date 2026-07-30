@@ -1,9 +1,11 @@
 package id.my.hendisantika.multitenancy.support;
 
 import id.my.hendisantika.multitenancy.config.TenantContext;
-import id.my.hendisantika.multitenancy.entity.Tenant;
 
 /**
+ * Carries the current tenant into a new thread, which a plain ThreadLocal does not
+ * inherit.
+ * <p>
  * Created by IntelliJ IDEA.
  * Project : spring-boot-jpa-multitenancy
  * User: hendisantika
@@ -14,7 +16,8 @@ import id.my.hendisantika.multitenancy.entity.Tenant;
  * To change this template use File | Settings | File Templates.
  */
 public class TenantAwareThread extends Thread {
-    private Tenant tenant = null;
+
+    private final String tenant;
 
     public TenantAwareThread(Runnable target) {
         super(target);
@@ -24,7 +27,10 @@ public class TenantAwareThread extends Thread {
     @Override
     public void run() {
         TenantContext.setTenant(this.tenant);
-        super.run();
-        TenantContext.clearTenant();
+        try {
+            super.run();
+        } finally {
+            TenantContext.clearTenant();
+        }
     }
 }

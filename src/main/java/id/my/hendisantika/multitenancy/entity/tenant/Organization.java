@@ -1,7 +1,7 @@
-package id.my.hendisantika.multitenancy.entity;
+package id.my.hendisantika.multitenancy.entity.tenant;
 
+import id.my.hendisantika.multitenancy.entity.support.BaseEntity;
 import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import lombok.Data;
@@ -14,20 +14,22 @@ import lombok.EqualsAndHashCode;
  * Email: hendisantika@gmail.com
  * Telegram : @hendisantika34
  * Date: 2/17/24
- * Time: 13:38
+ * Time: 13:34
  * To change this template use File | Settings | File Templates.
  */
 @Data
 @Entity
-@Table(name = "user_tenants")
+@Table(name = "organizations")
 @EqualsAndHashCode(callSuper = false)
-public class UserTenant extends BaseEntity {
-    private static final long serialVersionUID = 1287583108972033641L;
+public class Organization extends BaseEntity {
+    private static final long serialVersionUID = -6144389355317857388L;
 
-    @Column(name = "user_name")
-    private String userName;
+    @Column(name = "name")
+    private String name;
 
-    @Column(name = "tenant")
-    @Convert(converter = Tenant.TypeConverter.class)
-    private Tenant tenant;
+    @Column(name = "address")
+    private String address;
+
+    @Column(name = "email")
+    private String email;
 }

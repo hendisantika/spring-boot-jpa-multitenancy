@@ -1,6 +1,6 @@
-package id.my.hendisantika.multitenancy.repository;
+package id.my.hendisantika.multitenancy.repository.tenant;
 
-import id.my.hendisantika.multitenancy.entity.Organization;
+import id.my.hendisantika.multitenancy.entity.tenant.Person;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -15,5 +15,5 @@ import org.springframework.stereotype.Repository;
  * To change this template use File | Settings | File Templates.
  */
 @Repository
-public interface OrganizationRepository extends JpaRepository<Organization, Long> {
+public interface PersonRepository extends JpaRepository<Person, Long> {
 }

@@ -9,8 +9,8 @@ own subdomain. The tenant is selected per HTTP request from the host name, and H
 session to the matching connection pool — the entities, repositories and services stay completely tenant-unaware.
 
 ```
-Organization "Sehat"  ->  database `sehat`  ->  https://sehat.mhdc.co.id
-Organization "Sehat2" ->  database `sehat2` ->  https://sehat2.mhdc.co.id
+Organization "Sehat"  ->  database `sehat`  ->  https://sehat.jvm.my.id
+Organization "Sehat2" ->  database `sehat2` ->  https://sehat2.jvm.my.id
 ```
 
 ## Tech stack
@@ -30,7 +30,7 @@ Organization "Sehat2" ->  database `sehat2` ->  https://sehat2.mhdc.co.id
 ## How it works
 
 ```
-GET https://sehat.mhdc.co.id/person/1
+GET https://sehat.jvm.my.id/person/1
         │
         ▼
 TenantSubdomainInterceptor       first host label -> "sehat"  (X-Tenant header overrides, for dev)
@@ -108,7 +108,7 @@ curl -X POST http://localhost:8080/api/organizations \
 ```
 
 ```json
-{ "slug": "sehat", "businessName": "Sehat", "databaseName": "sehat", "subdomain": "sehat.mhdc.co.id", "status": "ACTIVE" }
+{ "slug": "sehat", "businessName": "Sehat", "databaseName": "sehat", "subdomain": "sehat.jvm.my.id", "status": "ACTIVE" }
 ```
 
 That single call slugifies the business name, validates it, runs `CREATE DATABASE`, applies `db/migration/tenants`,
@@ -142,8 +142,8 @@ Tenants seeded from the previous enum-based setup keep their historical database
 
 | Slug       | Database      | Subdomain             |
 |------------|---------------|-----------------------|
-| `orgtest1` | `db_orgtest1` | `orgtest1.mhdc.co.id` |
-| `orgtest2` | `db_orgtest2` | `orgtest2.mhdc.co.id` |
+| `orgtest1` | `db_orgtest1` | `orgtest1.jvm.my.id` |
+| `orgtest2` | `db_orgtest2` | `orgtest2.jvm.my.id` |
 
 ## Prerequisites
 
@@ -165,7 +165,7 @@ application.database.password=root
 application.database.central-database=db_default
 # Every tenant gets its own pool, so keep each one small.
 application.database.maximum-pool-size=5
-application.tenant.base-domain=mhdc.co.id
+application.tenant.base-domain=jvm.my.id
 spring.flyway.enabled=false
 ```
 
@@ -254,10 +254,10 @@ domain or to `localhost` carries no tenant and reads the central database.
 
 ```bash
 # tenant "sehat" -> database `sehat`
-curl -u user:<password> 'https://sehat.mhdc.co.id/person/1'
+curl -u user:<password> 'https://sehat.jvm.my.id/person/1'
 ```
 
-Wildcard DNS for `*.mhdc.co.id` is not usually available on a developer machine, so the **`X-Tenant` header overrides
+Wildcard DNS for `*.jvm.my.id` is not usually available on a developer machine, so the **`X-Tenant` header overrides
 the host**:
 
 ```bash
@@ -353,7 +353,7 @@ lowercase `.sql` suffix are required by Flyway's default configuration.
 * Tenant databases are named after the slug alone, per the naming rule, so they share the server's namespace with every
   other schema. Provisioning refuses a name whose database already exists rather than adopting it, but choosing a
   dedicated MySQL instance (or reinstating a prefix) removes the class of collision entirely.
-* `*.mhdc.co.id` needs wildcard DNS and a wildcard TLS certificate in production; use the `X-Tenant` header locally.
+* `*.jvm.my.id` needs wildcard DNS and a wildcard TLS certificate in production; use the `X-Tenant` header locally.
 * **`application.jwt.secret` ships with a development value and must be overridden** (`APPLICATION_JWT_SECRET`).
   Anyone holding it can mint tokens for any account. HS256 needs at least 32 bytes; startup fails if it is shorter.
 * Photo uploads go to any S3 compatible endpoint. The defaults point at a local MinIO

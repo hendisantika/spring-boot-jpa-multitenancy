@@ -138,7 +138,7 @@ class AuthFlowTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.slug").value(SLUG))
-                .andExpect(jsonPath("$.subdomain").value(SLUG + ".mhdc.co.id"));
+                .andExpect(jsonPath("$.subdomain").value(SLUG + ".jvm.my.id"));
 
         // The registering account owns the tenant and gained an OWNER membership.
         Account owner = accountRepository.findByEmailIgnoreCase(EMAIL).orElseThrow();

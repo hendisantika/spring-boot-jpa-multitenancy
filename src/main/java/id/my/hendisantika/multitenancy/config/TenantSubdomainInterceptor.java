@@ -11,7 +11,7 @@ import java.util.Locale;
 
 /**
  * Resolves the tenant for the current request from the host name, so
- * sehat.mhdc.co.id is served from the "sehat" database.
+ * sehat.jvm.my.id is served from the "sehat" database.
  * <p>
  * Created by IntelliJ IDEA.
  * Project : spring-boot-jpa-multitenancy
@@ -27,7 +27,7 @@ public class TenantSubdomainInterceptor implements HandlerInterceptor {
 
     /**
      * Overrides the host, for development and tests where wildcard DNS for
-     * *.mhdc.co.id is not available.
+     * *.jvm.my.id is not available.
      */
     public static final String TENANT_HEADER = "X-Tenant";
 
@@ -68,7 +68,7 @@ public class TenantSubdomainInterceptor implements HandlerInterceptor {
         String baseDomain = tenantProperties.getBaseDomain().toLowerCase(Locale.ROOT);
         if (normalized.endsWith("." + baseDomain)) {
             String label = normalized.substring(0, normalized.length() - baseDomain.length() - 1);
-            // Only a single label counts, so a.b.mhdc.co.id is not a tenant.
+            // Only a single label counts, so a.b.jvm.my.id is not a tenant.
             return label.contains(".") ? null : label;
         }
         // Hosts outside the configured base domain, including the apex itself,

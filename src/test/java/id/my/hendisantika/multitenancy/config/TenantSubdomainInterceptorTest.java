@@ -35,14 +35,14 @@ class TenantSubdomainInterceptorTest {
 
     @Test
     void readsTenantFromSubdomain() {
-        assertThat(resolve("sehat.mhdc.co.id")).isEqualTo("sehat");
-        assertThat(resolve("sehat2.mhdc.co.id")).isEqualTo("sehat2");
-        assertThat(resolve("SEHAT.MHDC.CO.ID")).isEqualTo("sehat");
+        assertThat(resolve("sehat.jvm.my.id")).isEqualTo("sehat");
+        assertThat(resolve("sehat2.jvm.my.id")).isEqualTo("sehat2");
+        assertThat(resolve("SEHAT.JVM.MY.ID")).isEqualTo("sehat");
     }
 
     @Test
     void apexAndNeutralHostsCarryNoTenant() {
-        assertThat(resolve("mhdc.co.id")).isNull();
+        assertThat(resolve("jvm.my.id")).isNull();
         assertThat(resolve("localhost")).isNull();
         assertThat(resolve("127.0.0.1")).isNull();
     }
@@ -50,8 +50,8 @@ class TenantSubdomainInterceptorTest {
     @Test
     void hostsOutsideTheBaseDomainCarryNoTenant() {
         assertThat(resolve("sehat.example.com")).isNull();
-        // Nested labels are not a tenant, so evil.sehat.mhdc.co.id cannot pose as one.
-        assertThat(resolve("evil.sehat.mhdc.co.id")).isNull();
+        // Nested labels are not a tenant, so evil.sehat.jvm.my.id cannot pose as one.
+        assertThat(resolve("evil.sehat.jvm.my.id")).isNull();
     }
 
     @Test
@@ -66,7 +66,7 @@ class TenantSubdomainInterceptorTest {
     @Test
     void clearsTenantAfterTheRequest() {
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setServerName("sehat.mhdc.co.id");
+        request.setServerName("sehat.jvm.my.id");
         interceptor.preHandle(request, new MockHttpServletResponse(), new Object());
         interceptor.afterCompletion(request, new MockHttpServletResponse(), new Object(), null);
         assertThat(TenantContext.getTenant()).isNull();

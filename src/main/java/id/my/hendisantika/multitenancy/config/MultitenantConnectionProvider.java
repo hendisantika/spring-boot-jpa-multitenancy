@@ -16,7 +16,7 @@ import javax.sql.DataSource;
  * Time: 13:44
  * To change this template use File | Settings | File Templates.
  */
-public class MultitenantConnectionProvider extends AbstractDataSourceBasedMultiTenantConnectionProviderImpl {
+public class MultitenantConnectionProvider extends AbstractDataSourceBasedMultiTenantConnectionProviderImpl<String> {
     @Autowired
     private RoutingDataSource routingDataSource;
 

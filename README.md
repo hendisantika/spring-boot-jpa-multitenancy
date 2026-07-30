@@ -160,8 +160,8 @@ src/main/java/id/my/hendisantika/multitenancy
 src/main/resources
 ├── application.properties
 └── db/migration
-    ├── default/     migrations for db_default (adds user_tenants)
-    └── tenants/     migrations for the tenant databases
+    ├── default/     Vx_DDMMYYYY_HHMM__*.sql for db_default (adds user_tenants)
+    └── tenants/     Vx_DDMMYYYY_HHMM__*.sql for the tenant databases
 
 Query.sql            optional sample data for every tenant
 ```
@@ -176,11 +176,26 @@ Query.sql            optional sample data for every tenant
 tenant, so **a reachable MySQL is required** — the same one configured in `application.properties`. The GitHub Actions
 workflow starts a `mysql:8` service container for exactly this reason.
 
+## Database migrations
+
+Migration files are named `Vx_DDMMYYYY_HHMM__description.sql`:
+
+```
+V1_30072026_1936__init_schema.sql
+V2_30072026_1937__query.sql
+```
+
+Flyway treats `_` as a version separator, so `V2_30072026_1937` is version `2.30072026.1937` — the leading `Vx` keeps
+the ordering explicit and the timestamp records when the migration was written. The `__` before the description and the
+lowercase `.sql` suffix are required by Flyway's default configuration.
+
 ## Notes
 
 * Migrations are the source of truth for the schema and run automatically for every tenant on startup, so an empty
   MySQL is enough to boot: Connector/J creates the databases (`createDatabaseIfNotExist=true`) and Flyway creates the
   tables. `Query.sql` is only needed for the sample rows.
+* Renaming a migration changes its version, so Flyway will no longer match the history rows of a database that already
+  ran the old name — drop the `db_*` databases (or their `flyway_schema_history`) when adopting a new name.
 * Editing an already-applied migration changes its checksum and Flyway will refuse to run. During development, drop the
   affected `db_*` database (or its `flyway_schema_history` row) and let it rebuild.
 * The tenant is resolved per request into a `ThreadLocal`. Work handed to another thread loses it — wrap it in

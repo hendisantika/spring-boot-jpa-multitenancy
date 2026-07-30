@@ -310,6 +310,18 @@ through the tenant-routed repository and asserts the row did **not** land in the
 database again. So **a reachable MySQL is required** — the same one configured in `application.properties`, with rights
 to create and drop databases. The GitHub Actions workflow starts a `mysql:8` service container for exactly this reason.
 
+`S3StorageIntegrationTest` uploads to a real S3 compatible server, reads the bytes back and deletes them, so the
+endpoint, signing and path style settings are exercised rather than mocked. Start MinIO to run it:
+
+```bash
+docker run -d --name minio -p 9000:9000 \
+  -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+  minio/minio:latest server /data
+```
+
+Without it the test **skips**, so no one needs MinIO running to work on the rest. CI sets `S3_INTEGRATION_REQUIRED=true`,
+which turns "nothing is listening" into a failure — otherwise a MinIO that failed to start would look like a pass.
+
 ## Database migrations
 
 Migration files are named `Vx_DDMMYYYY_HHMM__description.sql`:
@@ -348,6 +360,7 @@ lowercase `.sql` suffix are required by Flyway's default configuration.
   (`http://localhost:9000`, `minioadmin`); set `application.storage.*` for AWS S3, leaving `endpoint` empty to use the
   default credential chain. Uploads are capped at 5 MB and limited to JPEG, PNG and WebP, and the stored key is
   generated rather than taken from the submitted file name.
+* **The bucket is not created for you.** `application.storage.bucket` must already exist; only the tests create it.
 * Sample users in `Query.sql` have plain-text passwords — sample data only, not for production.
 
 ## Roadmap

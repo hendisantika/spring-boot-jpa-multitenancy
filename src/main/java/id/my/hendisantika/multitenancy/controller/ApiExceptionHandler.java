@@ -7,6 +7,7 @@ import id.my.hendisantika.multitenancy.service.TenantProvisioningException;
 import id.my.hendisantika.multitenancy.service.storage.StorageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -46,6 +47,15 @@ public class ApiExceptionHandler {
     @ExceptionHandler(StorageException.class)
     public ProblemDetail onStorageFailed(StorageException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
+    /**
+     * A role or membership check failed. The message names what was required but
+     * never whether the organization exists.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ProblemDetail onAccessDenied(AccessDeniedException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage());
     }
 
     @ExceptionHandler(UnknownTenantException.class)

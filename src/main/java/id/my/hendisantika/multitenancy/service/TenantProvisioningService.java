@@ -55,23 +55,33 @@ public class TenantProvisioningService {
      */
     @Transactional("centralTransactionManager")
     public TenantRegistration provision(String displayName) {
-        return provision(displayName, null);
+        return provision(OrganizationProfile.ofName(displayName), null);
     }
 
     /**
-     * @param owner the account registering the organization, which becomes its
-     *              OWNER member
+     * @param profile the registration form; only the business name is required,
+     *                the rest is profile detail
+     * @param owner   the account registering the organization, which becomes its
+     *                OWNER member
      */
     @Transactional("centralTransactionManager")
-    public TenantRegistration provision(String displayName, Account owner) {
-        String slug = TenantSlugs.slugify(displayName);
+    public TenantRegistration provision(OrganizationProfile profile, Account owner) {
+        String slug = TenantSlugs.slugify(profile.businessName());
         validate(slug);
 
         TenantRegistration tenant = new TenantRegistration();
         tenant.setSlug(slug);
         tenant.setDatabaseName(slug);
         tenant.setSubdomain(slug + "." + tenantProperties.getBaseDomain());
-        tenant.setDisplayName(displayName);
+        tenant.setDisplayName(profile.businessName());
+        tenant.setBusinessEmail(profile.businessEmail());
+        tenant.setPhotoKey(profile.photoKey());
+        tenant.setContactFirstName(profile.contactFirstName());
+        tenant.setContactLastName(profile.contactLastName());
+        tenant.setJobTitle(profile.jobTitle());
+        tenant.setPhoneNumber(profile.phoneNumber());
+        tenant.setOrgStructure(profile.orgStructure());
+        tenant.setPracticeSpeciality(profile.practiceSpeciality());
         tenant.setOwner(owner);
         tenant.setStatus(TenantStatus.PROVISIONING);
         tenant.setCreatedAt(Instant.now());

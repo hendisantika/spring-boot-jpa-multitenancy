@@ -2,6 +2,8 @@ package id.my.hendisantika.multitenancy.controller;
 
 import id.my.hendisantika.multitenancy.config.TenantSubdomainInterceptor;
 import id.my.hendisantika.multitenancy.entity.central.Account;
+import id.my.hendisantika.multitenancy.entity.central.OrgStructure;
+import id.my.hendisantika.multitenancy.entity.central.PracticeSpeciality;
 import id.my.hendisantika.multitenancy.repository.central.AccountRepository;
 import id.my.hendisantika.multitenancy.repository.central.TenantRegistrationRepository;
 import id.my.hendisantika.multitenancy.repository.central.UserTenantRepository;
@@ -96,6 +98,14 @@ class AuthFlowTest {
         });
     }
 
+    private MockMultipartFile organizationPart() {
+        return new MockMultipartFile("organization", "organization", MediaType.APPLICATION_JSON_VALUE,
+                objectMapper.writeValueAsBytes(new OrganizationRegistrationController.RegisterOrganizationRequest(
+                        ORGANIZATION, "clinic@example.test", "Hendi", "Santika", "Owner",
+                        "+62 812 3456 7890", OrgStructure.SINGLE_LOCATION_CLINIC,
+                        PracticeSpeciality.GENERAL_PRACTICE)));
+    }
+
     private String signUpAndLogin() throws Exception {
         given(storageService.store(any(), anyString())).willReturn("accounts/probe.jpg");
         given(storageService.urlOf(anyString())).willReturn("https://cdn.example.test/accounts/probe.jpg");
@@ -123,10 +133,9 @@ class AuthFlowTest {
     void signsUpLogsInAndRegistersAnOrganization() throws Exception {
         String token = signUpAndLogin();
 
-        mvc().perform(post("/api/tenants")
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("name", ORGANIZATION))))
+        mvc().perform(multipart("/api/organizations")
+                        .file(organizationPart())
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.slug").value(SLUG))
                 .andExpect(jsonPath("$.subdomain").value(SLUG + ".mhdc.co.id"));
@@ -141,10 +150,9 @@ class AuthFlowTest {
     @Test
     void freshTokenCarriesTheNewMembershipAndOpensTheTenant() throws Exception {
         String token = signUpAndLogin();
-        mvc().perform(post("/api/tenants")
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("name", ORGANIZATION))))
+        mvc().perform(multipart("/api/organizations")
+                        .file(organizationPart())
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isCreated());
 
         // Logging in again picks up the membership created a moment ago.

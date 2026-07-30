@@ -26,5 +26,7 @@ public interface TenantRegistrationRepository extends JpaRepository<TenantRegist
 
     List<TenantRegistration> findAllByStatus(TenantStatus status);
 
+    List<TenantRegistration> findAllBySlugIn(List<String> slugs);
+
     boolean existsBySlugOrDatabaseName(String slug, String databaseName);
 }

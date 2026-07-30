@@ -15,15 +15,17 @@ import org.springframework.beans.factory.annotation.Autowired;
  * To change this template use File | Settings | File Templates.
  */
 public class FlywayMigrationInitializer {
+    private static final String DEFAULT_LOCATION = "db/migration/default";
+    private static final String TENANT_LOCATION = "db/migration/tenants";
+    private static final String DB_PREFIX = "db_";
+
     @Autowired
     private RoutingDataSource routingDataSource;
 
     public void migrate() {
-        String scriptLocation = "db/migration";
-        String dbPrefix = "db_";
-
         for (Tenant tenant : Tenant.values()) {
-            String dbName = dbPrefix + tenant.getName();
+            String dbName = DB_PREFIX + tenant.getName();
+            String scriptLocation = Tenant.DEFAULT.equals(tenant) ? DEFAULT_LOCATION : TENANT_LOCATION;
 
             Flyway flyway = Flyway.configure()
                     .locations(scriptLocation)

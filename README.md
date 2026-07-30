@@ -72,7 +72,10 @@ Key classes, all under `src/main/java/id/my/hendisantika/multitenancy`:
 
 | Class                                     | Responsibility                                                                     |
 |-------------------------------------------|------------------------------------------------------------------------------------|
-| `entity/central/TenantRegistration`       | A provisioned tenant: slug, database name, subdomain, status                        |
+| `entity/central/TenantRegistration`       | An organization and its tenant: the form, slug, database name, subdomain, status     |
+| `entity/central/Account`                  | Someone who signed up on the parent domain                                          |
+| `entity/central/UserTenant`               | Grants an account a role in one tenant                                              |
+| `config/TenantSecurity`                   | Reads identity and tenant roles from the validated token; `requireOwner`/`requireMember` |
 | `config/TenantContext`                    | `ThreadLocal<String>` holding the current tenant slug, `null` when there is none     |
 | `config/TenantSubdomainInterceptor`       | Host name → tenant slug, cleared in `afterCompletion`                               |
 | `config/TenantDataSourceRegistry`         | Resolves a slug to a pool, opening it lazily on first use                           |
@@ -85,20 +88,50 @@ Key classes, all under `src/main/java/id/my/hendisantika/multitenancy`:
 | `service/TenantSlugs`                     | Slug rules shared by database naming and DNS                                        |
 | `support/TenantAwareThread`               | Propagates the tenant to spawned threads (`ThreadLocal` is not inherited)             |
 
-### Provisioning a tenant
+### Registering an organization
+
+An organization **is** a tenant: registering one provisions the other. The form is multipart, so the organization photo
+arrives with it:
 
 ```bash
-curl -u user:<password> -X POST http://localhost:8080/api/tenants \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"Sehat"}'
+curl -X POST http://localhost:8080/api/organizations \
+  -H "Authorization: Bearer $TOKEN" \
+  -F 'organization={
+        "businessName":"Sehat",
+        "businessEmail":"clinic@sehat.example",
+        "contactFirstName":"Hendi","contactLastName":"Santika",
+        "jobTitle":"Practice Manager","phoneNumber":"+62 812 3456 7890",
+        "orgStructure":"MULTI_LOCATION_CLINIC",
+        "practiceSpeciality":"AESTHETIC_AND_DERMA"
+      };type=application/json' \
+  -F 'photo=@logo.png;type=image/png'
 ```
 
 ```json
-{ "slug": "sehat", "databaseName": "sehat", "subdomain": "sehat.mhdc.co.id", "displayName": "Sehat", "status": "ACTIVE" }
+{ "slug": "sehat", "businessName": "Sehat", "databaseName": "sehat", "subdomain": "sehat.mhdc.co.id", "status": "ACTIVE" }
 ```
 
-That single call slugifies the name, validates it, runs `CREATE DATABASE`, applies `db/migration/tenants`, stores the
-row in `tenants` and opens the pool — the new tenant serves traffic **without a restart**.
+That single call slugifies the business name, validates it, runs `CREATE DATABASE`, applies `db/migration/tenants`,
+stores the row in `tenants`, grants the caller an `OWNER` membership and opens the pool — the new tenant serves traffic
+**without a restart**.
+
+`orgStructure` is one of `SINGLE_LOCATION_CLINIC`, `MULTI_LOCATION_CLINIC`, `SINGLE_LOCATION_HOSPITAL`,
+`MULTI_LOCATION_HOSPITAL`. `practiceSpeciality` is one of `GENERAL_PRACTICE`, `SPECIALIST_PRACTICE`,
+`MULTIPLE_PRACTICES_MEDICAL_GROUP`, `HOSPITAL`, `DENTAL`, `AESTHETIC_AND_DERMA`, `ALLIED_HEALTH`, `MENTAL_HEALTH`,
+`OTHERS`.
+
+### The owner adds people
+
+```bash
+curl -X POST http://localhost:8080/api/organizations/sehat/users \
+  -H "Authorization: Bearer $OWNER_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"nurse@sehat.example","phoneNumber":"+62 813 0000 1111","password":"s3cret-password","role":"MEMBER"}'
+```
+
+Only an `OWNER` may add or remove people; a `MEMBER` gets `403`. If the email already has an account it is granted
+access rather than duplicated, so one person can belong to several organizations with one login. The owner cannot be
+removed from their own organization, which would leave nobody able to administer it.
 
 Slug rules (`TenantSlugs`): lowercase letters and digits only, must start with a letter, 3–30 characters, so the same
 string is valid both as a MySQL identifier and as a DNS label. Names are rejected when the slug is reserved
@@ -207,8 +240,12 @@ the database on every refresh, so a grant or revocation takes effect then.
 | `POST` | `/api/auth/login`    | open        | Exchange credentials for a token pair             |
 | `POST` | `/api/auth/refresh`  | open        | Exchange a refresh token for a new pair           |
 | `GET`  | `/api/auth/me`       | bearer      | The signed-in account                             |
-| `GET`  | `/api/tenants`       | bearer      | List registered tenants                           |
-| `POST` | `/api/tenants`       | bearer      | Register an organization; caller becomes `OWNER`  |
+| `GET`  | `/api/organizations` | bearer      | Organizations the caller belongs to               |
+| `POST` | `/api/organizations` | bearer      | Register an organization; caller becomes `OWNER`  |
+| `GET`  | `/api/organizations/{slug}` | member | One organization                              |
+| `GET`  | `/api/organizations/{slug}/users` | member | Its membership list                     |
+| `POST` | `/api/organizations/{slug}/users` | **owner** | Add a person to the organization     |
+| `DELETE` | `/api/organizations/{slug}/users/{accountId}` | **owner** | Remove a person       |
 | `GET`  | `/organization/{id}` | bearer + membership | Organization by id, from the tenant's database |
 | `GET`  | `/person/{id}`       | bearer + membership | Person by id, from the tenant's database       |
 
@@ -238,15 +275,19 @@ refused with `403`, so swapping the host name does not widen access.
 src/main/java/id/my/hendisantika/multitenancy
 ├── SpringBootJpaMultitenancyApplication.java
 ├── config/          routing, the two persistence units, subdomain resolution
-├── controller/      TenantController, OrganizationController, PersonController
+├── controller/      AuthController, OrganizationRegistrationController,
+│                    OrganizationController, PersonController, ApiExceptionHandler
 ├── entity/
-│   ├── central/     TenantRegistration, TenantStatus, UserTenant
+│   ├── central/     Account, TenantRegistration, UserTenant, TenantRole,
+│   │                OrgStructure, PracticeSpeciality, statuses
 │   ├── tenant/      Organization, Person, User
 │   └── support/     BaseEntity (shared by both persistence units)
 ├── repository/
-│   ├── central/     TenantRegistrationRepository
+│   ├── central/     AccountRepository, TenantRegistrationRepository, UserTenantRepository
 │   └── tenant/      OrganizationRepository, PersonRepository
-├── service/         TenantProvisioningService, TenantSlugs, OrganizationService, PersonService
+├── service/         AuthService, TokenService, MembershipService, TenantProvisioningService,
+│   │                TenantSlugs, OrganizationService, PersonService
+│   └── storage/     StorageService, S3StorageService
 └── support/         TenantAwareThread
 
 src/main/resources
@@ -318,12 +359,18 @@ subdomain. Done.
 Done. Membership authorisation was pulled forward from phase 3, because a token that opened every tenant would have
 made the rest of the phase decorative.
 
-**Phase 3** — still to come:
+**Phase 3** — the organization registration form, the owner adding people to it, and roles enforced per endpoint.
+Done. Listing is scoped to the caller's memberships, so an account never sees an organization it does not belong to.
 
-* The full organization form: business name and email, contact first and last name, job title, phone, org structure
-  (single/multi location clinic or hospital) and practice speciality.
-* Owner creates users inside their organization, with `MEMBER` memberships.
-* Roles enforced per endpoint, so a `MEMBER` cannot do what an `OWNER` can.
+The flow from the original brief now runs end to end: sign up → register the organization → a database and a subdomain
+appear → the owner adds users → everyone signs in through the parent login and reaches only their own tenants.
+
+Natural next steps, none of them started:
+
+* Invitations instead of the owner setting a member's initial password.
+* Password reset and email verification.
+* An organization update endpoint; today the form is write-once at registration.
+* Per-role rules **inside** a tenant, so `MEMBER` is limited within the business data too, not only in administration.
 
 ## Author
 

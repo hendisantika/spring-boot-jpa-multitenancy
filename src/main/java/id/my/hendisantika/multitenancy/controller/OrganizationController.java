@@ -1,6 +1,6 @@
 package id.my.hendisantika.multitenancy.controller;
 
-import id.my.hendisantika.multitenancy.entity.Organization;
+import id.my.hendisantika.multitenancy.entity.tenant.Organization;
 import id.my.hendisantika.multitenancy.service.OrganizationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;

@@ -1,5 +1,6 @@
-package id.my.hendisantika.multitenancy.entity;
+package id.my.hendisantika.multitenancy.entity.tenant;
 
+import id.my.hendisantika.multitenancy.entity.support.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;

@@ -1,7 +1,7 @@
 package id.my.hendisantika.multitenancy.service;
 
-import id.my.hendisantika.multitenancy.entity.Organization;
-import id.my.hendisantika.multitenancy.repository.OrganizationRepository;
+import id.my.hendisantika.multitenancy.entity.tenant.Organization;
+import id.my.hendisantika.multitenancy.repository.tenant.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

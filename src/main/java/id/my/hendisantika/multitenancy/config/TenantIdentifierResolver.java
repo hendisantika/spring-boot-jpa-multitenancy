@@ -1,5 +1,6 @@
 package id.my.hendisantika.multitenancy.config;
 
+import lombok.RequiredArgsConstructor;
 import org.hibernate.context.spi.CurrentTenantIdentifierResolver;
 
 /**
@@ -12,14 +13,26 @@ import org.hibernate.context.spi.CurrentTenantIdentifierResolver;
  * Time: 13:49
  * To change this template use File | Settings | File Templates.
  */
+@RequiredArgsConstructor
 public class TenantIdentifierResolver implements CurrentTenantIdentifierResolver<String> {
+
+    private final String defaultSlug;
+
     @Override
     public String resolveCurrentTenantIdentifier() {
-        return TenantContext.getTenant().getName();
+        // Hibernate requires a non-null identifier, so requests without a tenant
+        // resolve to the default, which maps to the central database.
+        String tenant = TenantContext.getTenant();
+        return tenant != null ? tenant : defaultSlug;
     }
 
     @Override
     public boolean validateExistingCurrentSessions() {
         return true;
+    }
+
+    @Override
+    public boolean isRoot(String tenantIdentifier) {
+        return defaultSlug.equals(tenantIdentifier);
     }
 }

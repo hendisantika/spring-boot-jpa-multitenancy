@@ -171,14 +171,46 @@ java -jar target/multitenancy-0.0.1-SNAPSHOT.jar
 
 (The application extends `SpringBootServletInitializer`, so it can also be deployed to an external servlet container.)
 
+## Signing up and logging in
+
+Everyone authenticates on the parent domain, whichever tenant they end up using. Signup is multipart so the profile
+photo arrives with the rest of the details:
+
+```bash
+curl -X POST http://localhost:8080/api/auth/signup \
+  -F 'account={"email":"owner@example.com","phoneNumber":"+62 812 3456 7890","password":"s3cret-password"};type=application/json' \
+  -F 'photo=@me.jpg;type=image/jpeg'
+
+curl -X POST http://localhost:8080/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"owner@example.com","password":"s3cret-password"}'
+```
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+  "refreshToken": "eyJhbGciOiJIUzI1NiJ9...",
+  "memberships": { "sehat": "OWNER" }
+}
+```
+
+The access token carries the tenants the account may reach, so a tenant request is authorised without a database round
+trip. Registering an organization makes the caller its `OWNER`; that membership appears in the **next** token, so log in
+again (or call `/api/auth/refresh`) after creating one. Refresh tokens carry no memberships — they are read fresh from
+the database on every refresh, so a grant or revocation takes effect then.
+
 ## API
 
-| Method | Endpoint             | Tenant scope | Description                                    |
-|--------|----------------------|--------------|------------------------------------------------|
-| `GET`  | `/api/tenants`       | central      | List registered tenants                         |
-| `POST` | `/api/tenants`       | central      | Provision a tenant: database, schema, subdomain |
-| `GET`  | `/organization/{id}` | tenant       | Organization by id, from the tenant's database   |
-| `GET`  | `/person/{id}`       | tenant       | Person by id, from the tenant's database         |
+| Method | Endpoint             | Auth        | Description                                      |
+|--------|----------------------|-------------|--------------------------------------------------|
+| `POST` | `/api/auth/signup`   | open        | Register an owner: email, phone, password, photo  |
+| `POST` | `/api/auth/login`    | open        | Exchange credentials for a token pair             |
+| `POST` | `/api/auth/refresh`  | open        | Exchange a refresh token for a new pair           |
+| `GET`  | `/api/auth/me`       | bearer      | The signed-in account                             |
+| `GET`  | `/api/tenants`       | bearer      | List registered tenants                           |
+| `POST` | `/api/tenants`       | bearer      | Register an organization; caller becomes `OWNER`  |
+| `GET`  | `/organization/{id}` | bearer + membership | Organization by id, from the tenant's database |
+| `GET`  | `/person/{id}`       | bearer + membership | Person by id, from the tenant's database       |
 
 The tenant comes from the **host name** — the first label under `application.tenant.base-domain`. A request to the apex
 domain or to `localhost` carries no tenant and reads the central database.
@@ -197,7 +229,8 @@ curl -u user:<password> -H 'X-Tenant: sehat' 'http://localhost:8080/person/1'
 ```
 
 Requesting a slug that is not registered, or whose tenant is not `ACTIVE`, fails with `UnknownTenantException` rather
-than silently falling back to another database.
+than silently falling back to another database. A token whose memberships do not include the resolved tenant is
+refused with `403`, so swapping the host name does not widen access.
 
 ## Project structure
 
@@ -268,17 +301,29 @@ lowercase `.sql` suffix are required by Flyway's default configuration.
   other schema. Provisioning refuses a name whose database already exists rather than adopting it, but choosing a
   dedicated MySQL instance (or reinstating a prefix) removes the class of collision entirely.
 * `*.mhdc.co.id` needs wildcard DNS and a wildcard TLS certificate in production; use the `X-Tenant` header locally.
+* **`application.jwt.secret` ships with a development value and must be overridden** (`APPLICATION_JWT_SECRET`).
+  Anyone holding it can mint tokens for any account. HS256 needs at least 32 bytes; startup fails if it is shorter.
+* Photo uploads go to any S3 compatible endpoint. The defaults point at a local MinIO
+  (`http://localhost:9000`, `minioadmin`); set `application.storage.*` for AWS S3, leaving `endpoint` empty to use the
+  default credential chain. Uploads are capped at 5 MB and limited to JPEG, PNG and WebP, and the stored key is
+  generated rather than taken from the submitted file name.
 * Sample users in `Query.sql` have plain-text passwords — sample data only, not for production.
 
 ## Roadmap
 
-Phase 1, the foundation, is done: tenants are rows, databases are provisioned at runtime, pools open lazily and routing
-follows the subdomain. Still to come:
+**Phase 1** — tenants are rows, databases are provisioned at runtime, pools open lazily, routing follows the
+subdomain. Done.
 
-* **Phase 2** — owner signup (email, phone, password, photo), parent login issuing JWTs, photo upload to S3-compatible
-  storage.
-* **Phase 3** — the full organization form (business name and email, contact name, job title, org structure, practice
-  speciality), owner-creates-user, and membership-based authorisation so a token for `sehat` cannot read `sehat2`.
+**Phase 2** — owner signup with photo upload, parent login issuing JWTs, provisioning tied to the authenticated owner.
+Done. Membership authorisation was pulled forward from phase 3, because a token that opened every tenant would have
+made the rest of the phase decorative.
+
+**Phase 3** — still to come:
+
+* The full organization form: business name and email, contact first and last name, job title, phone, org structure
+  (single/multi location clinic or hospital) and practice speciality.
+* Owner creates users inside their organization, with `MEMBER` memberships.
+* Roles enforced per endpoint, so a `MEMBER` cannot do what an `OWNER` can.
 
 ## Author
 

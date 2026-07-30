@@ -12,7 +12,7 @@ import org.hibernate.context.spi.CurrentTenantIdentifierResolver;
  * Time: 13:49
  * To change this template use File | Settings | File Templates.
  */
-public class TenantIdentifierResolver implements CurrentTenantIdentifierResolver {
+public class TenantIdentifierResolver implements CurrentTenantIdentifierResolver<String> {
     @Override
     public String resolveCurrentTenantIdentifier() {
         return TenantContext.getTenant().getName();

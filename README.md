@@ -4,9 +4,14 @@
 
 Database-per-tenant multi tenancy with Spring Boot, Spring Data JPA, Hibernate, HikariCP, Flyway and MySQL.
 
-Every tenant gets its **own MySQL database**. The tenant is selected per HTTP request, and Hibernate transparently
-routes the JPA session to the matching connection pool — the entities, repositories and services stay completely
-tenant-unaware.
+Every tenant gets its **own MySQL database**, created at runtime when an organization is registered and reachable at its
+own subdomain. The tenant is selected per HTTP request from the host name, and Hibernate transparently routes the JPA
+session to the matching connection pool — the entities, repositories and services stay completely tenant-unaware.
+
+```
+Organization "Sehat"  ->  database `sehat`  ->  https://sehat.mhdc.co.id
+Organization "Sehat2" ->  database `sehat2` ->  https://sehat2.mhdc.co.id
+```
 
 ## Tech stack
 
@@ -25,53 +30,87 @@ tenant-unaware.
 ## How it works
 
 ```
-HTTP request ?tenant=orgtest1
+GET https://sehat.mhdc.co.id/person/1
         │
         ▼
-TenantIdentifierInterceptor      reads the "tenant" request parameter
+TenantSubdomainInterceptor       first host label -> "sehat"  (X-Tenant header overrides, for dev)
         │
         ▼
-TenantContext (ThreadLocal)      holds the current Tenant for the request
+TenantContext (ThreadLocal)      holds the tenant slug for this request
         │
         ├──────────────► TenantIdentifierResolver        (Hibernate CurrentTenantIdentifierResolver)
         │                        │
         │                        ▼
         │                MultitenantConnectionProvider   (Hibernate MultiTenantConnectionProvider)
         │                        │
-        └──────────────► RoutingDataSource               (AbstractRoutingDataSource)
+        │                        ▼
+        └──────────────► TenantDataSourceRegistry        looks the slug up in `tenants`, opens the
+                                 │                       pool on first use
+                                 ▼
+                         DynamicRoutingDataSource        accepts new tenants without a restart
                                  │
                  ┌───────────────┼───────────────┐
                  ▼               ▼               ▼
-            db_default      db_orgtest1     db_orgtest2
+             `sehat`         `sehat2`        `klinikx`
            (Hikari pool)   (Hikari pool)   (Hikari pool)
 ```
 
+### Two persistence units
+
+Tenants are rows, not code, so the registry has to be readable **before** a tenant is known. The application therefore
+runs two persistence units, and this separation is the core of the design:
+
+| Persistence unit | Bound to                    | Holds                                                            | Repositories            |
+|------------------|-----------------------------|------------------------------------------------------------------|-------------------------|
+| `central`        | `db_default` directly       | tenant registry, memberships — later accounts and organizations   | `repository/central/**` |
+| `tenant`         | routed per request          | the business data of one organization                             | `repository/tenant/**`  |
+
+Entity packages are disjoint so each unit scans only its own (`entity/central`, `entity/tenant`), with the shared
+`BaseEntity` in `entity/support`. `centralEntityManagerFactory` and `centralTransactionManager` are `@Primary`.
+
 Key classes, all under `src/main/java/id/my/hendisantika/multitenancy`:
 
-| Class                                             | Responsibility                                                                        |
-|---------------------------------------------------|---------------------------------------------------------------------------------------|
-| `entity/Tenant`                                   | Enum of tenants (`id`, `name`, `description`) + JPA `AttributeConverter`               |
-| `config/TenantContext`                            | `ThreadLocal<Tenant>` holder, defaults to `Tenant.DEFAULT`                             |
-| `config/TenantIdentifierInterceptor`              | Web interceptor: `?tenant=` → `TenantContext`, cleared in `afterCompletion`             |
-| `config/TenantIdentifierResolver`                 | Tells Hibernate which tenant identifier is current                                     |
-| `config/RoutingDataSource`                        | Builds one `HikariDataSource` per tenant and routes lookups by `TenantContext`          |
-| `config/MultitenantConnectionProvider`            | Hands Hibernate the right `DataSource` for the resolved tenant                          |
-| `config/RepositoryConfiguration`                  | `EntityManagerFactory`, transaction manager, Hibernate `MULTI_TENANT=DATABASE` settings |
-| `config/FlywayMigrationInitializer`               | Runs Flyway against every tenant database on startup                                    |
-| `support/TenantAwareThread`                       | Propagates the tenant to spawned threads (`ThreadLocal` is not inherited)               |
+| Class                                     | Responsibility                                                                     |
+|-------------------------------------------|------------------------------------------------------------------------------------|
+| `entity/central/TenantRegistration`       | A provisioned tenant: slug, database name, subdomain, status                        |
+| `config/TenantContext`                    | `ThreadLocal<String>` holding the current tenant slug, `null` when there is none     |
+| `config/TenantSubdomainInterceptor`       | Host name → tenant slug, cleared in `afterCompletion`                               |
+| `config/TenantDataSourceRegistry`         | Resolves a slug to a pool, opening it lazily on first use                           |
+| `config/DynamicRoutingDataSource`         | `AbstractRoutingDataSource` that accepts tenants registered after startup            |
+| `config/MultitenantConnectionProvider`    | Hands Hibernate the right `DataSource` for the resolved tenant                       |
+| `config/CentralPersistenceConfiguration`  | Central `EntityManagerFactory`, central Flyway, `@Primary` beans                     |
+| `config/TenantPersistenceConfiguration`   | Tenant-aware `EntityManagerFactory` and its transaction manager                      |
+| `config/TenantMigrationRunner`            | Brings every registered tenant database up to the latest migration on startup        |
+| `service/TenantProvisioningService`       | Creates the database, migrates it, registers and publishes the tenant                |
+| `service/TenantSlugs`                     | Slug rules shared by database naming and DNS                                        |
+| `support/TenantAwareThread`               | Propagates the tenant to spawned threads (`ThreadLocal` is not inherited)             |
 
-Tenants are declared in the `Tenant` enum and mapped to databases by name using the `db_` prefix:
+### Provisioning a tenant
 
-| Tenant enum | id | Database      |
-|-------------|----|---------------|
-| `DEFAULT`   | 1  | `db_default`  |
-| `ORGTEST1`  | 2  | `db_orgtest1` |
-| `ORGTEST2`  | 3  | `db_orgtest2` |
+```bash
+curl -u user:<password> -X POST http://localhost:8080/api/tenants \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Sehat"}'
+```
 
-`db_default` additionally holds the `user_tenants` table, which maps a username to the tenant it belongs to.
+```json
+{ "slug": "sehat", "databaseName": "sehat", "subdomain": "sehat.mhdc.co.id", "displayName": "Sehat", "status": "ACTIVE" }
+```
 
-To add a tenant: add an enum constant to `Tenant`, create the matching `db_<name>` database, and restart — the pool and
-the Flyway migration are created automatically.
+That single call slugifies the name, validates it, runs `CREATE DATABASE`, applies `db/migration/tenants`, stores the
+row in `tenants` and opens the pool — the new tenant serves traffic **without a restart**.
+
+Slug rules (`TenantSlugs`): lowercase letters and digits only, must start with a letter, 3–30 characters, so the same
+string is valid both as a MySQL identifier and as a DNS label. Names are rejected when the slug is reserved
+(`mysql`, `sys`, `admin`, …), already registered, or when a database of that name **already exists on the server** —
+provisioning never adopts a schema it did not create.
+
+Tenants seeded from the previous enum-based setup keep their historical database names:
+
+| Slug       | Database      | Subdomain             |
+|------------|---------------|-----------------------|
+| `orgtest1` | `db_orgtest1` | `orgtest1.mhdc.co.id` |
+| `orgtest2` | `db_orgtest2` | `orgtest2.mhdc.co.id` |
 
 ## Prerequisites
 
@@ -83,19 +122,28 @@ the Flyway migration are created automatically.
 
 ### 1. Configure the datasource
 
-`src/main/resources/application.properties` — the literal token `tenantName` in the URL is replaced at runtime with
-each tenant's name, so leave it in place:
+`src/main/resources/application.properties` — `{database}` is substituted per database, so leave the placeholder in
+place. The account needs `CREATE`/`DROP DATABASE` privileges, because tenants are provisioned at runtime:
 
 ```properties
-application.database.url=jdbc:mysql://localhost:3306/db_tenantName?createDatabaseIfNotExist=true&useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=Asia/Jakarta&useSSL=false&allowPublicKeyRetrieval=true
+application.database.url-template=jdbc:mysql://localhost:3306/{database}?createDatabaseIfNotExist=true&useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=Asia/Jakarta&useSSL=false&allowPublicKeyRetrieval=true
 application.database.user=root
 application.database.password=root
+application.database.central-database=db_default
+# Every tenant gets its own pool, so keep each one small.
+application.database.maximum-pool-size=5
+application.tenant.base-domain=mhdc.co.id
+spring.flyway.enabled=false
 ```
+
+`spring.flyway.enabled=false` is deliberate: migrations are driven per database by the application, not by Boot's
+single auto-configured Flyway instance.
 
 ### 2. (Optional) Load the sample data
 
-No manual database setup is needed — `FlywayMigrationInitializer` migrates every tenant database on startup, and the
-JDBC URL carries `createDatabaseIfNotExist=true`, so pointing the app at an empty MySQL is enough.
+No manual database setup is needed — the central database is migrated at startup, every registered tenant database is
+brought up to date by `TenantMigrationRunner`, and the JDBC URL carries `createDatabaseIfNotExist=true`, so pointing the
+app at an empty MySQL is enough.
 
 To also get the sample organizations / persons / users that the examples below query, load `Query.sql` **after** the
 first startup has created the tables (its `CREATE DATABASE` / `CREATE TABLE` statements are redundant now and will
@@ -125,36 +173,47 @@ java -jar target/multitenancy-0.0.1-SNAPSHOT.jar
 
 ## API
 
-The tenant is chosen with the `tenant` query parameter. An unknown or missing value falls back to `DEFAULT`.
+| Method | Endpoint             | Tenant scope | Description                                    |
+|--------|----------------------|--------------|------------------------------------------------|
+| `GET`  | `/api/tenants`       | central      | List registered tenants                         |
+| `POST` | `/api/tenants`       | central      | Provision a tenant: database, schema, subdomain |
+| `GET`  | `/organization/{id}` | tenant       | Organization by id, from the tenant's database   |
+| `GET`  | `/person/{id}`       | tenant       | Person by id, from the tenant's database         |
 
-| Method | Endpoint            | Description                      |
-|--------|---------------------|----------------------------------|
-| `GET`  | `/organization/{id}` | Organization by id, in the tenant DB |
-| `GET`  | `/person/{id}`       | Person by id, in the tenant DB       |
-
-Same id, different tenant, different row:
+The tenant comes from the **host name** — the first label under `application.tenant.base-domain`. A request to the apex
+domain or to `localhost` carries no tenant and reads the central database.
 
 ```bash
-# default tenant -> db_default
-curl -u user:<password> 'http://localhost:8080/organization/1'
-
-# tenant orgtest1 -> db_orgtest1
-curl -u user:<password> 'http://localhost:8080/organization/1?tenant=orgtest1'
-
-# tenant orgtest2 -> db_orgtest2
-curl -u user:<password> 'http://localhost:8080/person/1?tenant=orgtest2'
+# tenant "sehat" -> database `sehat`
+curl -u user:<password> 'https://sehat.mhdc.co.id/person/1'
 ```
+
+Wildcard DNS for `*.mhdc.co.id` is not usually available on a developer machine, so the **`X-Tenant` header overrides
+the host**:
+
+```bash
+# same routing, without DNS
+curl -u user:<password> -H 'X-Tenant: sehat' 'http://localhost:8080/person/1'
+```
+
+Requesting a slug that is not registered, or whose tenant is not `ACTIVE`, fails with `UnknownTenantException` rather
+than silently falling back to another database.
 
 ## Project structure
 
 ```
 src/main/java/id/my/hendisantika/multitenancy
 ├── SpringBootJpaMultitenancyApplication.java
-├── config/          multi tenancy plumbing (routing, Hibernate, Flyway)
-├── controller/      OrganizationController, PersonController
-├── entity/          BaseEntity, Organization, Person, User, UserTenant, Tenant
-├── repository/      OrganizationRepository, PersonRepository
-├── service/         OrganizationService, PersonService
+├── config/          routing, the two persistence units, subdomain resolution
+├── controller/      TenantController, OrganizationController, PersonController
+├── entity/
+│   ├── central/     TenantRegistration, TenantStatus, UserTenant
+│   ├── tenant/      Organization, Person, User
+│   └── support/     BaseEntity (shared by both persistence units)
+├── repository/
+│   ├── central/     TenantRegistrationRepository
+│   └── tenant/      OrganizationRepository, PersonRepository
+├── service/         TenantProvisioningService, TenantSlugs, OrganizationService, PersonService
 └── support/         TenantAwareThread
 
 src/main/resources
@@ -172,9 +231,10 @@ Query.sql            optional sample data for every tenant
 ./mvnw test
 ```
 
-`SpringBootJpaMultitenancyApplicationTests` boots the full application context, which opens a connection pool per
-tenant, so **a reachable MySQL is required** — the same one configured in `application.properties`. The GitHub Actions
-workflow starts a `mysql:8` service container for exactly this reason.
+`TenantProvisioningServiceTest` provisions a real tenant: it creates a database, migrates it, writes an `Organization`
+through the tenant-routed repository and asserts the row did **not** land in the central database, then drops the
+database again. So **a reachable MySQL is required** — the same one configured in `application.properties`, with rights
+to create and drop databases. The GitHub Actions workflow starts a `mysql:8` service container for exactly this reason.
 
 ## Database migrations
 
@@ -183,6 +243,7 @@ Migration files are named `Vx_DDMMYYYY_HHMM__description.sql`:
 ```
 V1_30072026_1936__init_schema.sql
 V2_30072026_1937__query.sql
+V3_30072026_2015__tenant_registry.sql
 ```
 
 Flyway treats `_` as a version separator, so `V2_30072026_1937` is version `2.30072026.1937` — the leading `Vx` keeps
@@ -191,18 +252,33 @@ lowercase `.sql` suffix are required by Flyway's default configuration.
 
 ## Notes
 
-* Migrations are the source of truth for the schema and run automatically for every tenant on startup, so an empty
-  MySQL is enough to boot: Connector/J creates the databases (`createDatabaseIfNotExist=true`) and Flyway creates the
-  tables. `Query.sql` is only needed for the sample rows.
-* Renaming a migration changes its version, so Flyway will no longer match the history rows of a database that already
-  ran the old name — drop the `db_*` databases (or their `flyway_schema_history`) when adopting a new name.
-* Editing an already-applied migration changes its checksum and Flyway will refuse to run. During development, drop the
-  affected `db_*` database (or its `flyway_schema_history` row) and let it rebuild.
+* Adding a migration under `db/migration/tenants` reaches every tenant on the next startup, via
+  `TenantMigrationRunner`. Tenant databases are migrated one by one, so a long migration multiplies by tenant count.
+* Migrations are the source of truth for the schema and an empty MySQL is enough to boot: Connector/J creates the
+  databases (`createDatabaseIfNotExist=true`) and Flyway creates the tables. `Query.sql` is only sample rows.
+* Renaming or editing an applied migration changes its version or checksum and Flyway will refuse to run. During
+  development, drop the affected database (or its `flyway_schema_history` row) and let it rebuild.
 * The tenant is resolved per request into a `ThreadLocal`. Work handed to another thread loses it — wrap it in
   `TenantAwareThread`, or set the tenant on the new thread yourself.
-* `TenantContext` falls back to `Tenant.DEFAULT` for an unknown or missing `tenant` parameter, so a typo reads the
-  default database rather than failing.
+* **One pool per tenant does not scale indefinitely.** Pools open lazily on first request and idle connections are
+  released after `application.database.idle-timeout`, but the ceiling is still roughly
+  `tenants × maximum-pool-size` connections, so `max_connections` on the server bounds how many tenants one instance can
+  serve.
+* Tenant databases are named after the slug alone, per the naming rule, so they share the server's namespace with every
+  other schema. Provisioning refuses a name whose database already exists rather than adopting it, but choosing a
+  dedicated MySQL instance (or reinstating a prefix) removes the class of collision entirely.
+* `*.mhdc.co.id` needs wildcard DNS and a wildcard TLS certificate in production; use the `X-Tenant` header locally.
 * Sample users in `Query.sql` have plain-text passwords — sample data only, not for production.
+
+## Roadmap
+
+Phase 1, the foundation, is done: tenants are rows, databases are provisioned at runtime, pools open lazily and routing
+follows the subdomain. Still to come:
+
+* **Phase 2** — owner signup (email, phone, password, photo), parent login issuing JWTs, photo upload to S3-compatible
+  storage.
+* **Phase 3** — the full organization form (business name and email, contact name, job title, org structure, practice
+  speciality), owner-creates-user, and membership-based authorisation so a token for `sehat` cannot read `sehat2`.
 
 ## Author
 

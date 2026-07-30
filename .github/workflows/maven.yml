@@ -19,6 +19,22 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    # The application boots every tenant DataSource on startup, so the tests
+    # need a reachable MySQL on localhost:3306 with the credentials from
+    # src/main/resources/application.properties. Flyway creates the schemas.
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
     steps:
     - uses: actions/checkout@v7
     - name: Set up JDK 21

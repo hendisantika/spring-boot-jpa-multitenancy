@@ -4,6 +4,7 @@ import id.my.hendisantika.multitenancy.service.storage.StorageProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.util.StringUtils;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
@@ -31,6 +32,7 @@ import java.net.URI;
 public class StorageConfiguration {
 
     @Bean
+    @DependsOn("productionCredentialsValidator")
     public S3Client s3Client(StorageProperties storageProperties) {
         var builder = S3Client.builder()
                 .region(Region.of(storageProperties.getRegion()))

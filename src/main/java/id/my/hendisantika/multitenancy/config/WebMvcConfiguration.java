@@ -7,7 +7,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import tools.jackson.databind.ObjectMapper;
 
-import java.time.Clock;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -30,6 +29,7 @@ public class WebMvcConfiguration implements WebMvcConfigurer {
 
     private final TenantProperties tenantProperties;
     private final RateLimitProperties rateLimitProperties;
+    private final RateLimiterFactory rateLimiterFactory;
 
     @Bean
     public TenantSubdomainInterceptor tenantSubdomainInterceptor() {
@@ -53,21 +53,16 @@ public class WebMvcConfiguration implements WebMvcConfigurer {
         return registration;
     }
 
-    private RateLimiter limiterFor(RateLimitProperties.Limit limit) {
-        return new RateLimiter(limit.getCapacity(), limit.getWindow(),
-                rateLimitProperties.getMaxKeys(), Clock.systemUTC());
-    }
-
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         if (rateLimitProperties.isEnabled()) {
             // Only failed sign-ins count, so the right password never locks anyone out.
             registry.addInterceptor(new RateLimitInterceptor(
-                            limiterFor(rateLimitProperties.getLogin()), "login", true))
+                            rateLimiterFactory.create(rateLimitProperties.getLogin()), "login", true))
                     .addPathPatterns("/api/auth/login");
             // Every request costs here, because each one sends mail.
             registry.addInterceptor(new RateLimitInterceptor(
-                            limiterFor(rateLimitProperties.getForgotPassword()), "forgot-password", false))
+                            rateLimiterFactory.create(rateLimitProperties.getForgotPassword()), "forgot-password", false))
                     .addPathPatterns("/api/auth/password/forgot");
         }
 

@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Date: 31/07/26
  * Time: 10.41
  */
-class RateLimiterTest {
+class InMemoryRateLimiterTest {
 
     /**
      * A clock the test moves by hand, so nothing here waits on real time.
@@ -54,7 +54,7 @@ class RateLimiterTest {
 
     @Test
     void allowsUpToCapacityThenRefuses() {
-        RateLimiter limiter = new RateLimiter(3, Duration.ofMinutes(1), 100, new TestClock());
+        InMemoryRateLimiter limiter = new InMemoryRateLimiter(3, Duration.ofMinutes(1), 100, new TestClock());
 
         assertThat(limiter.consume("a")).isZero();
         assertThat(limiter.consume("a")).isZero();
@@ -65,7 +65,7 @@ class RateLimiterTest {
     @Test
     void refillsGraduallyRatherThanAllAtOnce() {
         TestClock clock = new TestClock();
-        RateLimiter limiter = new RateLimiter(3, Duration.ofMinutes(1), 100, clock);
+        InMemoryRateLimiter limiter = new InMemoryRateLimiter(3, Duration.ofMinutes(1), 100, clock);
         for (int i = 0; i < 3; i++) {
             limiter.consume("a");
         }
@@ -82,7 +82,7 @@ class RateLimiterTest {
 
     @Test
     void keysAreIndependent() {
-        RateLimiter limiter = new RateLimiter(1, Duration.ofMinutes(1), 100, new TestClock());
+        InMemoryRateLimiter limiter = new InMemoryRateLimiter(1, Duration.ofMinutes(1), 100, new TestClock());
 
         assertThat(limiter.consume("a")).isZero();
         assertThat(limiter.consume("a")).isPositive();
@@ -92,7 +92,7 @@ class RateLimiterTest {
     @Test
     void theWaitItReportsIsLongEnough() {
         TestClock clock = new TestClock();
-        RateLimiter limiter = new RateLimiter(2, Duration.ofSeconds(10), 100, clock);
+        InMemoryRateLimiter limiter = new InMemoryRateLimiter(2, Duration.ofSeconds(10), 100, clock);
         limiter.consume("a");
         limiter.consume("a");
 
@@ -112,7 +112,7 @@ class RateLimiterTest {
      */
     @Test
     void refundingPutsATokenBack() {
-        RateLimiter limiter = new RateLimiter(1, Duration.ofMinutes(1), 100, new TestClock());
+        InMemoryRateLimiter limiter = new InMemoryRateLimiter(1, Duration.ofMinutes(1), 100, new TestClock());
 
         assertThat(limiter.consume("a")).isZero();
         assertThat(limiter.consume("a")).isPositive();
@@ -123,7 +123,7 @@ class RateLimiterTest {
 
     @Test
     void refundingNeverExceedsCapacity() {
-        RateLimiter limiter = new RateLimiter(1, Duration.ofMinutes(1), 100, new TestClock());
+        InMemoryRateLimiter limiter = new InMemoryRateLimiter(1, Duration.ofMinutes(1), 100, new TestClock());
         limiter.consume("a");
         limiter.refund("a");
         limiter.refund("a");
@@ -139,7 +139,7 @@ class RateLimiterTest {
     @Test
     void refilledKeysAreEvictedOnceTheMapGrows() {
         TestClock clock = new TestClock();
-        RateLimiter limiter = new RateLimiter(1, Duration.ofSeconds(1), 10, clock);
+        InMemoryRateLimiter limiter = new InMemoryRateLimiter(1, Duration.ofSeconds(1), 10, clock);
 
         for (int i = 0; i < 50; i++) {
             limiter.consume("key-" + i);

@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -16,11 +17,8 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.util.StringUtils;
 
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
 
 /**
  * Stateless security for the parent login. Signup and login are open; everything
@@ -40,9 +38,16 @@ import java.nio.charset.StandardCharsets;
 public class SecurityConfiguration {
 
     /**
-     * HS256 needs at least 256 bits of key material.
+     * Running under any of these means production rules apply, so the development
+     * secret is refused.
      */
-    private static final int MINIMUM_SECRET_BYTES = 32;
+    private static final String[] PRODUCTION_PROFILES = {"prod", "production", "staging"};
+
+    private final Environment environment;
+
+    public SecurityConfiguration(Environment environment) {
+        this.environment = environment;
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -79,10 +84,18 @@ public class SecurityConfiguration {
 
     private SecretKey signingKey(JwtProperties jwtProperties) {
         String secret = jwtProperties.getSecret();
-        if (!StringUtils.hasText(secret) || secret.getBytes(StandardCharsets.UTF_8).length < MINIMUM_SECRET_BYTES) {
-            throw new IllegalStateException(
-                    "application.jwt.secret must be set and at least " + MINIMUM_SECRET_BYTES + " bytes long");
+        SecretKey key = JwtSecretPolicy.signingKey(secret, isProduction());
+        if (JwtSecretPolicy.isDevelopmentSecret(secret)) {
+            // Loud even outside production: anything reachable by others is signing
+            // tokens with a key that is public in this repository.
+            log.warn("application.jwt.secret is the development value from application.properties. "
+                    + "Anyone can mint a token for any account. Set APPLICATION_JWT_SECRET before exposing "
+                    + "this instance to anyone.");
         }
-        return new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+        return key;
+    }
+
+    private boolean isProduction() {
+        return environment.matchesProfiles(PRODUCTION_PROFILES);
     }
 }

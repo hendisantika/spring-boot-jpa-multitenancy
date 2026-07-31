@@ -26,6 +26,8 @@ import java.util.Optional;
 public class OrganizationService {
     private final OrganizationRepository organizationRepository;
 
+    private final ReferenceDataService referenceDataService;
+
     @Transactional(value = "tenantTransactionManager", readOnly = true)
     public Optional<Organization> findById(Long id) {
         return organizationRepository.findById(id);
@@ -49,6 +51,7 @@ public class OrganizationService {
 
     @Transactional("tenantTransactionManager")
     public Organization save(Organization organization) {
+        normaliseCodes(organization);
         return organizationRepository.save(organization);
     }
 
@@ -56,10 +59,27 @@ public class OrganizationService {
     public Organization update(Long id, Organization changes) {
         Organization organization = organizationRepository.findById(id)
                 .orElseThrow(() -> new TenantRecordNotFoundException("No organization with id " + id));
+        normaliseCodes(changes);
         organization.setName(changes.getName());
+        organization.setUnitType(changes.getUnitType());
+        organization.setOperatingStatus(changes.getOperatingStatus());
         organization.setAddress(changes.getAddress());
+        organization.setProvince(changes.getProvince());
         organization.setEmail(changes.getEmail());
         return organization;
+    }
+
+    /**
+     * The same rule as on a person: the form offers a dropdown, but the request
+     * can be sent without one, so the code is checked where it is stored.
+     */
+    private void normaliseCodes(Organization organization) {
+        organization.setUnitType(referenceDataService.requireValidCode(
+                "UNIT_TYPE", organization.getUnitType(), "unit type"));
+        organization.setOperatingStatus(referenceDataService.requireValidCode(
+                "OPERATING_STATUS", organization.getOperatingStatus(), "operating status"));
+        organization.setProvince(referenceDataService.requireValidCode(
+                "PROVINCE", organization.getProvince(), "province"));
     }
 
     @Transactional("tenantTransactionManager")

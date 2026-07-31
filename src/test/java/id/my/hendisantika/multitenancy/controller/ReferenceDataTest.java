@@ -153,7 +153,67 @@ class ReferenceDataTest {
                 .andExpect(jsonPath("$.IDENTITY_DOCUMENT.length()").value(6))
                 .andExpect(jsonPath("$.MARITAL_STATUS.length()").value(4))
                 .andExpect(jsonPath("$.RELATIONSHIP.length()").value(6))
-                .andExpect(jsonPath("$.VISIT_TYPE.length()").value(5));
+                .andExpect(jsonPath("$.VISIT_TYPE.length()").value(5))
+                .andExpect(jsonPath("$.UNIT_TYPE.length()").value(8))
+                .andExpect(jsonPath("$.OPERATING_STATUS.length()").value(4))
+                .andExpect(jsonPath("$.PROVINCE.length()").value(38));
+    }
+
+    /**
+     * A business unit is a place, so its lists are about places. Same rule as a
+     * person's: the dropdown is a courtesy, the check is here.
+     */
+    @Test
+    void aUnitCodeOutsideItsListIsRefused() throws Exception {
+        mockMvc.perform(post("/organization")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Cabang\",\"province\":\"MIDDLE_EARTH\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("province")));
+
+        // A code from another list is still not a value for this one.
+        mockMvc.perform(post("/organization")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Cabang\",\"unitType\":\"DKI_JAKARTA\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void aUnitStoresItsCodesAndReadsThemBack() throws Exception {
+        String body = mockMvc.perform(post("/organization")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Cabang Pusat","address":"Jalan Sudirman",
+                                 "unitType":"main_clinic","operatingStatus":"OPEN",
+                                 "province":"DKI_JAKARTA"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.unitType").value("MAIN_CLINIC"))
+                .andExpect(jsonPath("$.province").value("DKI_JAKARTA"))
+                .andReturn().getResponse().getContentAsString();
+
+        long id = objectMapper.readTree(body).get("id").asLong();
+
+        // A member may read what an owner wrote.
+        mockMvc.perform(get("/organization/" + id)
+                        .header("Authorization", "Bearer " + memberToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG))
+                .andExpect(jsonPath("$.operatingStatus").value("OPEN"))
+                .andExpect(jsonPath("$.unitType").value("MAIN_CLINIC"));
+
+        // Editing goes through the same check.
+        mockMvc.perform(put("/organization/" + id)
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Cabang Pusat\",\"operatingStatus\":\"NOT_A_STATUS\"}"))
+                .andExpect(status().isBadRequest());
     }
 
     /**

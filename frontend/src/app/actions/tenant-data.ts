@@ -79,10 +79,15 @@ export async function deletePerson(formData: FormData) {
 }
 
 function unitFrom(formData: FormData) {
+  const field = (name: string) => String(formData.get(name) ?? "").trim() || null;
   return {
     name: String(formData.get("name") ?? "").trim(),
-    address: String(formData.get("address") ?? "").trim() || null,
-    email: String(formData.get("email") ?? "").trim() || null,
+    address: field("address"),
+    email: field("email"),
+    // Codes from the tenant's reference lists. The API checks them again.
+    unitType: field("unitType"),
+    operatingStatus: field("operatingStatus"),
+    province: field("province"),
   };
 }
 

@@ -153,4 +153,7 @@ export type TenantUnit = {
   name: string | null;
   address: string | null;
   email: string | null;
+  unitType: string | null;
+  operatingStatus: string | null;
+  province: string | null;
 };

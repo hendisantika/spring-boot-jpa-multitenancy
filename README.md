@@ -493,6 +493,9 @@ existing one picks them up the next time the application starts.
 | `APPOINTMENT_STATUS`| Scheduled, Confirmed, Checked in, In progress, Completed, Cancelled, Did not attend |
 | `VISIT_TYPE`        | Consultation, Follow-up, Procedure, Emergency, Telemedicine                       |
 | `PAYER_TYPE`        | Self-pay, BPJS Kesehatan, Private insurance, Corporate                            |
+| `UNIT_TYPE`         | Main clinic, Branch clinic, Satellite point, Hospital, Laboratory, Pharmacy, …     |
+| `OPERATING_STATUS`  | Open, Opening soon, Temporarily closed, Permanently closed                         |
+| `PROVINCE`          | The 38 Indonesian provinces, west to east                                         |
 
 ```bash
 curl -H 'X-Tenant: sehat' -H "Authorization: Bearer $TOKEN" \
@@ -516,22 +519,30 @@ can add its own visit type later; `systemDefined` is what tells the two apart.
 > missing for your clinics, change it there. Note that once a migration has been applied it must be corrected by a new
 > version rather than edited, or every tenant database fails its checksum and the application refuses to start.
 
-#### Where a person uses them
+#### Where the records use them
 
-Four of the lists are fields on a person, stored as a `code` rather than a label so renaming a label never rewrites
-anybody's record:
+Seven of the lists are fields, stored as a `code` rather than a label so renaming a label never rewrites anybody's
+record:
 
-| Field                  | List                |
-|------------------------|---------------------|
-| `gender`               | `GENDER`            |
-| `maritalStatus`        | `MARITAL_STATUS`    |
-| `bloodType`            | `BLOOD_TYPE`        |
-| `identityDocumentType` | `IDENTITY_DOCUMENT` |
+| Record         | Field                  | List                |
+|----------------|------------------------|---------------------|
+| `/person`      | `gender`               | `GENDER`            |
+| `/person`      | `maritalStatus`        | `MARITAL_STATUS`    |
+| `/person`      | `bloodType`            | `BLOOD_TYPE`        |
+| `/person`      | `identityDocumentType` | `IDENTITY_DOCUMENT` |
+| `/organization`| `unitType`             | `UNIT_TYPE`         |
+| `/organization`| `operatingStatus`      | `OPERATING_STATUS`  |
+| `/organization`| `province`             | `PROVINCE`          |
 
 `identityDocumentType` says what `identityNumber` is — a KTP, a passport, a KITAS. The column was called
 `social_security_number`, which names a thing Indonesia does not have.
 
-All four are optional. A code that is not in its list is refused with a `400`, whichever field it was sent in and
+A unit's three are about a place rather than a person: what kind of place it is, whether it is open, and which
+province it is in. `operatingStatus` exists so a unit that has shut can keep its records instead of being deleted, and
+`province` is the part of an address worth filtering on — the address itself stays free text. **The search still
+matches name, address and email only; it does not search these codes.**
+
+All seven are optional. A code that is not in its list is refused with a `400`, whichever field it was sent in and
 whether it arrives from the form or from `curl`: **the dropdown is a courtesy to whoever is typing, not the rule.**
 Codes may be sent in any case and are stored upper-cased. There is deliberately no foreign key to `reference_data` —
 one would fix the vocabulary to whatever the migration seeded, which is the opposite of letting a clinic add its own.

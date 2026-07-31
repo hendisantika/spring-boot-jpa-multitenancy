@@ -6,7 +6,8 @@ import { deleteUnit } from "@/app/actions/tenant-data";
 import { ApiError, api } from "@/lib/api";
 import { PAGE_SIZE, firstValue, listingQuery, listingUrl } from "@/lib/listing";
 import { getRole } from "@/lib/session";
-import type { Page, TenantUnit } from "@/lib/types";
+import type { Page, ReferenceLists, TenantUnit } from "@/lib/types";
+import { referenceLabel } from "@/lib/types";
 import { Pager } from "@/components/Pager";
 import { SearchBox } from "@/components/SearchBox";
 import { Alert, Badge, Card, PageHeading } from "@/components/ui";
@@ -14,6 +15,17 @@ import { Alert, Badge, Card, PageHeading } from "@/components/ui";
 export const metadata = { title: "Business units" };
 
 const EMPTY: Page<TenantUnit> = { content: [], page: 0, size: PAGE_SIZE, totalElements: 0, totalPages: 0 };
+
+/** The reference fields worth seeing without opening the row, as labels. */
+function describe(unit: TenantUnit, lists: ReferenceLists): string {
+  return [
+    referenceLabel(lists.UNIT_TYPE, unit.unitType),
+    referenceLabel(lists.PROVINCE, unit.province),
+    referenceLabel(lists.OPERATING_STATUS, unit.operatingStatus),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
 
 /**
  * The backend calls these organizations, which collides with the organization
@@ -41,10 +53,16 @@ export default async function UnitsPage({ params, searchParams }: PageProps<"/or
   const requested = Math.max(0, Number(firstValue(page)) || 0);
 
   let units = EMPTY;
+  let lists: ReferenceLists = {};
   let error: string | null = null;
 
   try {
-    units = await api<Page<TenantUnit>>(`/organization?${listingQuery(query, requested)}`, { tenant: slug });
+    // Both at once: the form needs the lists whether or not it is editing, and
+    // waiting for the units first would only make the page slower.
+    [units, lists] = await Promise.all([
+      api<Page<TenantUnit>>(`/organization?${listingQuery(query, requested)}`, { tenant: slug }),
+      api<ReferenceLists>("/reference-data", { tenant: slug }),
+    ]);
   } catch (e) {
     error = e instanceof ApiError ? e.message : "Cannot reach the API.";
   }
@@ -98,6 +116,10 @@ export default async function UnitsPage({ params, searchParams }: PageProps<"/or
                   <p className="truncate text-xs text-ink-muted">
                     {[unit.address, unit.email].filter(Boolean).join(" · ") || "No details"}
                   </p>
+                  {/* Labels, never codes: a code is storage, not something to read. */}
+                  {describe(unit, lists) ? (
+                    <p className="truncate text-xs text-ink-muted/70">{describe(unit, lists)}</p>
+                  ) : null}
                 </div>
                 {role === "OWNER" ? (
                   <div className="flex shrink-0 items-center gap-1">
@@ -141,7 +163,7 @@ export default async function UnitsPage({ params, searchParams }: PageProps<"/or
         {role === "OWNER" ? (
           <Card className="p-6">
             <h2 className="mb-4 font-semibold text-ink">{editing ? "Edit unit" : "Add a unit"}</h2>
-            <UnitForm slug={slug} editing={editing} backTo={here()} />
+            <UnitForm slug={slug} editing={editing} backTo={here()} lists={lists} />
           </Card>
         ) : (
           <Card className="p-6">

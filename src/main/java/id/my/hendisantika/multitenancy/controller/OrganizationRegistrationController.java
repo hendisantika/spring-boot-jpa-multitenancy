@@ -12,6 +12,7 @@ import id.my.hendisantika.multitenancy.service.EmailVerificationException;
 import id.my.hendisantika.multitenancy.service.MembershipService;
 import id.my.hendisantika.multitenancy.service.InvitationService;
 import id.my.hendisantika.multitenancy.service.OrganizationProfile;
+import id.my.hendisantika.multitenancy.service.OrganizationProfileService;
 import id.my.hendisantika.multitenancy.service.TenantProvisioningService;
 import id.my.hendisantika.multitenancy.service.storage.StorageService;
 import jakarta.validation.Valid;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -62,6 +64,7 @@ public class OrganizationRegistrationController {
     private final MembershipService membershipService;
     private final AuthService authService;
     private final InvitationService invitationService;
+    private final OrganizationProfileService organizationProfileService;
     private final StorageService storageService;
     private final TenantSecurity tenantSecurity;
 
@@ -113,6 +116,35 @@ public class OrganizationRegistrationController {
 
         TenantRegistration tenant = tenantProvisioningService.provision(profile, owner);
         return ResponseEntity.status(HttpStatus.CREATED).body(viewOf(tenant));
+    }
+
+    /**
+     * Replaces the profile. Owner only, and the slug, database name and
+     * subdomain stay as they are: they are the tenant's identity, so a new
+     * business name changes the label and nothing else.
+     * <p>
+     * Omitting the photo part keeps the current photo; sending one replaces it
+     * and the previous object is deleted.
+     */
+    @PutMapping(path = "/{slug}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public OrganizationView update(@PathVariable String slug,
+                                   @Valid @RequestPart("organization") RegisterOrganizationRequest request,
+                                   @RequestPart(value = "photo", required = false) MultipartFile photo) {
+        tenantSecurity.requireOwner(slug);
+        String photoKey = photo != null && !photo.isEmpty() ? storageService.store(photo, PHOTO_PREFIX) : null;
+
+        OrganizationProfile profile = new OrganizationProfile(
+                request.businessName(),
+                request.businessEmail(),
+                photoKey,
+                request.contactFirstName(),
+                request.contactLastName(),
+                request.jobTitle(),
+                request.phoneNumber(),
+                request.orgStructure(),
+                request.practiceSpeciality());
+
+        return viewOf(organizationProfileService.update(slug, profile, photoKey));
     }
 
     @GetMapping("/{slug}/users")

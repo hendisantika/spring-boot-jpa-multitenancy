@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+
 /**
  * Created by IntelliJ IDEA.
  * Project : spring-boot-jpa-multitenancy
@@ -26,6 +28,12 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
      * the first and last name are matched joined as well as apart. The term
      * arrives lower-cased, wildcard-wrapped and with any {@code %} the user
      * typed already escaped, which is what the escape clause is for.
+     * <p>
+     * The four coded columns are matched against codes the caller has already
+     * resolved from the labels, because the record stores {@code O_POSITIVE} and
+     * nobody types that. A collection is never empty: the caller passes a
+     * sentinel that no code can equal, so the clause is simply false rather than
+     * invalid SQL.
      */
     @Query("""
             select p from Person p
@@ -34,6 +42,15 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
                or lower(concat(coalesce(p.firstName, ''), ' ', coalesce(p.lastName, ''))) like :term escape '\\'
                or lower(coalesce(p.email, '')) like :term escape '\\'
                or lower(coalesce(p.mobile, '')) like :term escape '\\'
+               or p.gender in :genders
+               or p.maritalStatus in :maritalStatuses
+               or p.bloodType in :bloodTypes
+               or p.identityDocumentType in :identityDocuments
             """)
-    Page<Person> search(@Param("term") String term, Pageable pageable);
+    Page<Person> search(@Param("term") String term,
+                        @Param("genders") Collection<String> genders,
+                        @Param("maritalStatuses") Collection<String> maritalStatuses,
+                        @Param("bloodTypes") Collection<String> bloodTypes,
+                        @Param("identityDocuments") Collection<String> identityDocuments,
+                        Pageable pageable);
 }

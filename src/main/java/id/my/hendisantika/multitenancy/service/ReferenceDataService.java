@@ -96,6 +96,23 @@ public class ReferenceDataService {
     }
 
     /**
+     * No code can equal this, so an {@code in} clause holding it is false rather
+     * than the invalid — or, depending on who renders it, quietly true — SQL an
+     * empty collection would produce.
+     */
+    private static final List<String> NO_CODES = List.of("");
+
+    /**
+     * {@link #codesMatching} shaped for a query parameter: never empty, so the
+     * caller can drop it straight into an {@code in} clause.
+     */
+    @Transactional(value = "tenantTransactionManager", readOnly = true)
+    public List<String> codesForSearch(String category, String query) {
+        List<String> codes = codesMatching(category, query);
+        return codes.isEmpty() ? NO_CODES : codes;
+    }
+
+    /**
      * A dropdown is a courtesy to whoever is typing, not a guarantee about what
      * arrives: the same field can be posted with anything in it. So a stored
      * code is checked against the list it claims to come from.

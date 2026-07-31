@@ -69,6 +69,37 @@ services:
       "
     restart: "no"
 
+  # The application itself, built from the Dockerfile. Behind a profile so that
+  # "docker compose up -d" still brings up only the dependencies, which is what
+  # you want while running the app from an IDE.
+  #
+  #   docker compose --profile app up -d --build
+  app:
+    build: .
+    image: multitenancy:latest
+    container_name: multitenancy-app
+    profiles: [ "app" ]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      # Inside the network the dependencies answer to their service names, not
+      # to localhost.
+      APPLICATION_DATABASE_URL_TEMPLATE: >-
+        jdbc:mysql://mysql:3306/{database}?createDatabaseIfNotExist=true&useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=Asia/Jakarta&useSSL=false&allowPublicKeyRetrieval=true
+      APPLICATION_STORAGE_ENDPOINT: http://minio:9000
+      # Development values, same as application.properties. Running the prod
+      # profile here would refuse to start until real ones are supplied.
+      APPLICATION_DATABASE_USER: root
+      APPLICATION_DATABASE_PASSWORD: root
+      APPLICATION_STORAGE_ACCESS_KEY: minioadmin
+      APPLICATION_STORAGE_SECRET_KEY: minioadmin
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
 volumes:
   mysql-data:
   minio-data:

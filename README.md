@@ -177,6 +177,24 @@ docker compose down          # stop, keep the data
 docker compose down -v       # stop and delete the databases and bucket
 ```
 
+### Running the application in a container too
+
+`Dockerfile` builds the application; the `app` service in `compose.yaml` runs it against the other two. It sits behind
+a profile, so the plain `docker compose up -d` above still starts only the dependencies — which is what you want while
+running the application from an IDE.
+
+```bash
+docker compose --profile app up -d --build   # everything, on http://localhost:8080
+docker build -t multitenancy:latest .        # just the image
+```
+
+The build is two stages: dependencies resolve before the sources are copied so editing code does not re-download them,
+the jar is split into layers so a code change does not invalidate the dependency layer, and the runtime stage is a JRE
+running as an unprivileged user. Tests are skipped inside the image — they need a database and a bucket, which a build
+does not have; CI is what runs them.
+
+Heap is left to the container limit via `-XX:MaxRAMPercentage=75.0`; override `JAVA_OPTS` to change it.
+
 ## Setup
 
 ### 1. Configure the datasource

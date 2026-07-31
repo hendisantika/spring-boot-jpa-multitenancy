@@ -121,6 +121,22 @@ stores the row in `tenants`, grants the caller an `OWNER` membership and opens t
 `MULTIPLE_PRACTICES_MEDICAL_GROUP`, `HOSPITAL`, `DENTAL`, `AESTHETIC_AND_DERMA`, `ALLIED_HEALTH`, `MENTAL_HEALTH`,
 `OTHERS`.
 
+### Editing an organization
+
+```bash
+curl -X PUT http://localhost:8080/api/organizations/sehat \
+  -H "Authorization: Bearer $OWNER_TOKEN" \
+  -F 'organization={…same fields as registration…};type=application/json' \
+  -F 'photo=@new-logo.png;type=image/png'
+```
+
+Owner only. **The slug, database name and subdomain do not change**, whatever the business name becomes: rows are
+routed by the slug, a database cannot be renamed underneath running connections, and the subdomain may already be in
+somebody's bookmarks. Renaming changes the label and nothing else.
+
+Omitting the `photo` part keeps the current photo; sending one replaces it and the previous object is deleted, so edits
+do not leave orphans in the bucket.
+
 ### The owner invites people
 
 ```bash
@@ -413,6 +429,7 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `GET`  | `/api/organizations` | bearer      | Organizations the caller belongs to               |
 | `POST` | `/api/organizations` | bearer      | Register an organization; caller becomes `OWNER`  |
 | `GET`  | `/api/organizations/{slug}` | member | One organization                              |
+| `PUT`  | `/api/organizations/{slug}` | **owner** | Edit the profile; identity stays put       |
 | `GET`  | `/api/organizations/{slug}/users` | member | Its membership list                     |
 | `POST` | `/api/organizations/{slug}/users` | **owner** | Add a person directly, setting their password |
 | `GET`  | `/api/organizations/{slug}/invitations` | **owner** | Pending invitations                |
@@ -591,7 +608,6 @@ appear → the owner adds users → everyone signs in through the parent login a
 Natural next steps, none of them started:
 
 * Password reset and email verification.
-* An organization update endpoint; today the form is write-once at registration.
 * Per-role rules **inside** a tenant, so `MEMBER` is limited within the business data too, not only in administration.
 
 ## Author

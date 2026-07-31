@@ -12,6 +12,8 @@ import id.my.hendisantika.multitenancy.repository.central.AccountRepository;
 import id.my.hendisantika.multitenancy.repository.central.InvitationRepository;
 import id.my.hendisantika.multitenancy.repository.central.TenantRegistrationRepository;
 import id.my.hendisantika.multitenancy.repository.central.UserTenantRepository;
+import id.my.hendisantika.multitenancy.service.email.EmailSender;
+import id.my.hendisantika.multitenancy.service.email.InvitationEmail;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -58,6 +60,7 @@ public class InvitationService {
     private final TenantRegistrationRepository tenantRegistrationRepository;
     private final PasswordEncoder passwordEncoder;
     private final InvitationProperties invitationProperties;
+    private final EmailSender emailSender;
 
     /**
      * @return the invitation and the raw token, which is the only time it exists
@@ -93,8 +96,17 @@ public class InvitationService {
         invitation.setExpiresAt(Instant.now().plus(invitationProperties.getTtl()));
 
         Invitation saved = invitationRepository.save(invitation);
-        log.info("Invited {} to tenant {} as {}", normalizedEmail, tenant.getSlug(), saved.getRole());
-        return new CreatedInvitation(saved, token, acceptUrl(token));
+        String acceptUrl = acceptUrl(token);
+        boolean delivered = emailSender.send(InvitationEmail.build(
+                normalizedEmail,
+                tenant.getDisplayName() == null ? tenant.getSlug() : tenant.getDisplayName(),
+                saved.getRole().name(),
+                acceptUrl,
+                invitationProperties.getTtl().toDays()));
+
+        log.info("Invited {} to tenant {} as {}, emailed: {}",
+                normalizedEmail, tenant.getSlug(), saved.getRole(), delivered);
+        return new CreatedInvitation(saved, token, acceptUrl, delivered);
     }
 
     @Transactional(value = "centralTransactionManager", readOnly = true)
@@ -209,7 +221,11 @@ public class InvitationService {
         return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
     }
 
-    public record CreatedInvitation(Invitation invitation, String token, String acceptUrl) {
+    /**
+     * @param delivered whether the link was emailed. When it was not, the caller
+     *                  is expected to hand the link over instead.
+     */
+    public record CreatedInvitation(Invitation invitation, String token, String acceptUrl, boolean delivered) {
     }
 
     public record InvitationPreview(

@@ -1,5 +1,7 @@
 # Frontend
 
+[![Frontend CI](https://github.com/hendisantika/spring-boot-jpa-multitenancy/actions/workflows/frontend.yml/badge.svg)](https://github.com/hendisantika/spring-boot-jpa-multitenancy/actions/workflows/frontend.yml)
+
 The UI for the multi tenancy flow: sign up, register an organization, get a database and a subdomain for it, then add
 people to it. Next.js 16 (App Router) with Tailwind CSS 4, running on Bun.
 

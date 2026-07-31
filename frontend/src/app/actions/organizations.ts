@@ -84,3 +84,39 @@ function messageOf(error: unknown): string {
   }
   return "Something went wrong. Please try again.";
 }
+
+export async function updateOrganization(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const slug = String(formData.get("slug") ?? "");
+  const photo = formData.get("photo");
+  const payload = new FormData();
+
+  const values = {
+    businessName: String(formData.get("businessName") ?? "").trim(),
+    businessEmail: String(formData.get("businessEmail") ?? "").trim(),
+    contactFirstName: String(formData.get("contactFirstName") ?? "").trim(),
+    contactLastName: String(formData.get("contactLastName") ?? "").trim(),
+    jobTitle: String(formData.get("jobTitle") ?? "").trim(),
+    phoneNumber: String(formData.get("phoneNumber") ?? "").trim(),
+    orgStructure: String(formData.get("orgStructure") ?? ""),
+    practiceSpeciality: String(formData.get("practiceSpeciality") ?? ""),
+  };
+
+  payload.append("organization", jsonPart(values), "organization.json");
+  // Omitting the part keeps the current photo, which is what the API expects.
+  if (photo instanceof File && photo.size > 0) {
+    payload.append("photo", photo, photo.name);
+  }
+
+  try {
+    await api<Organization>(`/api/organizations/${slug}`, { method: "PUT", body: payload });
+  } catch (error) {
+    return { error: messageOf(error), values };
+  }
+
+  revalidatePath(`/organizations/${slug}`);
+  revalidatePath("/dashboard");
+  redirect(`/organizations/${slug}`);
+}

@@ -30,6 +30,7 @@ bun run lint
 | `/dashboard`            | Only the organizations you are a member of                                |
 | `/organizations/new`    | The registration form; creates the database and the subdomain             |
 | `/organizations/[slug]` | Profile, the people in it, and inviting people when you are the `OWNER`   |
+| `/organizations/[slug]/edit` | Edit the profile; owner only                                        |
 | `/invitations/[token]`  | Open: accept an invitation, choosing your own password                   |
 | `/forgot-password`      | Ask for a reset link                                                     |
 | `/reset-password/[token]` | Open: choose a new password                                            |

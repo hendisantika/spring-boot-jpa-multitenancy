@@ -52,7 +52,10 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
             throws IOException {
-        String ipKey = "ip:" + clientAddress(request);
+        // Namespaced by limiter, like the email key: without it login and
+        // forgot-password share one bucket, and each writes it with its own
+        // capacity, so neither limit is the configured one.
+        String ipKey = "ip:" + name + ":" + clientAddress(request);
         String emailKey = emailKey(request);
 
         Duration wait = limiter.consume(ipKey);

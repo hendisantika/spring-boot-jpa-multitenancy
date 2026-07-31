@@ -3,6 +3,7 @@ package id.my.hendisantika.multitenancy.controller;
 import id.my.hendisantika.multitenancy.entity.central.Account;
 import id.my.hendisantika.multitenancy.entity.central.UserTenant;
 import id.my.hendisantika.multitenancy.service.AuthService;
+import id.my.hendisantika.multitenancy.service.EmailVerificationService;
 import id.my.hendisantika.multitenancy.service.PasswordResetService;
 import id.my.hendisantika.multitenancy.service.TokenService;
 import id.my.hendisantika.multitenancy.service.storage.StorageService;
@@ -50,6 +51,7 @@ public class AuthController {
     private final TokenService tokenService;
     private final StorageService storageService;
     private final PasswordResetService passwordResetService;
+    private final EmailVerificationService emailVerificationService;
 
     /**
      * Multipart so the profile photo arrives with the rest of the details, as a
@@ -100,6 +102,26 @@ public class AuthController {
         return new ResetPasswordView(email);
     }
 
+    /**
+     * Open: the token in the link is the only credential, and whoever opens it
+     * may not be signed in.
+     */
+    @PostMapping("/verify-email/{token}")
+    public VerifiedView verifyEmail(@PathVariable String token) {
+        return new VerifiedView(emailVerificationService.verify(token));
+    }
+
+    /**
+     * Sends a fresh link, invalidating the earlier one.
+     */
+    @PostMapping("/verify-email/resend")
+    public ForgotPasswordResponse resendVerification(@AuthenticationPrincipal Jwt jwt) {
+        Account account = authService.accountOf(jwt.getSubject());
+        return new ForgotPasswordResponse(
+                "Verification link sent.",
+                emailVerificationService.resendFor(account).orElse(null));
+    }
+
     @GetMapping("/me")
     public AccountView me(@AuthenticationPrincipal Jwt jwt) {
         return viewOf(authService.accountOf(jwt.getSubject()));
@@ -121,7 +143,8 @@ public class AuthController {
                 account.getEmail(),
                 account.getPhoneNumber(),
                 storageService.urlOf(account.getPhotoKey()),
-                account.getStatus().name());
+                account.getStatus().name(),
+                account.isEmailVerified());
     }
 
     public record SignUpRequest(
@@ -141,7 +164,8 @@ public class AuthController {
     public record TokenPair(String accessToken, String refreshToken, Map<String, String> memberships) {
     }
 
-    public record AccountView(Long id, String email, String phoneNumber, String photoUrl, String status) {
+    public record AccountView(Long id, String email, String phoneNumber, String photoUrl, String status,
+                              boolean emailVerified) {
     }
 
     public record ForgotPasswordRequest(@NotBlank @Email @Size(max = 255) String email) {
@@ -157,5 +181,8 @@ public class AuthController {
     }
 
     public record ResetPasswordView(String email) {
+    }
+
+    public record VerifiedView(String email) {
     }
 }

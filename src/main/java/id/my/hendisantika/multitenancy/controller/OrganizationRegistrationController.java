@@ -8,6 +8,7 @@ import id.my.hendisantika.multitenancy.entity.central.TenantRegistration;
 import id.my.hendisantika.multitenancy.entity.central.TenantRole;
 import id.my.hendisantika.multitenancy.entity.central.UserTenant;
 import id.my.hendisantika.multitenancy.service.AuthService;
+import id.my.hendisantika.multitenancy.service.EmailVerificationException;
 import id.my.hendisantika.multitenancy.service.MembershipService;
 import id.my.hendisantika.multitenancy.service.InvitationService;
 import id.my.hendisantika.multitenancy.service.OrganizationProfile;
@@ -91,6 +92,12 @@ public class OrganizationRegistrationController {
             @Valid @RequestPart("organization") RegisterOrganizationRequest request,
             @RequestPart(value = "photo", required = false) MultipartFile photo) {
         Account owner = authService.accountOf(tenantSecurity.currentToken().getSubject());
+        // Provisioning a database on an unproved address is how junk tenants get
+        // created, so this is the gate verification exists for.
+        if (!owner.isEmailVerified()) {
+            throw new EmailVerificationException(
+                    "Confirm your email address before registering an organization");
+        }
         String photoKey = photo != null && !photo.isEmpty() ? storageService.store(photo, PHOTO_PREFIX) : null;
 
         OrganizationProfile profile = new OrganizationProfile(

@@ -45,6 +45,7 @@ public class AuthService {
     private final StorageService storageService;
     private final TokenService tokenService;
     private final JwtDecoder jwtDecoder;
+    private final EmailVerificationService emailVerificationService;
 
     /**
      * Registers an owner. The photo is optional so that signup still works when
@@ -66,6 +67,7 @@ public class AuthService {
             account.setPhotoKey(storageService.store(photo, PHOTO_PREFIX));
         }
         Account saved = accountRepository.save(account);
+        emailVerificationService.startFor(saved);
         log.info("Registered account {}", saved.getEmail());
         return saved;
     }

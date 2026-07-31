@@ -361,6 +361,22 @@ trip. Registering an organization makes the caller its `OWNER`; that membership 
 again (or call `/api/auth/refresh`) after creating one. Refresh tokens carry no memberships — they are read fresh from
 the database on every refresh, so a grant or revocation takes effect then.
 
+### Email verification
+
+Signing up sends a confirmation link. The account can sign in straight away, but **registering an organization is
+refused until the address is confirmed** — provisioning a database on an unproved address is how junk tenants get
+created.
+
+| Situation | Behaviour |
+|---|---|
+| Brevo configured | Signup sends a link; `POST /api/auth/verify-email/{token}` confirms it |
+| **No Brevo key** | Accounts are **verified at signup**, since nothing could arrive and requiring proof would lock everyone out |
+| Accepting an invitation | Counts as proof: opening the link shows the same thing a confirmation mail asks for |
+| Resending | Invalidates the earlier link; refused once already verified |
+
+`application.email-verification.ttl` is 24 hours. `/api/auth/me` reports `emailVerified`, which the dashboard uses to
+show a reminder.
+
 ### Resetting a password
 
 ```bash
@@ -388,6 +404,8 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `POST` | `/api/auth/signup`   | open        | Register an owner: email, phone, password, photo  |
 | `POST` | `/api/auth/login`    | open        | Exchange credentials for a token pair             |
 | `POST` | `/api/auth/refresh`  | open        | Exchange a refresh token for a new pair           |
+| `POST` | `/api/auth/verify-email/{token}` | open | Confirm an email address                    |
+| `POST` | `/api/auth/verify-email/resend` | bearer | Send a fresh confirmation link            |
 | `POST` | `/api/auth/password/forgot` | open | Ask for a reset link                            |
 | `GET`  | `/api/auth/password/reset/{token}` | open | Whose account the link belongs to        |
 | `POST` | `/api/auth/password/reset/{token}` | open | Set a new password                       |

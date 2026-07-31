@@ -3,6 +3,7 @@ package id.my.hendisantika.multitenancy.controller;
 import id.my.hendisantika.multitenancy.config.UnknownTenantException;
 import id.my.hendisantika.multitenancy.service.AccountAlreadyExistsException;
 import id.my.hendisantika.multitenancy.service.AuthenticationFailedException;
+import id.my.hendisantika.multitenancy.service.InvitationException;
 import id.my.hendisantika.multitenancy.service.TenantProvisioningException;
 import id.my.hendisantika.multitenancy.service.storage.StorageException;
 import org.springframework.http.HttpStatus;
@@ -37,6 +38,15 @@ public class ApiExceptionHandler {
     @ExceptionHandler(AccountAlreadyExistsException.class)
     public ProblemDetail onAccountExists(AccountAlreadyExistsException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+    }
+
+    /**
+     * One message for every invalid token, so a caller holding a bad one learns
+     * nothing about whether it ever existed.
+     */
+    @ExceptionHandler(InvitationException.class)
+    public ProblemDetail onInvitationFailed(InvitationException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
     }
 
     @ExceptionHandler(TenantProvisioningException.class)

@@ -25,6 +25,7 @@ export type Account = {
   phoneNumber: string | null;
   photoUrl: string | null;
   status: string;
+  emailVerified: boolean;
 };
 
 export type TokenPair = {

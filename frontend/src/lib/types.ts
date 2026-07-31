@@ -73,3 +73,21 @@ export function labelOf(
   if (!value) return "—";
   return options.find((option) => option.value === value)?.label ?? value;
 }
+
+export type Invitation = {
+  id: number;
+  email: string;
+  role: TenantRole;
+  expiresAt: string;
+};
+
+export type CreatedInvitation = Invitation & { acceptUrl: string };
+
+export type InvitationPreview = {
+  email: string;
+  role: TenantRole;
+  tenantSlug: string;
+  organizationName: string;
+  accountExists: boolean;
+  expiresAt: string;
+};

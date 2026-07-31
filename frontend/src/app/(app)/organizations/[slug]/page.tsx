@@ -76,6 +76,14 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         <div className="flex items-center gap-2">
           <Badge tone={role === "OWNER" ? "brand" : "muted"}>You are {role}</Badge>
           <Badge>{organization.status}</Badge>
+          {role === "OWNER" ? (
+            <Link
+              href={`/organizations/${slug}/edit`}
+              className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition hover:bg-surface-muted"
+            >
+              Edit
+            </Link>
+          ) : null}
         </div>
       </div>
 

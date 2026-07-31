@@ -121,7 +121,38 @@ stores the row in `tenants`, grants the caller an `OWNER` membership and opens t
 `MULTIPLE_PRACTICES_MEDICAL_GROUP`, `HOSPITAL`, `DENTAL`, `AESTHETIC_AND_DERMA`, `ALLIED_HEALTH`, `MENTAL_HEALTH`,
 `OTHERS`.
 
-### The owner adds people
+### The owner invites people
+
+```bash
+curl -X POST http://localhost:8080/api/organizations/sehat/invitations \
+  -H "Authorization: Bearer $OWNER_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"nurse@sehat.example","role":"MEMBER"}'
+```
+
+```json
+{ "id": 1, "email": "nurse@sehat.example", "role": "MEMBER", "expiresAt": "…",
+  "acceptUrl": "http://localhost:3000/invitations/m9f6YA7gtJNRs6…" }
+```
+
+The recipient opens that link and **chooses their own password**, so nobody else, the owner included, ever handles it.
+Accepting signs them in, so they land inside the organization rather than at a login form.
+
+| Property | Behaviour |
+|---|---|
+| Storage | Only a SHA-256 of the token is kept, so a leaked database hands out no working invitations |
+| Lifetime | `application.invitation.ttl`, 7 days by default |
+| Reuse | Single use; accepted, revoked and expired links all fail the same way |
+| Re-inviting | Withdraws the previous link, so two usable links never exist for one person |
+| Existing account | Granted the membership and keeps the password it already has |
+| Wrong or unknown token | One message for every failure, so it reveals nothing about what exists |
+
+`acceptUrl` is returned **once**, at creation, and cannot be read back. **There is no mail server wired up**: the owner
+passes the link on. Sending it by email means changing one method, `OrganizationRegistrationController.invite`.
+
+`GET`/`DELETE /api/organizations/{slug}/invitations` list and revoke the pending ones.
+
+### The owner adds people directly
 
 ```bash
 curl -X POST http://localhost:8080/api/organizations/sehat/users \
@@ -130,9 +161,12 @@ curl -X POST http://localhost:8080/api/organizations/sehat/users \
   -d '{"email":"nurse@sehat.example","phoneNumber":"+62 813 0000 1111","password":"s3cret-password","role":"MEMBER"}'
 ```
 
-Only an `OWNER` may add or remove people; a `MEMBER` gets `403`. If the email already has an account it is granted
-access rather than duplicated, so one person can belong to several organizations with one login. The owner cannot be
-removed from their own organization, which would leave nobody able to administer it.
+Only an `OWNER` may add, invite or remove people; a `MEMBER` gets `403`. If the email already has an account it is
+granted access rather than duplicated, so one person can belong to several organizations with one login. The owner
+cannot be removed from their own organization, which would leave nobody able to administer it.
+
+This direct path has the owner set someone's initial password, which invitations exist to avoid. It is kept for
+seeding and for staff who cannot receive a link; prefer inviting.
 
 Slug rules (`TenantSlugs`): lowercase letters and digits only, must start with a letter, 3–30 characters, so the same
 string is valid both as a MySQL identifier and as a DNS label. Names are rejected when the slug is reserved
@@ -242,7 +276,7 @@ database means every pod goes unready together during a database blip.
 place. The account needs `CREATE`/`DROP DATABASE` privileges, because tenants are provisioned at runtime:
 
 ```properties
-application.database.url-template=jdbc:mysql://localhost:3306/{database}?createDatabaseIfNotExist=true&useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=Asia/Jakarta&useSSL=false&allowPublicKeyRetrieval=true
+application.database.url-template=jdbc:mysql://localhost:3306/{database}?createDatabaseIfNotExist=true&useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&connectionTimeZone=UTC&useSSL=false&allowPublicKeyRetrieval=true
 application.database.user=root
 application.database.password=root
 application.database.central-database=db_default
@@ -327,7 +361,12 @@ the database on every refresh, so a grant or revocation takes effect then.
 | `POST` | `/api/organizations` | bearer      | Register an organization; caller becomes `OWNER`  |
 | `GET`  | `/api/organizations/{slug}` | member | One organization                              |
 | `GET`  | `/api/organizations/{slug}/users` | member | Its membership list                     |
-| `POST` | `/api/organizations/{slug}/users` | **owner** | Add a person to the organization     |
+| `POST` | `/api/organizations/{slug}/users` | **owner** | Add a person directly, setting their password |
+| `GET`  | `/api/organizations/{slug}/invitations` | **owner** | Pending invitations                |
+| `POST` | `/api/organizations/{slug}/invitations` | **owner** | Invite someone; returns the accept link |
+| `DELETE` | `/api/organizations/{slug}/invitations/{id}` | **owner** | Withdraw an invitation      |
+| `GET`  | `/api/invitations/{token}` | open | What the accept page shows before committing         |
+| `POST` | `/api/invitations/{token}/accept` | open | Accept, choosing a password; signs you in     |
 | `DELETE` | `/api/organizations/{slug}/users/{accountId}` | **owner** | Remove a person       |
 | `GET`  | `/organization/{id}` | bearer + membership | Organization by id, from the tenant's database |
 | `GET`  | `/person/{id}`       | bearer + membership | Person by id, from the tenant's database       |
@@ -498,7 +537,6 @@ appear → the owner adds users → everyone signs in through the parent login a
 
 Natural next steps, none of them started:
 
-* Invitations instead of the owner setting a member's initial password.
 * Password reset and email verification.
 * An organization update endpoint; today the form is write-once at registration.
 * Per-role rules **inside** a tenant, so `MEMBER` is limited within the business data too, not only in administration.

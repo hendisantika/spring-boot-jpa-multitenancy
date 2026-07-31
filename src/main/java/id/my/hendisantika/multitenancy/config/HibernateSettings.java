@@ -50,6 +50,13 @@ public final class HibernateSettings {
         properties.setProperty(AvailableSettings.MAX_FETCH_DEPTH, "4");
         properties.setProperty(AvailableSettings.DEFAULT_BATCH_FETCH_SIZE, "16");
         properties.setProperty(AvailableSettings.ORDER_UPDATES, "true");
+        // Without this Hibernate writes and reads zone-less DATETIME columns in a
+        // different zone from the JDBC driver, which stores every Instant shifted
+        // by the offset. It round trips through Hibernate, so it hides, but the
+        // stored values disagree with anything else that touches the row,
+        // including NOW() in a migration. Keep it aligned with connectionTimeZone
+        // in the JDBC url.
+        properties.setProperty(AvailableSettings.JDBC_TIME_ZONE, "UTC");
         return properties;
     }
 }

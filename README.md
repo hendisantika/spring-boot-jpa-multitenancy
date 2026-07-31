@@ -151,6 +151,22 @@ Tenants seeded from the previous enum-based setup keep their historical database
 * MySQL on `localhost:3306` and an S3 compatible bucket — `docker compose up -d` provides both
 * Maven (or just use the bundled `./mvnw`)
 
+## Configuration
+
+Everything in `application.properties` can be overridden by an environment variable: uppercase the property and turn
+each dot and dash into an underscore, so `application.jwt.access-token-ttl` becomes `APPLICATION_JWT_ACCESS_TOKEN_TTL`.
+
+`.env.example` lists every variable with its default and what it is for. Copy it and edit:
+
+```bash
+cp .env.example .env
+
+docker compose --profile app --env-file .env up -d   # containers
+set -a && . ./.env && set +a && ./mvnw spring-boot:run   # from a shell
+```
+
+`.env` is git-ignored; `.env.example` is committed, so keep real credentials out of it.
+
 ## Dependencies with Docker Compose
 
 `compose.yaml` brings up both dependencies with the same values `application.properties` expects, so the application

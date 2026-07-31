@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+
 /**
  * Created by IntelliJ IDEA.
  * Project : spring-boot-jpa-multitenancy
@@ -22,16 +24,31 @@ import org.springframework.stereotype.Repository;
 public interface OrganizationRepository extends JpaRepository<Organization, Long> {
 
     /**
-     * A unit is found by whichever of its three details somebody remembers: the
-     * name, where it is, or how to write to it. The term arrives lower-cased,
-     * wildcard-wrapped and already escaped, which is what the escape clause is
-     * for.
+     * A unit is found by whichever of its details somebody remembers: the name,
+     * where it is, how to write to it, what kind of place it is, whether it is
+     * open, or which province it sits in.
+     * <p>
+     * The free-text columns are matched against the term, which arrives
+     * lower-cased, wildcard-wrapped and already escaped — hence the escape
+     * clause. The three coded columns are matched against codes the caller has
+     * already resolved from the labels, because the record stores
+     * {@code BRANCH_CLINIC} and nobody types that.
+     * <p>
+     * A collection is never empty: the caller passes a sentinel that no code can
+     * equal, so the clause is simply false rather than invalid SQL.
      */
     @Query("""
             select o from Organization o
             where lower(coalesce(o.name, '')) like :term escape '\\'
                or lower(coalesce(o.address, '')) like :term escape '\\'
                or lower(coalesce(o.email, '')) like :term escape '\\'
+               or o.unitType in :unitTypes
+               or o.operatingStatus in :operatingStatuses
+               or o.province in :provinces
             """)
-    Page<Organization> search(@Param("term") String term, Pageable pageable);
+    Page<Organization> search(@Param("term") String term,
+                              @Param("unitTypes") Collection<String> unitTypes,
+                              @Param("operatingStatuses") Collection<String> operatingStatuses,
+                              @Param("provinces") Collection<String> provinces,
+                              Pageable pageable);
 }

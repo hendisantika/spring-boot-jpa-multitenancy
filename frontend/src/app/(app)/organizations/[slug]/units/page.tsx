@@ -103,7 +103,7 @@ export default async function UnitsPage({ params, searchParams }: PageProps<"/or
             <SearchBox
               action={base}
               query={query}
-              placeholder="Search name, address or email"
+              placeholder="Search name, address, kind, status or province"
               label="Search business units"
             />
           </div>

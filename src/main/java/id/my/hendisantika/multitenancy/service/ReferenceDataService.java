@@ -62,6 +62,40 @@ public class ReferenceDataService {
     }
 
     /**
+     * The codes in a list whose <em>label</em> somebody searching would have
+     * meant.
+     * <p>
+     * A record stores {@code BRANCH_CLINIC}; a person types "branch clinic", or
+     * "Bali". So a search is resolved to codes here and the query matches those,
+     * rather than matching the stored code against what was typed.
+     * <p>
+     * The label only, never the code. A code is storage — it is never shown, so
+     * nobody is searching for one — and codes contain underscores, so matching
+     * them would make a typed {@code _} find nearly every record while the
+     * free-text half of the same search treats it as a literal.
+     * <p>
+     * Matched in Java rather than in SQL because these lists are tiny — 38 rows
+     * at the largest — and because {@code contains} has no wildcards to escape,
+     * so a typed {@code %} is a literal here exactly as it is everywhere else.
+     * <p>
+     * Retired values are included: a unit holding a code that is no longer
+     * offered should still be findable by the label it was given.
+     *
+     * @return the matching codes, empty when nothing was typed or nothing matched
+     */
+    @Transactional(value = "tenantTransactionManager", readOnly = true)
+    public List<String> codesMatching(String category, String query) {
+        if (query == null || query.isBlank()) {
+            return List.of();
+        }
+        String needle = query.strip().toLowerCase();
+        return referenceDataRepository.findByCategoryOrderBySortOrderAsc(category).stream()
+                .filter(value -> value.getLabel().toLowerCase().contains(needle))
+                .map(ReferenceData::getCode)
+                .toList();
+    }
+
+    /**
      * A dropdown is a courtesy to whoever is typing, not a guarantee about what
      * arrives: the same field can be posted with anything in it. So a stored
      * code is checked against the list it claims to come from.

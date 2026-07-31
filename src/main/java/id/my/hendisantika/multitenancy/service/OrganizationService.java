@@ -4,7 +4,9 @@ import id.my.hendisantika.multitenancy.entity.tenant.Organization;
 import id.my.hendisantika.multitenancy.repository.tenant.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -22,7 +24,36 @@ import java.util.Optional;
 public class OrganizationService {
     private final OrganizationRepository organizationRepository;
 
+    @Transactional(value = "tenantTransactionManager", readOnly = true)
     public Optional<Organization> findById(Long id) {
         return organizationRepository.findById(id);
+    }
+
+    @Transactional(value = "tenantTransactionManager", readOnly = true)
+    public List<Organization> findAll() {
+        return organizationRepository.findAll();
+    }
+
+    @Transactional("tenantTransactionManager")
+    public Organization save(Organization organization) {
+        return organizationRepository.save(organization);
+    }
+
+    @Transactional("tenantTransactionManager")
+    public Organization update(Long id, Organization changes) {
+        Organization organization = organizationRepository.findById(id)
+                .orElseThrow(() -> new TenantRecordNotFoundException("No organization with id " + id));
+        organization.setName(changes.getName());
+        organization.setAddress(changes.getAddress());
+        organization.setEmail(changes.getEmail());
+        return organization;
+    }
+
+    @Transactional("tenantTransactionManager")
+    public void delete(Long id) {
+        if (!organizationRepository.existsById(id)) {
+            throw new TenantRecordNotFoundException("No organization with id " + id);
+        }
+        organizationRepository.deleteById(id);
     }
 }

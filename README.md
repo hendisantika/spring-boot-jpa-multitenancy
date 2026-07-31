@@ -477,6 +477,43 @@ than matching everything. Results are ordered by id, which is what makes the nex
 Searching follows reading, not writing: a `MEMBER` may narrow the business units even though only an `OWNER` may
 change them, because a list you cannot narrow is a list you cannot use.
 
+### What every tenant starts with
+
+A tenant database is created with schema **and** a set of reference lists — the vocabulary its records are written in,
+rather than records of its own. They arrive by migration, so a tenant provisioned a minute ago already has them and an
+existing one picks them up the next time the application starts.
+
+| Category            | Values                                                                          |
+|---------------------|----------------------------------------------------------------------------------|
+| `GENDER`            | Male, Female                                                                      |
+| `MARITAL_STATUS`    | Single, Married, Divorced, Widowed                                                |
+| `BLOOD_TYPE`        | A+, A-, B+, B-, AB+, AB-, O+, O-                                                  |
+| `IDENTITY_DOCUMENT` | KTP, Kartu Keluarga, SIM, Passport, KITAS, Birth certificate                      |
+| `RELATIONSHIP`      | Spouse, Parent, Child, Sibling, Guardian, Other                                   |
+| `APPOINTMENT_STATUS`| Scheduled, Confirmed, Checked in, In progress, Completed, Cancelled, Did not attend |
+| `VISIT_TYPE`        | Consultation, Follow-up, Procedure, Emergency, Telemedicine                       |
+| `PAYER_TYPE`        | Self-pay, BPJS Kesehatan, Private insurance, Corporate                            |
+
+```bash
+curl -H 'X-Tenant: sehat' -H "Authorization: Bearer $TOKEN" \
+  'http://localhost:8080/reference-data'              # every list, keyed by category
+curl -H 'X-Tenant: sehat' -H "Authorization: Bearer $TOKEN" \
+  'http://localhost:8080/reference-data/blood_type'   # one list, case-insensitive
+```
+
+Any member may read them, because they are what the forms are filled in from. Nothing writes them yet. They are not
+paged: a list bounded by a migration is not a list anybody should have to page, and a client paging a dropdown has been
+given the wrong shape. An unknown category is an empty list rather than a `404` — an empty dropdown, not an error.
+
+Each row carries a `code` that is stable across renames, a `sortOrder` so a dropdown reads the way a clinic expects,
+an `active` flag so a value can stop being offered without disappearing from old records, and `systemDefined` marking
+the rows a migration put there. They are seeded **into each tenant database** rather than kept centrally so a clinic
+can add its own visit type later; `systemDefined` is what tells the two apart.
+
+> **These are a starting point, not a standard.** The catalogue is one migration file — if a category is wrong or
+> missing for your clinics, change it there. Note that once a migration has been applied it must be corrected by a new
+> version rather than edited, or every tenant database fails its checksum and the application refuses to start.
+
 The tenant comes from the **host name** — the first label under `application.tenant.base-domain`. A request to the apex
 domain or to `localhost` carries no tenant and reads the central database.
 

@@ -51,6 +51,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
         </dependency>
+        <!--Shared rate limit counters, so instances do not each allow the rate-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
         <!--Health endpoint the container HEALTHCHECK and orchestrators probe-->
         <dependency>
             <groupId>org.springframework.boot</groupId>

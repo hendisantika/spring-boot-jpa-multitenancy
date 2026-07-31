@@ -23,8 +23,15 @@ public class RateLimitProperties {
     private boolean enabled = true;
 
     /**
-     * Ceiling on tracked keys per limiter, so spraying unique addresses cannot
-     * grow memory without bound.
+     * Where the counters live. AUTO uses Redis when it answers at startup and
+     * falls back to this process otherwise, so nothing extra is needed locally.
+     * REDIS refuses to start without it, which is what production wants.
+     */
+    private Backend backend = Backend.AUTO;
+
+    /**
+     * Ceiling on tracked keys per in-process limiter, so spraying unique
+     * addresses cannot grow memory without bound. Redis expires keys instead.
      */
     private int maxKeys = 50_000;
 
@@ -38,6 +45,10 @@ public class RateLimitProperties {
      * Every request costs, because each one sends mail.
      */
     private Limit forgotPassword = new Limit(5, Duration.ofMinutes(15));
+
+    public enum Backend {
+        AUTO, MEMORY, REDIS
+    }
 
     @Getter
     @Setter

@@ -23,11 +23,20 @@ export function InviteForm({ slug }: { slug: string }) {
 
       {state.error ? <Alert>{state.error}</Alert> : null}
 
-      {state.ok && state.acceptUrl ? (
+      {state.ok && state.emailed ? (
+        <Alert tone="info">
+          Invitation emailed to {state.invitedEmail}. The link goes only to them.
+        </Alert>
+      ) : null}
+
+      {/* Only when the mail did not go out: once it has, the owner has no reason
+          to hold a link that would let them accept for somebody else. */}
+      {state.ok && !state.emailed && state.acceptUrl ? (
         <div className="rounded-lg border border-brand/30 bg-brand/10 p-3">
           <p className="text-sm font-medium text-ink">Invitation for {state.invitedEmail}</p>
           <p className="mt-1 text-xs text-ink-muted">
-            No mail is sent, so pass this link on. It is shown once and cannot be retrieved again.
+            Email delivery is not configured, so pass this link on. It is shown once and cannot be
+            retrieved again.
           </p>
           <div className="mt-2 flex items-center gap-2">
             <code className="min-w-0 flex-1 truncate rounded border border-line bg-surface px-2 py-1.5 font-mono text-xs text-ink">

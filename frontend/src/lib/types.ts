@@ -81,7 +81,7 @@ export type Invitation = {
   expiresAt: string;
 };
 
-export type CreatedInvitation = Invitation & { acceptUrl: string };
+export type CreatedInvitation = Invitation & { emailed: boolean; acceptUrl: string | null };
 
 export type InvitationPreview = {
   email: string;

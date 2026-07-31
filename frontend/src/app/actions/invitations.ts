@@ -8,11 +8,15 @@ import { saveSession } from "@/lib/session";
 import type { CreatedInvitation, FormState, TokenPair } from "@/lib/types";
 
 /**
- * The accept link comes back in the response and is never retrievable again:
- * the backend keeps only a hash of the token. It is surfaced for the owner to
- * pass on, since no mail server is wired up.
+ * The accept link comes back only when the email did not go out, and is never
+ * retrievable again: the backend keeps only a hash of the token. Once the
+ * recipient's mailbox has it, the owner has no reason to hold it.
  */
-export type InviteState = FormState & { acceptUrl?: string; invitedEmail?: string };
+export type InviteState = FormState & {
+  acceptUrl?: string | null;
+  emailed?: boolean;
+  invitedEmail?: string;
+};
 
 export async function inviteMember(_prev: InviteState, formData: FormData): Promise<InviteState> {
   const slug = String(formData.get("slug") ?? "");
@@ -29,7 +33,12 @@ export async function inviteMember(_prev: InviteState, formData: FormData): Prom
   }
 
   revalidatePath(`/organizations/${slug}`);
-  return { ok: true, acceptUrl: created.acceptUrl, invitedEmail: created.email };
+  return {
+    ok: true,
+    emailed: created.emailed,
+    acceptUrl: created.acceptUrl,
+    invitedEmail: created.email,
+  };
 }
 
 export async function revokeInvitation(formData: FormData) {

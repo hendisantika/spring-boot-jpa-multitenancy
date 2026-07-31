@@ -4,6 +4,7 @@ import id.my.hendisantika.multitenancy.config.UnknownTenantException;
 import id.my.hendisantika.multitenancy.service.AccountAlreadyExistsException;
 import id.my.hendisantika.multitenancy.service.AuthenticationFailedException;
 import id.my.hendisantika.multitenancy.service.InvitationException;
+import id.my.hendisantika.multitenancy.service.PasswordResetException;
 import id.my.hendisantika.multitenancy.service.TenantProvisioningException;
 import id.my.hendisantika.multitenancy.service.storage.StorageException;
 import org.springframework.http.HttpStatus;
@@ -44,6 +45,11 @@ public class ApiExceptionHandler {
      * One message for every invalid token, so a caller holding a bad one learns
      * nothing about whether it ever existed.
      */
+    @ExceptionHandler(PasswordResetException.class)
+    public ProblemDetail onPasswordResetFailed(PasswordResetException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
     @ExceptionHandler(InvitationException.class)
     public ProblemDetail onInvitationFailed(InvitationException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());

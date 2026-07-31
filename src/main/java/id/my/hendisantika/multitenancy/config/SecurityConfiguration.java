@@ -67,6 +67,10 @@ public class SecurityConfiguration {
                         // an account: the token in the link is the only credential.
                         .requestMatchers(HttpMethod.GET, "/api/invitations/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/invitations/*/accept").permitAll()
+                        // Resetting a password happens when you cannot sign in.
+                        .requestMatchers(HttpMethod.POST, "/api/auth/password/forgot").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/auth/password/reset/*").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/password/reset/*").permitAll()
                         // Every other actuator endpoint stays behind a token.
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> {

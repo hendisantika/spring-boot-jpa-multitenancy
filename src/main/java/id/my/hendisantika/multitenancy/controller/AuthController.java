@@ -3,6 +3,7 @@ package id.my.hendisantika.multitenancy.controller;
 import id.my.hendisantika.multitenancy.entity.central.Account;
 import id.my.hendisantika.multitenancy.entity.central.UserTenant;
 import id.my.hendisantika.multitenancy.service.AuthService;
+import id.my.hendisantika.multitenancy.service.PasswordResetService;
 import id.my.hendisantika.multitenancy.service.TokenService;
 import id.my.hendisantika.multitenancy.service.storage.StorageService;
 import jakarta.validation.Valid;
@@ -17,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -47,6 +49,7 @@ public class AuthController {
     private final AuthService authService;
     private final TokenService tokenService;
     private final StorageService storageService;
+    private final PasswordResetService passwordResetService;
 
     /**
      * Multipart so the profile photo arrives with the rest of the details, as a
@@ -67,6 +70,34 @@ public class AuthController {
     @PostMapping("/refresh")
     public TokenPair refresh(@Valid @RequestBody RefreshRequest request) {
         return tokensFor(authService.accountFromRefreshToken(request.refreshToken()));
+    }
+
+    /**
+     * Answers the same way whether or not the address has an account, so it
+     * cannot be used to find out who is registered. resetUrl comes back only
+     * when mail delivery is off, so the flow is still followable locally.
+     */
+    @PostMapping("/password/forgot")
+    public ForgotPasswordResponse forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        return new ForgotPasswordResponse(
+                "If that address has an account, a reset link is on its way.",
+                passwordResetService.request(request.email()).orElse(null));
+    }
+
+    /**
+     * Shows whose account a link belongs to, before anything is changed.
+     */
+    @GetMapping("/password/reset/{token}")
+    public ResetPasswordView previewReset(@PathVariable String token) {
+        return new ResetPasswordView(passwordResetService.emailFor(token));
+    }
+
+    @PostMapping("/password/reset/{token}")
+    public ResetPasswordView resetPassword(@PathVariable String token,
+                                           @Valid @RequestBody ResetPasswordRequest request) {
+        String email = passwordResetService.emailFor(token);
+        passwordResetService.reset(token, request.password());
+        return new ResetPasswordView(email);
     }
 
     @GetMapping("/me")
@@ -111,5 +142,20 @@ public class AuthController {
     }
 
     public record AccountView(Long id, String email, String phoneNumber, String photoUrl, String status) {
+    }
+
+    public record ForgotPasswordRequest(@NotBlank @Email @Size(max = 255) String email) {
+    }
+
+    /**
+     * resetUrl is null unless mail delivery is off.
+     */
+    public record ForgotPasswordResponse(String message, String resetUrl) {
+    }
+
+    public record ResetPasswordRequest(@NotBlank @Size(min = 8, max = 100) String password) {
+    }
+
+    public record ResetPasswordView(String email) {
     }
 }

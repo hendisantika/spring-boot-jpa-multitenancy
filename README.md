@@ -556,6 +556,27 @@ lowercase `.sql` suffix are required by Flyway's default configuration.
   service in `compose.yaml` creates it; in production create it as part of provisioning.
 * Sample users in `Query.sql` have plain-text passwords — sample data only, not for production.
 
+## Roles inside a tenant's data
+
+Membership decides what you may do with the business data behind the subdomain, not just who may administer the
+organization. The rules sit on the methods they guard, as `@PreAuthorize("@tenantSecurity.isOwnerOfCurrentTenant()")`,
+and read the tenant from the request rather than from a path.
+
+| Endpoint | `MEMBER` | `OWNER` |
+|---|---|---|
+| `GET /person`, `GET /person/{id}` | yes | yes |
+| `POST /person`, `PUT /person/{id}` | yes | yes |
+| `DELETE /person/{id}` | **no** | yes |
+| `GET /organization`, `GET /organization/{id}` | yes | yes |
+| `POST`, `PUT`, `DELETE /organization/{id}` | **no** | yes |
+
+A member may read and write people, because that is the daily work and withholding it would leave the role useless.
+Deleting is owner only: a removed record is not something a shift should undo by mistake. The tenant-scoped
+organizations are closer to the shape of the business than to its daily work, so changing them is owner only too.
+
+Roles are **per tenant**: owning one organization buys nothing in another, and a request that resolves to no tenant at
+all cannot write, so nothing lands in the central database by accident.
+
 ## Rate limiting
 
 Sign-in and forgot-password are open by necessity, so both are limited.
@@ -654,7 +675,6 @@ appear → the owner adds users → everyone signs in through the parent login a
 Natural next steps, none of them started:
 
 * Password reset and email verification.
-* Per-role rules **inside** a tenant, so `MEMBER` is limited within the business data too, not only in administration.
 
 ## Author
 

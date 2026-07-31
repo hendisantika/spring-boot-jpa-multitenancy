@@ -50,6 +50,28 @@ public class TenantSecurity {
         return role == null ? Optional.empty() : Optional.of(TenantRole.valueOf(role.toString()));
     }
 
+    /**
+     * The role in the tenant this request resolved to, rather than one named in a
+     * path. Business data lives behind the subdomain, so that is where its rules
+     * have to look.
+     */
+    public Optional<TenantRole> roleForCurrentTenant() {
+        String tenant = TenantContext.getTenant();
+        return tenant == null ? Optional.empty() : roleFor(tenant);
+    }
+
+    /**
+     * Written for {@code @PreAuthorize}, which needs a boolean rather than an
+     * exception.
+     */
+    public boolean isMemberOfCurrentTenant() {
+        return roleForCurrentTenant().isPresent();
+    }
+
+    public boolean isOwnerOfCurrentTenant() {
+        return roleForCurrentTenant().filter(TenantRole.OWNER::equals).isPresent();
+    }
+
     public void requireMember(String tenantSlug) {
         roleFor(tenantSlug).orElseThrow(() ->
                 new AccessDeniedException("You are not a member of '" + tenantSlug + "'"));

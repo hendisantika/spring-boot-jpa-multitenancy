@@ -7,6 +7,7 @@ import id.my.hendisantika.multitenancy.service.EmailVerificationException;
 import id.my.hendisantika.multitenancy.service.InvitationException;
 import id.my.hendisantika.multitenancy.service.PasswordResetException;
 import id.my.hendisantika.multitenancy.service.TenantProvisioningException;
+import id.my.hendisantika.multitenancy.service.TenantRecordNotFoundException;
 import id.my.hendisantika.multitenancy.service.storage.StorageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -78,6 +79,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ProblemDetail onAccessDenied(AccessDeniedException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage());
+    }
+
+    @ExceptionHandler(TenantRecordNotFoundException.class)
+    public ProblemDetail onTenantRecordMissing(TenantRecordNotFoundException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
     }
 
     @ExceptionHandler(UnknownTenantException.class)

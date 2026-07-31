@@ -50,6 +50,7 @@ public class CentralPersistenceConfiguration {
      */
     @Bean
     @Primary
+    @DependsOn("productionCredentialsValidator")
     public HikariDataSource centralDataSource(TenantDataSourceFactory tenantDataSourceFactory,
                                               DatabaseProperties databaseProperties) {
         return tenantDataSourceFactory.create(databaseProperties.getCentralDatabase());

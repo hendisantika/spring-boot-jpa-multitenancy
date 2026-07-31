@@ -365,32 +365,42 @@ lowercase `.sql` suffix are required by Flyway's default configuration.
 
 ## Running in production
 
-The signing secret in `application.properties` is a development placeholder committed to this repository, so it is not
-a secret at all. The `prod` profile takes it from the environment instead, with **no fallback**:
+Every credential in `application.properties` is a development placeholder committed to this repository, so none of them
+are secret. The `prod` profile takes them from the environment instead, with **no fallback**:
 
 ```bash
 export APPLICATION_JWT_SECRET=$(openssl rand -base64 48)
+export APPLICATION_DATABASE_USER=appuser
+export APPLICATION_DATABASE_PASSWORD='…'
+# Both, or neither to use the AWS default credential chain:
+export APPLICATION_STORAGE_ACCESS_KEY='…'
+export APPLICATION_STORAGE_SECRET_KEY='…'
+
 java -jar target/multitenancy-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
 ```
 
-Under `prod`, `production` or `staging`, startup is refused rather than allowed to sign tokens with a public key:
+Under `prod`, `production` or `staging`, startup is refused rather than allowed to run on credentials that are public:
 
-| Situation                                        | Result                                                       |
-|--------------------------------------------------|--------------------------------------------------------------|
-| `APPLICATION_JWT_SECRET` not set                  | refused — "still the unresolved placeholder ${...}"           |
-| Set to the development value from this repository | refused — "the production profile is active but ..."          |
-| Shorter than 32 bytes                             | refused — HS256 needs 256 bits                                |
-| A real, private value                             | starts                                                        |
+| Situation                                          | Result                                              |
+|----------------------------------------------------|-----------------------------------------------------|
+| A variable is not set                               | refused — "still the unresolved placeholder ${...}"  |
+| Set to the development value from this repository   | refused — "the production profile is active but ..." |
+| JWT secret shorter than 32 bytes                    | refused — HS256 needs 256 bits                       |
+| Storage access key set without its secret key       | refused — supply both or neither                     |
+| **Storage keys both empty**                         | **starts** — AWS default credential chain (IAM role) |
+| Real, private values                                | starts                                               |
 
-Outside those profiles the development value still works, so local runs and tests need no setup — but a warning is
-logged every time it is used, in any environment.
+Empty storage keys are deliberately allowed: that is how an instance running with an IAM role is configured, and
+demanding a key there would rule out the better practice.
 
-Rotating the secret invalidates every token already issued: holders have to log in again.
+The check runs before the connection pool and the S3 client are built, so a misconfiguration stops with an explanation
+rather than a connection error. Outside those profiles the development values still work, so local runs and tests need
+no setup — but a warning is logged whenever they are in use, in any environment.
 
-Database and storage credentials are read from the environment under `prod` too
-(`APPLICATION_DATABASE_USER`, `APPLICATION_DATABASE_PASSWORD`, `APPLICATION_STORAGE_ACCESS_KEY`,
-`APPLICATION_STORAGE_SECRET_KEY`), though those still fall back to their development values rather than refusing to
-start.
+Rotating the JWT secret invalidates every token already issued: holders have to log in again.
+
+Note that the local development database uses `root`/`root`, which the `prod` profile rejects by design. Running the
+prod profile against it needs a database user created for the purpose.
 
 ## Roadmap
 

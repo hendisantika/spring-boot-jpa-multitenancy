@@ -354,14 +354,43 @@ lowercase `.sql` suffix are required by Flyway's default configuration.
   other schema. Provisioning refuses a name whose database already exists rather than adopting it, but choosing a
   dedicated MySQL instance (or reinstating a prefix) removes the class of collision entirely.
 * `*.jvm.my.id` needs wildcard DNS and a wildcard TLS certificate in production; use the `X-Tenant` header locally.
-* **`application.jwt.secret` ships with a development value and must be overridden** (`APPLICATION_JWT_SECRET`).
-  Anyone holding it can mint tokens for any account. HS256 needs at least 32 bytes; startup fails if it is shorter.
+* **`application.jwt.secret` ships with a development value**; see [Running in production](#running-in-production).
+  Anyone holding it can mint tokens for any account.
 * Photo uploads go to any S3 compatible endpoint. The defaults point at a local MinIO
   (`http://localhost:9000`, `minioadmin`); set `application.storage.*` for AWS S3, leaving `endpoint` empty to use the
   default credential chain. Uploads are capped at 5 MB and limited to JPEG, PNG and WebP, and the stored key is
   generated rather than taken from the submitted file name.
 * **The bucket is not created for you.** `application.storage.bucket` must already exist; only the tests create it.
 * Sample users in `Query.sql` have plain-text passwords — sample data only, not for production.
+
+## Running in production
+
+The signing secret in `application.properties` is a development placeholder committed to this repository, so it is not
+a secret at all. The `prod` profile takes it from the environment instead, with **no fallback**:
+
+```bash
+export APPLICATION_JWT_SECRET=$(openssl rand -base64 48)
+java -jar target/multitenancy-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
+```
+
+Under `prod`, `production` or `staging`, startup is refused rather than allowed to sign tokens with a public key:
+
+| Situation                                        | Result                                                       |
+|--------------------------------------------------|--------------------------------------------------------------|
+| `APPLICATION_JWT_SECRET` not set                  | refused — "still the unresolved placeholder ${...}"           |
+| Set to the development value from this repository | refused — "the production profile is active but ..."          |
+| Shorter than 32 bytes                             | refused — HS256 needs 256 bits                                |
+| A real, private value                             | starts                                                        |
+
+Outside those profiles the development value still works, so local runs and tests need no setup — but a warning is
+logged every time it is used, in any environment.
+
+Rotating the secret invalidates every token already issued: holders have to log in again.
+
+Database and storage credentials are read from the environment under `prod` too
+(`APPLICATION_DATABASE_USER`, `APPLICATION_DATABASE_PASSWORD`, `APPLICATION_STORAGE_ACCESS_KEY`,
+`APPLICATION_STORAGE_SECRET_KEY`), though those still fall back to their development values rather than refusing to
+start.
 
 ## Roadmap
 

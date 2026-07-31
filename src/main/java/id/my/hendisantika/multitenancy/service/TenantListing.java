@@ -39,6 +39,21 @@ public final class TenantListing {
     private TenantListing() {
     }
 
+    /**
+     * A term that matches everything, for when nothing was searched for. It lets
+     * one query serve both cases rather than branching, which matters now that
+     * filters can apply with no search term at all.
+     */
+    public static final String MATCH_EVERYTHING = "%";
+
+    /**
+     * A filter value as it should be compared: trimmed, upper-cased to match how
+     * codes are stored, and null when nothing was chosen.
+     */
+    public static String filterCode(String value) {
+        return value == null || value.isBlank() ? null : value.strip().toUpperCase();
+    }
+
     public static Pageable pageRequest(Integer page, Integer size) {
         int number = page == null ? 0 : Math.max(0, page);
         int length = size == null ? DEFAULT_PAGE_SIZE : Math.clamp(size, 1, MAX_PAGE_SIZE);

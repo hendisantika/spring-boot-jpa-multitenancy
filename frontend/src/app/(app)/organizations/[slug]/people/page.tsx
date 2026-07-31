@@ -4,17 +4,25 @@ import { redirect } from "next/navigation";
 import { PersonForm } from "./PersonForm";
 import { deletePerson } from "@/app/actions/tenant-data";
 import { ApiError, api } from "@/lib/api";
-import { PAGE_SIZE, firstValue, listingQuery, listingUrl } from "@/lib/listing";
+import { PAGE_SIZE, apiQuery, firstValue, isNarrowed, listingUrl, readListing } from "@/lib/listing";
+import type { FilterField } from "@/components/ListingControls";
 import { getRole } from "@/lib/session";
 import type { Page, ReferenceLists, TenantPerson } from "@/lib/types";
 import { referenceLabel } from "@/lib/types";
+import { ListingControls } from "@/components/ListingControls";
 import { Pager } from "@/components/Pager";
-import { SearchBox } from "@/components/SearchBox";
 import { Alert, Badge, Card, PageHeading } from "@/components/ui";
 
 export const metadata = { title: "People" };
 
 const EMPTY: Page<TenantPerson> = { content: [], page: 0, size: PAGE_SIZE, totalElements: 0, totalPages: 0 };
+
+const FILTERS: FilterField[] = [
+  { name: "gender", label: "Gender", category: "GENDER" },
+  { name: "bloodType", label: "Blood type", category: "BLOOD_TYPE" },
+  { name: "maritalStatus", label: "Marital status", category: "MARITAL_STATUS" },
+  { name: "identityDocumentType", label: "Identity document", category: "IDENTITY_DOCUMENT" },
+];
 
 /** The reference fields worth seeing without opening the row, as labels. */
 function describe(person: TenantPerson, lists: ReferenceLists): string {
@@ -33,7 +41,7 @@ function describe(person: TenantPerson, lists: ReferenceLists): string {
  */
 export default async function PeoplePage({ params, searchParams }: PageProps<"/organizations/[slug]/people">) {
   const { slug } = await params;
-  const { edit, q, page } = await searchParams;
+  const resolved = await searchParams;
   const role = await getRole(slug);
 
   if (!role) {
@@ -46,18 +54,17 @@ export default async function PeoplePage({ params, searchParams }: PageProps<"/o
   }
 
   const base = `/organizations/${slug}/people`;
-  const query = firstValue(q).trim();
-  const requested = Math.max(0, Number(firstValue(page)) || 0);
+  const listing = readListing(base, resolved, FILTERS.map((filter) => filter.name));
 
   let people = EMPTY;
   let lists: ReferenceLists = {};
   let error: string | null = null;
 
   try {
-    // Both at once: the form needs the lists whether or not it is editing, and
-    // waiting for the people first would only make the page slower.
+    // Both at once: the form and the filters need the lists whether or not the
+    // form is editing, and waiting for the people first would only be slower.
     [people, lists] = await Promise.all([
-      api<Page<TenantPerson>>(`/person?${listingQuery(query, requested)}`, { tenant: slug }),
+      api<Page<TenantPerson>>(`/person?${apiQuery(listing)}`, { tenant: slug }),
       api<ReferenceLists>("/reference-data", { tenant: slug }),
     ]);
   } catch (e) {
@@ -65,12 +72,12 @@ export default async function PeoplePage({ params, searchParams }: PageProps<"/o
   }
 
   // Deleting the last row of the last page leaves you standing past the end.
-  if (people.totalElements > 0 && people.content.length === 0 && requested >= people.totalPages) {
-    redirect(listingUrl(base, query, people.totalPages - 1));
+  if (people.totalElements > 0 && people.content.length === 0 && listing.page >= people.totalPages) {
+    redirect(listingUrl(listing, { page: people.totalPages - 1 }));
   }
 
-  const here = (extra?: Record<string, string>) => listingUrl(base, query, people.page, extra);
-  const editingId = Number(firstValue(edit));
+  const shown = { ...listing, page: people.page };
+  const editingId = Number(firstValue(resolved.edit));
   const editing = people.content.find((person) => person.id === editingId) ?? null;
 
   return (
@@ -97,11 +104,12 @@ export default async function PeoplePage({ params, searchParams }: PageProps<"/o
           </div>
 
           <div className="mb-4">
-            <SearchBox
-              action={base}
-              query={query}
+            <ListingControls
+              listing={shown}
               placeholder="Search name, email, mobile, gender or blood type"
               label="Search people"
+              lists={lists}
+              filters={FILTERS}
             />
           </div>
 
@@ -122,7 +130,7 @@ export default async function PeoplePage({ params, searchParams }: PageProps<"/o
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <Link
-                    href={here({ edit: String(person.id) })}
+                    href={listingUrl(shown, { extra: { edit: String(person.id) } })}
                     className="rounded-md px-2 py-1 text-xs text-ink-muted transition hover:bg-surface-muted hover:text-ink"
                   >
                     Edit
@@ -145,13 +153,13 @@ export default async function PeoplePage({ params, searchParams }: PageProps<"/o
             ))}
             {people.content.length === 0 && !error ? (
               <li className="py-3 text-sm text-ink-muted">
-                {query ? `Nobody matches “${query}”.` : "Nobody yet."}
+                {isNarrowed(shown) ? "Nobody matches that." : "Nobody yet."}
               </li>
             ) : null}
           </ul>
 
           <Pager
-            href={(target) => listingUrl(base, query, target)}
+            href={(target) => listingUrl(shown, { page: target })}
             page={people.page}
             size={people.size}
             totalElements={people.totalElements}
@@ -161,7 +169,7 @@ export default async function PeoplePage({ params, searchParams }: PageProps<"/o
 
         <Card className="p-6">
           <h2 className="mb-4 font-semibold text-ink">{editing ? "Edit person" : "Add someone"}</h2>
-          <PersonForm slug={slug} editing={editing} backTo={here()} lists={lists} />
+          <PersonForm slug={slug} editing={editing} backTo={listingUrl(shown)} lists={lists} />
         </Card>
       </div>
     </>

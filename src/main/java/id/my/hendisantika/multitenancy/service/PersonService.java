@@ -51,20 +51,25 @@ public class PersonService {
      * resolving what was typed to codes first: somebody looking for a blood
      * type types "O+", not {@code O_POSITIVE}. Same as a unit's, from the same
      * place, so the two screens cannot answer differently.
+     * <p>
+     * Filters narrow on top of it. One query serves every combination — search
+     * with no filter, filter with no search, both, neither — because a term
+     * that matches everything stands in for "nothing was searched for".
      */
     @Transactional(value = "tenantTransactionManager", readOnly = true)
-    public Page<Person> findPage(String query, Integer page, Integer size) {
+    public Page<Person> findPage(String query, PersonFilter filter, Integer page, Integer size) {
         Pageable pageable = TenantListing.pageRequest(page, size);
         String term = TenantListing.searchTerm(query);
-        if (term == null) {
-            return personRepository.findAll(pageable);
-        }
         return personRepository.search(
-                term,
+                term == null ? TenantListing.MATCH_EVERYTHING : term,
                 referenceDataService.codesForSearch("GENDER", query),
                 referenceDataService.codesForSearch("MARITAL_STATUS", query),
                 referenceDataService.codesForSearch("BLOOD_TYPE", query),
                 referenceDataService.codesForSearch("IDENTITY_DOCUMENT", query),
+                filter.gender(),
+                filter.maritalStatus(),
+                filter.bloodType(),
+                filter.identityDocumentType(),
                 pageable);
     }
 

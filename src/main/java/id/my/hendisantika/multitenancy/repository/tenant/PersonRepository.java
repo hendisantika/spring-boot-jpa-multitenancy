@@ -37,20 +37,28 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
      */
     @Query("""
             select p from Person p
-            where lower(coalesce(p.firstName, '')) like :term escape '\\'
-               or lower(coalesce(p.lastName, '')) like :term escape '\\'
-               or lower(concat(coalesce(p.firstName, ''), ' ', coalesce(p.lastName, ''))) like :term escape '\\'
-               or lower(coalesce(p.email, '')) like :term escape '\\'
-               or lower(coalesce(p.mobile, '')) like :term escape '\\'
-               or p.gender in :genders
-               or p.maritalStatus in :maritalStatuses
-               or p.bloodType in :bloodTypes
-               or p.identityDocumentType in :identityDocuments
+            where (lower(coalesce(p.firstName, '')) like :term escape '\\'
+                or lower(coalesce(p.lastName, '')) like :term escape '\\'
+                or lower(concat(coalesce(p.firstName, ''), ' ', coalesce(p.lastName, ''))) like :term escape '\\'
+                or lower(coalesce(p.email, '')) like :term escape '\\'
+                or lower(coalesce(p.mobile, '')) like :term escape '\\'
+                or p.gender in :genders
+                or p.maritalStatus in :maritalStatuses
+                or p.bloodType in :bloodTypes
+                or p.identityDocumentType in :identityDocuments)
+              and (:genderIs is null or p.gender = :genderIs)
+              and (:maritalStatusIs is null or p.maritalStatus = :maritalStatusIs)
+              and (:bloodTypeIs is null or p.bloodType = :bloodTypeIs)
+              and (:identityDocumentIs is null or p.identityDocumentType = :identityDocumentIs)
             """)
     Page<Person> search(@Param("term") String term,
                         @Param("genders") Collection<String> genders,
                         @Param("maritalStatuses") Collection<String> maritalStatuses,
                         @Param("bloodTypes") Collection<String> bloodTypes,
                         @Param("identityDocuments") Collection<String> identityDocuments,
+                        @Param("genderIs") String genderIs,
+                        @Param("maritalStatusIs") String maritalStatusIs,
+                        @Param("bloodTypeIs") String bloodTypeIs,
+                        @Param("identityDocumentIs") String identityDocumentIs,
                         Pageable pageable);
 }

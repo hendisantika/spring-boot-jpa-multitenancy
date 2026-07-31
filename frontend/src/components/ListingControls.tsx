@@ -1,0 +1,88 @@
+import Link from "next/link";
+
+import { ReferenceSelect } from "@/components/ReferenceSelect";
+import { Input } from "@/components/ui";
+import type { Listing } from "@/lib/listing";
+import { isNarrowed } from "@/lib/listing";
+import type { ReferenceLists } from "@/lib/types";
+
+/** One filter offered above a list. */
+export type FilterField = {
+  /** The query parameter, which is also the field on the record. */
+  name: string;
+  label: string;
+  /** Which list in `lists` to draw from, such as `PROVINCE`. */
+  category: string;
+};
+
+/**
+ * The search box and the filters, in one plain GET form, so narrowing a list is
+ * a URL. That makes a result shareable, keeps the back button honest, and works
+ * before any JavaScript has loaded.
+ *
+ * One form rather than one per control, because they combine: applying a filter
+ * must not throw away what was typed in the box, and vice versa.
+ *
+ * The page number is deliberately not carried: page 4 of the old results says
+ * nothing about the new ones.
+ *
+ * There is a button rather than a submit-on-change, so several filters can be
+ * set before the page reloads once — and so none of it depends on JavaScript.
+ */
+export function ListingControls({
+  listing,
+  placeholder,
+  label,
+  lists,
+  filters,
+}: {
+  listing: Listing;
+  placeholder: string;
+  label: string;
+  lists: ReferenceLists;
+  filters: FilterField[];
+}) {
+  return (
+    <form action={listing.base} method="get" className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          name="q"
+          type="search"
+          defaultValue={listing.query}
+          placeholder={placeholder}
+          aria-label={label}
+          className="max-w-xs"
+        />
+        <button
+          type="submit"
+          className="rounded-lg border border-line px-3 py-2 text-sm text-ink transition hover:bg-surface-muted"
+        >
+          Apply
+        </button>
+        {isNarrowed(listing) ? (
+          <Link
+            href={listing.base}
+            className="rounded-lg px-2 py-2 text-sm text-ink-muted transition hover:text-ink"
+          >
+            Clear
+          </Link>
+        ) : null}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {filters.map((filter) => (
+          <ReferenceSelect
+            key={filter.name}
+            label={filter.label}
+            name={filter.name}
+            category={filter.category}
+            lists={lists}
+            current={listing.filters[filter.name] ?? ""}
+            blank="Any"
+            hint=""
+          />
+        ))}
+      </div>
+    </form>
+  );
+}

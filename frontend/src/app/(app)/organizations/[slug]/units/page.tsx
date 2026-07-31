@@ -4,17 +4,24 @@ import { redirect } from "next/navigation";
 import { UnitForm } from "./UnitForm";
 import { deleteUnit } from "@/app/actions/tenant-data";
 import { ApiError, api } from "@/lib/api";
-import { PAGE_SIZE, firstValue, listingQuery, listingUrl } from "@/lib/listing";
+import { PAGE_SIZE, apiQuery, firstValue, isNarrowed, listingUrl, readListing } from "@/lib/listing";
+import type { FilterField } from "@/components/ListingControls";
 import { getRole } from "@/lib/session";
 import type { Page, ReferenceLists, TenantUnit } from "@/lib/types";
 import { referenceLabel } from "@/lib/types";
+import { ListingControls } from "@/components/ListingControls";
 import { Pager } from "@/components/Pager";
-import { SearchBox } from "@/components/SearchBox";
 import { Alert, Badge, Card, PageHeading } from "@/components/ui";
 
 export const metadata = { title: "Business units" };
 
 const EMPTY: Page<TenantUnit> = { content: [], page: 0, size: PAGE_SIZE, totalElements: 0, totalPages: 0 };
+
+const FILTERS: FilterField[] = [
+  { name: "unitType", label: "Kind of unit", category: "UNIT_TYPE" },
+  { name: "operatingStatus", label: "Operating status", category: "OPERATING_STATUS" },
+  { name: "province", label: "Province", category: "PROVINCE" },
+];
 
 /** The reference fields worth seeing without opening the row, as labels. */
 function describe(unit: TenantUnit, lists: ReferenceLists): string {
@@ -31,12 +38,12 @@ function describe(unit: TenantUnit, lists: ReferenceLists): string {
  * The backend calls these organizations, which collides with the organization
  * that owns the tenant, so the UI does not.
  *
- * A member may read and search them but not change them, so the search box is
- * offered to everybody while the form is not.
+ * A member may read, search and filter them but not change them, so the
+ * controls are offered to everybody while the form is not.
  */
 export default async function UnitsPage({ params, searchParams }: PageProps<"/organizations/[slug]/units">) {
   const { slug } = await params;
-  const { edit, q, page } = await searchParams;
+  const resolved = await searchParams;
   const role = await getRole(slug);
 
   if (!role) {
@@ -49,18 +56,17 @@ export default async function UnitsPage({ params, searchParams }: PageProps<"/or
   }
 
   const base = `/organizations/${slug}/units`;
-  const query = firstValue(q).trim();
-  const requested = Math.max(0, Number(firstValue(page)) || 0);
+  const listing = readListing(base, resolved, FILTERS.map((filter) => filter.name));
 
   let units = EMPTY;
   let lists: ReferenceLists = {};
   let error: string | null = null;
 
   try {
-    // Both at once: the form needs the lists whether or not it is editing, and
-    // waiting for the units first would only make the page slower.
+    // Both at once: the form and the filters need the lists whether or not the
+    // form is editing, and waiting for the units first would only be slower.
     [units, lists] = await Promise.all([
-      api<Page<TenantUnit>>(`/organization?${listingQuery(query, requested)}`, { tenant: slug }),
+      api<Page<TenantUnit>>(`/organization?${apiQuery(listing)}`, { tenant: slug }),
       api<ReferenceLists>("/reference-data", { tenant: slug }),
     ]);
   } catch (e) {
@@ -68,12 +74,12 @@ export default async function UnitsPage({ params, searchParams }: PageProps<"/or
   }
 
   // Deleting the last row of the last page leaves you standing past the end.
-  if (units.totalElements > 0 && units.content.length === 0 && requested >= units.totalPages) {
-    redirect(listingUrl(base, query, units.totalPages - 1));
+  if (units.totalElements > 0 && units.content.length === 0 && listing.page >= units.totalPages) {
+    redirect(listingUrl(listing, { page: units.totalPages - 1 }));
   }
 
-  const here = (extra?: Record<string, string>) => listingUrl(base, query, units.page, extra);
-  const editingId = Number(firstValue(edit));
+  const shown = { ...listing, page: units.page };
+  const editingId = Number(firstValue(resolved.edit));
   const editing = units.content.find((unit) => unit.id === editingId) ?? null;
 
   return (
@@ -100,11 +106,12 @@ export default async function UnitsPage({ params, searchParams }: PageProps<"/or
           </div>
 
           <div className="mb-4">
-            <SearchBox
-              action={base}
-              query={query}
+            <ListingControls
+              listing={shown}
               placeholder="Search name, address, kind, status or province"
               label="Search business units"
+              lists={lists}
+              filters={FILTERS}
             />
           </div>
 
@@ -124,7 +131,7 @@ export default async function UnitsPage({ params, searchParams }: PageProps<"/or
                 {role === "OWNER" ? (
                   <div className="flex shrink-0 items-center gap-1">
                     <Link
-                      href={here({ edit: String(unit.id) })}
+                      href={listingUrl(shown, { extra: { edit: String(unit.id) } })}
                       className="rounded-md px-2 py-1 text-xs text-ink-muted transition hover:bg-surface-muted hover:text-ink"
                     >
                       Edit
@@ -145,13 +152,13 @@ export default async function UnitsPage({ params, searchParams }: PageProps<"/or
             ))}
             {units.content.length === 0 && !error ? (
               <li className="py-3 text-sm text-ink-muted">
-                {query ? `Nothing matches “${query}”.` : "Nothing yet."}
+                {isNarrowed(shown) ? "Nothing matches that." : "Nothing yet."}
               </li>
             ) : null}
           </ul>
 
           <Pager
-            href={(target) => listingUrl(base, query, target)}
+            href={(target) => listingUrl(shown, { page: target })}
             page={units.page}
             size={units.size}
             totalElements={units.totalElements}
@@ -163,7 +170,7 @@ export default async function UnitsPage({ params, searchParams }: PageProps<"/or
         {role === "OWNER" ? (
           <Card className="p-6">
             <h2 className="mb-4 font-semibold text-ink">{editing ? "Edit unit" : "Add a unit"}</h2>
-            <UnitForm slug={slug} editing={editing} backTo={here()} lists={lists} />
+            <UnitForm slug={slug} editing={editing} backTo={listingUrl(shown)} lists={lists} />
           </Card>
         ) : (
           <Card className="p-6">

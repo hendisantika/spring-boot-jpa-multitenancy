@@ -21,6 +21,8 @@ export function ReferenceSelect({
   category,
   lists,
   current,
+  blank = "—",
+  hint = "Optional",
 }: {
   label: string;
   /** The form field, which is also the property on the record. */
@@ -29,6 +31,9 @@ export function ReferenceSelect({
   category: string;
   lists: ReferenceLists;
   current: string;
+  /** What the empty option reads as: "—" on a form, "Any" on a filter. */
+  blank?: string;
+  hint?: string;
 }) {
   const values = lists[category] ?? [];
   const offered = values.filter((value) => value.active);
@@ -36,9 +41,9 @@ export function ReferenceSelect({
   const retiredLabel = values.find((value) => value.code === current)?.label ?? current;
 
   return (
-    <Field label={label} hint="Optional">
+    <Field label={label} hint={hint}>
       <Select name={name} defaultValue={current}>
-        <option value="">—</option>
+        <option value="">{blank}</option>
         {offered.map((value) => (
           <option key={value.code} value={value.code}>
             {value.label}

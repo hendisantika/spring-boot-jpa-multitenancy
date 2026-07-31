@@ -350,6 +350,119 @@ class UnitListingTest {
                 .andExpect(jsonPath("$.totalElements").value(0));
     }
 
+    /**
+     * A filter narrows on one field, exactly, where a search widens across many
+     * loosely. So it takes the code, not the label.
+     */
+    @Test
+    void aFilterNarrowsOnOneFieldExactly() throws Exception {
+        createCodedUnit("Satu", "MAIN_CLINIC", "OPEN", "DKI_JAKARTA");
+        createCodedUnit("Dua", "BRANCH_CLINIC", "TEMPORARILY_CLOSED", "BALI");
+        createCodedUnit("Tiga", "BRANCH_CLINIC", "OPEN", "BALI");
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("province", "BALI"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("unitType", "MAIN_CLINIC"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Satu"));
+
+        // Case does not matter; the stored code is the canonical one.
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("province", "bali"))
+                .andExpect(jsonPath("$.totalElements").value(2));
+    }
+
+    /**
+     * Two filters mean both, not either — the opposite of how the search
+     * combines its fields.
+     */
+    @Test
+    void filtersCombineWithEachOther() throws Exception {
+        createCodedUnit("Satu", "MAIN_CLINIC", "OPEN", "DKI_JAKARTA");
+        createCodedUnit("Dua", "BRANCH_CLINIC", "TEMPORARILY_CLOSED", "BALI");
+        createCodedUnit("Tiga", "BRANCH_CLINIC", "OPEN", "BALI");
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken)
+                        .param("province", "BALI")
+                        .param("operatingStatus", "OPEN"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Tiga"));
+    }
+
+    /**
+     * A search widens, a filter narrows, and together they mean both. Getting
+     * this wrong the other way would quietly return more than was asked for.
+     */
+    @Test
+    void aFilterNarrowsTheSearchRatherThanWideningIt() throws Exception {
+        createCodedUnit("Cabang Bali", "BRANCH_CLINIC", "OPEN", "BALI");
+        createCodedUnit("Cabang Jakarta", "BRANCH_CLINIC", "OPEN", "DKI_JAKARTA");
+        createCodedUnit("Apotek Bali", "PHARMACY", "OPEN", "BALI");
+
+        // The search alone finds all three: two by name, one by province label.
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("q", "Bali"))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("q", "Cabang"))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        // With a filter it is only the ones that are both.
+        mockMvc.perform(withTenant(get("/organization"), ownerToken)
+                        .param("q", "Cabang")
+                        .param("province", "BALI"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Cabang Bali"));
+    }
+
+    /**
+     * Filtering is not searching: a filter takes the stored code, so a label
+     * typed into it matches nothing rather than quietly matching everything.
+     */
+    @Test
+    void anUnknownFilterCodeMatchesNothing() throws Exception {
+        createCodedUnit("Satu", "MAIN_CLINIC", "OPEN", "DKI_JAKARTA");
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("province", "ATLANTIS"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("unitType", "Main clinic"))
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    /**
+     * A blank filter is "any", not "none": an empty dropdown must not empty the
+     * list.
+     */
+    @Test
+    void aBlankFilterIsAny() throws Exception {
+        createUnits(3);
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken)
+                        .param("province", "")
+                        .param("unitType", "  "))
+                .andExpect(jsonPath("$.totalElements").value(3));
+    }
+
+    /**
+     * A filtered list still pages, and the count is of the filtered set rather
+     * than of everything.
+     */
+    @Test
+    void aFilteredListStillPages() throws Exception {
+        for (int i = 1; i <= 5; i++) {
+            createCodedUnit("Bali " + i, "BRANCH_CLINIC", "OPEN", "BALI");
+        }
+        createCodedUnit("Jakarta", "BRANCH_CLINIC", "OPEN", "DKI_JAKARTA");
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken)
+                        .param("province", "BALI").param("size", "2"))
+                .andExpect(jsonPath("$.totalElements").value(5))
+                .andExpect(jsonPath("$.totalPages").value(3))
+                .andExpect(jsonPath("$.content.length()").value(2));
+    }
+
     @Test
     void aBlankSearchIsEverything() throws Exception {
         createUnits(4);

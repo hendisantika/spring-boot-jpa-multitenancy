@@ -147,8 +147,20 @@ Accepting signs them in, so they land inside the organization rather than at a l
 | Existing account | Granted the membership and keeps the password it already has |
 | Wrong or unknown token | One message for every failure, so it reveals nothing about what exists |
 
-`acceptUrl` is returned **once**, at creation, and cannot be read back. **There is no mail server wired up**: the owner
-passes the link on. Sending it by email means changing one method, `OrganizationRegistrationController.invite`.
+**The link is emailed through Brevo** when `BREVO_API_KEY` is set, and `acceptUrl` is then **not** returned: once the
+recipient's mailbox has it, the owner has no reason to hold a credential that would let them accept on that person's
+behalf. With no key configured, delivery is off and `acceptUrl` comes back instead for the owner to pass on, which is a
+supported way to run this.
+
+```properties
+application.brevo.api-key=${BREVO_API_KEY:}
+application.brevo.sender-email=${BREVO_SENDER_EMAIL:no-reply@jvm.my.id}
+application.brevo.sender-name=${BREVO_SENDER_NAME:Multitenancy}
+```
+
+The sender must be an address Brevo has verified for the account, or it refuses the message. A delivery failure is
+reported, never thrown: the invitation is already created, and losing it would be worse than an undelivered mail, so
+the response falls back to carrying the link.
 
 `GET`/`DELETE /api/organizations/{slug}/invitations` list and revoke the pending ones.
 

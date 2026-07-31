@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 
 import { logIn } from "@/app/actions/auth";
@@ -28,6 +29,12 @@ export function LoginForm() {
       <Field label="Password">
         <Input name="password" type="password" required autoComplete="current-password" />
       </Field>
+
+      <p className="text-right">
+        <Link href="/forgot-password" className="text-sm text-ink-muted hover:text-brand">
+          Forgot your password?
+        </Link>
+      </p>
 
       <SubmitButton className="w-full" pendingLabel="Signing in…">
         Sign in

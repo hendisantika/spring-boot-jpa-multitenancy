@@ -3,6 +3,7 @@ package id.my.hendisantika.multitenancy.controller;
 import id.my.hendisantika.multitenancy.config.UnknownTenantException;
 import id.my.hendisantika.multitenancy.service.AccountAlreadyExistsException;
 import id.my.hendisantika.multitenancy.service.AuthenticationFailedException;
+import id.my.hendisantika.multitenancy.service.EmailVerificationException;
 import id.my.hendisantika.multitenancy.service.InvitationException;
 import id.my.hendisantika.multitenancy.service.PasswordResetException;
 import id.my.hendisantika.multitenancy.service.TenantProvisioningException;
@@ -45,6 +46,11 @@ public class ApiExceptionHandler {
      * One message for every invalid token, so a caller holding a bad one learns
      * nothing about whether it ever existed.
      */
+    @ExceptionHandler(EmailVerificationException.class)
+    public ProblemDetail onVerificationFailed(EmailVerificationException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
     @ExceptionHandler(PasswordResetException.class)
     public ProblemDetail onPasswordResetFailed(PasswordResetException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());

@@ -61,6 +61,7 @@ public class InvitationService {
     private final PasswordEncoder passwordEncoder;
     private final InvitationProperties invitationProperties;
     private final EmailSender emailSender;
+    private final EmailVerificationService emailVerificationService;
 
     /**
      * @return the invitation and the raw token, which is the only time it exists
@@ -164,6 +165,10 @@ public class InvitationService {
             membership.setRole(invitation.getRole());
             userTenantRepository.save(membership);
         }
+
+        // Opening the link proves the address is reachable, which is what a
+        // verification mail would have asked for.
+        emailVerificationService.markVerifiedByInvitation(account);
 
         // Single use: the token is spent whether or not the membership was new.
         invitation.setStatus(InvitationStatus.ACCEPTED);

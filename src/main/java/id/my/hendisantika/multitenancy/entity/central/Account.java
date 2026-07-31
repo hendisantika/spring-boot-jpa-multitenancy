@@ -51,6 +51,12 @@ public class Account extends BaseEntity {
     private Instant passwordChangedAt;
 
     /**
+     * When the address was proved reachable. Null means unverified.
+     */
+    @Column(name = "email_verified_at")
+    private Instant emailVerifiedAt;
+
+    /**
      * Object key of the profile photo in the storage bucket, not a URL, so the
      * bucket or endpoint can change without rewriting rows.
      */
@@ -63,6 +69,10 @@ public class Account extends BaseEntity {
 
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
+
+    public boolean isEmailVerified() {
+        return emailVerifiedAt != null;
+    }
 
     public boolean isActive() {
         return AccountStatus.ACTIVE.equals(status);

@@ -71,6 +71,7 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.POST, "/api/auth/password/forgot").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/password/reset/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/password/reset/*").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/verify-email/*").permitAll()
                         // Every other actuator endpoint stays behind a token.
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> {

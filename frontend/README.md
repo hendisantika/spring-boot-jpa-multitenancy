@@ -31,6 +31,8 @@ bun run lint
 | `/organizations/new`    | The registration form; creates the database and the subdomain             |
 | `/organizations/[slug]` | Profile, the people in it, and inviting people when you are the `OWNER`   |
 | `/organizations/[slug]/edit` | Edit the profile; owner only                                        |
+| `/organizations/[slug]/people` | The tenant's own people: members add and edit, only the owner deletes |
+| `/organizations/[slug]/units` | The tenant's business units: everyone reads, only the owner changes  |
 | `/invitations/[token]`  | Open: accept an invitation, choosing your own password                   |
 | `/forgot-password`      | Ask for a reset link                                                     |
 | `/reset-password/[token]` | Open: choose a new password                                            |

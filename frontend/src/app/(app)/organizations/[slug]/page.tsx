@@ -87,6 +87,23 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
         </div>
       </div>
 
+      {/* The tenant's own database, as opposed to everything else on this page,
+          which lives centrally. */}
+      <div className="mb-6 flex flex-wrap gap-3">
+        <Link
+          href={`/organizations/${slug}/people`}
+          className="rounded-lg border border-line bg-surface px-4 py-2 text-sm text-ink transition hover:bg-surface-muted"
+        >
+          People in this tenant →
+        </Link>
+        <Link
+          href={`/organizations/${slug}/units`}
+          className="rounded-lg border border-line bg-surface px-4 py-2 text-sm text-ink transition hover:bg-surface-muted"
+        >
+          Business units →
+        </Link>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
         <Card className="p-6">
           <h2 className="mb-4 font-semibold text-ink">Profile</h2>

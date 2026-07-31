@@ -6,9 +6,9 @@
 # The defaults here match src/main/resources/application.properties, so the
 # application needs no extra configuration to use them.
 #
-# Note: MySQL binds host port 3306. If a MySQL is already installed and running
-# on this machine, either stop it or change the mapping below to "3307:3306" and
-# set application.database.url-template accordingly.
+# Note: MySQL binds host port 3306 and Redis binds 6379. If either is already
+# installed and running on this machine, stop it or change the mapping here and
+# point the matching setting at the new port.
 services:
 
   mysql:
@@ -53,6 +53,18 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: multitenancy-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   # Creates the bucket once MinIO is up. The application does not create it, so
   # without this the first photo upload fails.
   minio-init:
@@ -84,12 +96,15 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     environment:
       # Inside the network the dependencies answer to their service names, not
       # to localhost.
       APPLICATION_DATABASE_URL_TEMPLATE: >-
-        jdbc:mysql://mysql:3306/{database}?createDatabaseIfNotExist=true&useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=Asia/Jakarta&useSSL=false&allowPublicKeyRetrieval=true
+        jdbc:mysql://mysql:3306/{database}?createDatabaseIfNotExist=true&useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&connectionTimeZone=UTC&useSSL=false&allowPublicKeyRetrieval=true
       APPLICATION_STORAGE_ENDPOINT: http://minio:9000
+      REDIS_HOST: redis
       # Development values, same as application.properties. Running the prod
       # profile here would refuse to start until real ones are supplied.
       APPLICATION_DATABASE_USER: root

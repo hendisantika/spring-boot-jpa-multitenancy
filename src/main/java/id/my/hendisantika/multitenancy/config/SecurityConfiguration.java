@@ -63,6 +63,10 @@ public class SecurityConfiguration {
                         // without credentials. Details stay hidden unless authorized,
                         // so it only ever reveals UP or DOWN.
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        // Accepting an invitation happens before the recipient has
+                        // an account: the token in the link is the only credential.
+                        .requestMatchers(HttpMethod.GET, "/api/invitations/*").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/invitations/*/accept").permitAll()
                         // Every other actuator endpoint stays behind a token.
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> {

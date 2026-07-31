@@ -9,6 +9,7 @@ import id.my.hendisantika.multitenancy.entity.central.TenantRole;
 import id.my.hendisantika.multitenancy.entity.central.UserTenant;
 import id.my.hendisantika.multitenancy.service.AuthService;
 import id.my.hendisantika.multitenancy.service.MembershipService;
+import id.my.hendisantika.multitenancy.service.InvitationService;
 import id.my.hendisantika.multitenancy.service.OrganizationProfile;
 import id.my.hendisantika.multitenancy.service.TenantProvisioningService;
 import id.my.hendisantika.multitenancy.service.storage.StorageService;
@@ -32,6 +33,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -58,6 +60,7 @@ public class OrganizationRegistrationController {
     private final TenantProvisioningService tenantProvisioningService;
     private final MembershipService membershipService;
     private final AuthService authService;
+    private final InvitationService invitationService;
     private final StorageService storageService;
     private final TenantSecurity tenantSecurity;
 
@@ -123,6 +126,44 @@ public class OrganizationRegistrationController {
         return ResponseEntity.status(HttpStatus.CREATED).body(viewOf(membership));
     }
 
+    @GetMapping("/{slug}/invitations")
+    public List<InvitationSummary> invitations(@PathVariable String slug) {
+        tenantSecurity.requireOwner(slug);
+        return invitationService.pendingFor(slug).stream()
+                .map(invitation -> new InvitationSummary(
+                        invitation.getId(),
+                        invitation.getEmail(),
+                        invitation.getRole(),
+                        invitation.getExpiresAt()))
+                .toList();
+    }
+
+    /**
+     * Returns the accept link. There is no mail server wired up, so the owner
+     * passes it on; swapping in a mailer changes only this method.
+     */
+    @PostMapping("/{slug}/invitations")
+    public ResponseEntity<CreatedInvitationView> invite(@PathVariable String slug,
+                                                        @Valid @RequestBody InvitationController.InviteRequest request) {
+        tenantSecurity.requireOwner(slug);
+        Account invitedBy = authService.accountOf(tenantSecurity.currentToken().getSubject());
+        InvitationService.CreatedInvitation created =
+                invitationService.invite(slug, request.email(), request.role(), invitedBy);
+        return ResponseEntity.status(HttpStatus.CREATED).body(new CreatedInvitationView(
+                created.invitation().getId(),
+                created.invitation().getEmail(),
+                created.invitation().getRole(),
+                created.invitation().getExpiresAt(),
+                created.acceptUrl()));
+    }
+
+    @DeleteMapping("/{slug}/invitations/{invitationId}")
+    public ResponseEntity<Void> revokeInvitation(@PathVariable String slug, @PathVariable Long invitationId) {
+        tenantSecurity.requireOwner(slug);
+        invitationService.revoke(slug, invitationId);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/{slug}/users/{accountId}")
     public ResponseEntity<Void> removeMember(@PathVariable String slug, @PathVariable Long accountId) {
         tenantSecurity.requireOwner(slug);
@@ -183,5 +224,16 @@ public class OrganizationRegistrationController {
     }
 
     public record MemberView(Long accountId, String email, TenantRole role) {
+    }
+
+    public record InvitationSummary(Long id, String email, TenantRole role, Instant expiresAt) {
+    }
+
+    /**
+     * acceptUrl is returned once, at creation: the token is stored only as a
+     * hash and cannot be read back.
+     */
+    public record CreatedInvitationView(
+            Long id, String email, TenantRole role, Instant expiresAt, String acceptUrl) {
     }
 }

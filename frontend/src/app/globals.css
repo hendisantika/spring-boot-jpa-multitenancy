@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+/* Tokens are plain custom properties so the dark scheme can override them, and
+   @theme inline exposes them to Tailwind as bg-surface, text-ink and so on. */
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-brand: var(--brand);
+  --color-brand-ink: var(--brand-ink);
+  --color-danger: var(--danger);
+}
+
+:root {
+  --surface: oklch(100% 0 0);
+  --surface-muted: oklch(97.5% 0.005 250);
+  --line: oklch(92% 0.006 250);
+  --ink: oklch(22% 0.02 255);
+  --ink-muted: oklch(52% 0.015 255);
+  --brand: oklch(53% 0.16 250);
+  --brand-ink: oklch(98% 0.01 250);
+  --danger: oklch(52% 0.19 25);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: oklch(21% 0.015 260);
+    --surface-muted: oklch(17% 0.015 260);
+    --line: oklch(30% 0.02 260);
+    --ink: oklch(96% 0.005 260);
+    --ink-muted: oklch(72% 0.015 260);
+    --brand: oklch(72% 0.14 250);
+    --brand-ink: oklch(18% 0.02 260);
+    --danger: oklch(72% 0.17 25);
+  }
+}
+
+body {
+  background-color: var(--surface-muted);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}

@@ -39,16 +39,22 @@ public interface OrganizationRepository extends JpaRepository<Organization, Long
      */
     @Query("""
             select o from Organization o
-            where lower(coalesce(o.name, '')) like :term escape '\\'
-               or lower(coalesce(o.address, '')) like :term escape '\\'
-               or lower(coalesce(o.email, '')) like :term escape '\\'
-               or o.unitType in :unitTypes
-               or o.operatingStatus in :operatingStatuses
-               or o.province in :provinces
+            where (lower(coalesce(o.name, '')) like :term escape '\\'
+                or lower(coalesce(o.address, '')) like :term escape '\\'
+                or lower(coalesce(o.email, '')) like :term escape '\\'
+                or o.unitType in :unitTypes
+                or o.operatingStatus in :operatingStatuses
+                or o.province in :provinces)
+              and (:unitTypeIs is null or o.unitType = :unitTypeIs)
+              and (:operatingStatusIs is null or o.operatingStatus = :operatingStatusIs)
+              and (:provinceIs is null or o.province = :provinceIs)
             """)
     Page<Organization> search(@Param("term") String term,
                               @Param("unitTypes") Collection<String> unitTypes,
                               @Param("operatingStatuses") Collection<String> operatingStatuses,
                               @Param("provinces") Collection<String> provinces,
+                              @Param("unitTypeIs") String unitTypeIs,
+                              @Param("operatingStatusIs") String operatingStatusIs,
+                              @Param("provinceIs") String provinceIs,
                               Pageable pageable);
 }

@@ -333,6 +333,77 @@ class PersonListingTest {
     }
 
     /**
+     * A filter narrows on one field, exactly, and takes the code rather than the
+     * label — the opposite of the search next to it.
+     */
+    @Test
+    void aFilterNarrowsOnOneFieldExactly() throws Exception {
+        createCodedPerson("Satu", "MALE", "O_POSITIVE", "KTP");
+        createCodedPerson("Dua", "FEMALE", "AB_NEGATIVE", "PASSPORT");
+        createCodedPerson("Tiga", "FEMALE", "O_POSITIVE", "KITAS");
+
+        mockMvc.perform(asOwner(get("/person")).param("gender", "FEMALE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        mockMvc.perform(asOwner(get("/person")).param("bloodType", "o_positive"))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        mockMvc.perform(asOwner(get("/person")).param("identityDocumentType", "PASSPORT"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].firstName").value("Dua"));
+    }
+
+    /**
+     * Two filters mean both, and a filter narrows a search rather than widening
+     * it. Getting that backwards would quietly return more than was asked for.
+     */
+    @Test
+    void filtersCombineWithEachOtherAndWithTheSearch() throws Exception {
+        createCodedPerson("Satu", "MALE", "O_POSITIVE", "KTP");
+        createCodedPerson("Dua", "FEMALE", "AB_NEGATIVE", "PASSPORT");
+        createCodedPerson("Tiga", "FEMALE", "O_POSITIVE", "KITAS");
+
+        mockMvc.perform(asOwner(get("/person"))
+                        .param("gender", "FEMALE")
+                        .param("bloodType", "O_POSITIVE"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].firstName").value("Tiga"));
+
+        // The search alone finds both women; the filter cuts it to one.
+        mockMvc.perform(asOwner(get("/person")).param("q", "Female"))
+                .andExpect(jsonPath("$.totalElements").value(2));
+        mockMvc.perform(asOwner(get("/person"))
+                        .param("q", "Female")
+                        .param("bloodType", "AB_NEGATIVE"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].firstName").value("Dua"));
+    }
+
+    /**
+     * A blank filter is "any", not "none": an empty dropdown must not empty the
+     * list. An unknown code matches nothing, which is the honest answer.
+     */
+    @Test
+    void aBlankFilterIsAnyAndAnUnknownOneIsNone() throws Exception {
+        createCodedPerson("Satu", "MALE", "O_POSITIVE", "KTP");
+        createCodedPerson("Dua", "FEMALE", "AB_NEGATIVE", "PASSPORT");
+
+        mockMvc.perform(asOwner(get("/person")).param("gender", "").param("bloodType", "  "))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        mockMvc.perform(asOwner(get("/person")).param("gender", "ROBOT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+
+        // A filter takes the code, so a label typed into one matches nothing —
+        // wherever the two actually differ. (For a single-word list like GENDER
+        // they coincide once upper-cased, which is luck rather than design.)
+        mockMvc.perform(asOwner(get("/person")).param("bloodType", "O+"))
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    /**
      * A blank box is not a search for nothing, it is everybody.
      */
     @Test

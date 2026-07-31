@@ -59,11 +59,16 @@ from the database at that moment.
 **Roles come from the token.** The "add someone" form appears only for an `OWNER`, and `Remove` is not offered for the
 owner, because the backend refuses that anyway.
 
-**Searching and paging are URLs, not state.** Both list screens read `?q=` and `?page=`, so a result can be bookmarked
-and the back button means what it says. The search box is a plain GET form, which works before any JavaScript loads.
-Both survive an edit: saving lands you back on the page you were looking at, and deleting the last row of the last page
-steps back rather than leaving you staring past the end. The screens share one `SearchBox`, one `Pager` and one set of
-URL rules (`lib/listing.ts`), so they cannot behave differently for no reason.
+**Searching, filtering and paging are URLs, not state.** Both list screens read `?q=`, `?page=` and one parameter per
+filter, so a result can be bookmarked and the back button means what it says. The search box and the filter dropdowns
+are one plain GET form — one rather than several, because applying a filter must not throw away what was typed in the
+box — and it works before any JavaScript loads. There is an **Apply** button rather than a submit-on-change, so several
+filters can be set before the page reloads once.
+
+All of it survives an edit: saving lands you back on the same search, filters and page, and deleting the last row of
+the last page steps back rather than leaving you staring past the end. The screens share one `ListingControls`, one
+`ReferenceSelect`, one `Pager` and one set of URL rules (`lib/listing.ts`), so they cannot behave differently for no
+reason.
 
 Searching follows reading rather than writing: on the units screen a `MEMBER` gets the search box but not the form,
 because a list you cannot narrow is a list you cannot use.

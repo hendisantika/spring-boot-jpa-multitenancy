@@ -45,19 +45,22 @@ public class OrganizationService {
      * The search reaches the coded fields as well as the free-text ones, by
      * resolving what was typed to codes first: somebody looking for the Bali
      * branch types "Bali", not {@code BALI}.
+     * <p>
+     * Filters narrow on top of it. One query serves every combination, because
+     * a term that matches everything stands in for "nothing was searched for".
      */
     @Transactional(value = "tenantTransactionManager", readOnly = true)
-    public Page<Organization> findPage(String query, Integer page, Integer size) {
+    public Page<Organization> findPage(String query, UnitFilter filter, Integer page, Integer size) {
         Pageable pageable = TenantListing.pageRequest(page, size);
         String term = TenantListing.searchTerm(query);
-        if (term == null) {
-            return organizationRepository.findAll(pageable);
-        }
         return organizationRepository.search(
-                term,
+                term == null ? TenantListing.MATCH_EVERYTHING : term,
                 referenceDataService.codesForSearch("UNIT_TYPE", query),
                 referenceDataService.codesForSearch("OPERATING_STATUS", query),
                 referenceDataService.codesForSearch("PROVINCE", query),
+                filter.unitType(),
+                filter.operatingStatus(),
+                filter.province(),
                 pageable);
     }
 

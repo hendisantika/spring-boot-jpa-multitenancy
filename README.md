@@ -456,6 +456,17 @@ from the same code (`TenantListing`), so the two cannot drift apart.
 | `page`    | `0`     | Zero based; past the end is an empty page, not an error    |
 | `size`    | `20`    | Clamped to 1–200, so one request cannot ask for the lot    |
 
+Each coded field is also a **filter**, named after the field: `?gender=`, `?bloodType=`, `?maritalStatus=`,
+`?identityDocumentType=` on `/person`; `?unitType=`, `?operatingStatus=`, `?province=` on `/organization`.
+
+**A search widens and a filter narrows, so they combine.** `?q=cabang` matches a name *or* an address *or* a province
+label; `&province=BALI` then keeps only those that are also in Bali. Two filters mean both, never either.
+
+A filter takes the **code**, where the search takes the label — it is picking one value out of a known list rather than
+guessing at what somebody typed. Case does not matter. A blank filter is "any", not "none", so an untouched dropdown
+never empties the list; an unknown code matches nothing, which is the honest answer to "show me the people whose blood
+type is one this organization does not keep".
+
 | Endpoint         | `q` is matched against                                                                    |
 |------------------|---------------------------------------------------------------------------------------------|
 | `/person`        | First name, last name, the two joined, email, mobile, **and the labels** of its four codes   |

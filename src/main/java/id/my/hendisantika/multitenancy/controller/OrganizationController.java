@@ -2,6 +2,7 @@ package id.my.hendisantika.multitenancy.controller;
 
 import id.my.hendisantika.multitenancy.entity.tenant.Organization;
 import id.my.hendisantika.multitenancy.service.OrganizationService;
+import id.my.hendisantika.multitenancy.service.UnitFilter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -49,16 +50,24 @@ public class OrganizationController {
      * Paged and searchable on the same terms as {@code /person}, so a client
      * that can read one list can read the other.
      *
-     * @param q    matched against the name, address and email; blank means all of them
+     * A search widens and a filter narrows, so they combine: {@code ?q=cabang}
+     * with {@code &province=BALI} means both, not either.
+     *
+     * @param q    matched against the name, address, email and the labels behind the codes
      * @param page zero based
      * @param size clamped, so a client cannot ask for the lot in one go
      */
     @GetMapping("/organization")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
-    public PageResponse<Organization> listOrganizations(@RequestParam(name = "q", required = false) String q,
-                                                        @RequestParam(name = "page", required = false) Integer page,
-                                                        @RequestParam(name = "size", required = false) Integer size) {
-        return PageResponse.of(organizationService.findPage(q, page, size));
+    public PageResponse<Organization> listOrganizations(
+            @RequestParam(name = "q", required = false) String q,
+            @RequestParam(name = "page", required = false) Integer page,
+            @RequestParam(name = "size", required = false) Integer size,
+            @RequestParam(name = "unitType", required = false) String unitType,
+            @RequestParam(name = "operatingStatus", required = false) String operatingStatus,
+            @RequestParam(name = "province", required = false) String province) {
+        UnitFilter filter = UnitFilter.of(unitType, operatingStatus, province);
+        return PageResponse.of(organizationService.findPage(q, filter, page, size));
     }
 
     @PostMapping("/organization")

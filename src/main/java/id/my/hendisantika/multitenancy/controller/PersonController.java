@@ -1,6 +1,7 @@
 package id.my.hendisantika.multitenancy.controller;
 
 import id.my.hendisantika.multitenancy.entity.tenant.Person;
+import id.my.hendisantika.multitenancy.service.PersonFilter;
 import id.my.hendisantika.multitenancy.service.PersonService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -48,16 +49,25 @@ public class PersonController {
      * Paged rather than whole: a tenant's list of people only grows, and a
      * request that returns all of it is one nobody can withdraw later.
      *
-     * @param q    matched against the names, email and mobile; blank means everybody
+     * A search widens and a filter narrows, so they combine: {@code ?q=budi} with
+     * {@code &bloodType=O_POSITIVE} means both, not either.
+     *
+     * @param q    matched against the names, email, mobile and the labels behind the codes
      * @param page zero based
      * @param size clamped, so a client cannot ask for the lot in one go
      */
     @GetMapping("/person")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
-    public PageResponse<Person> listPeople(@RequestParam(name = "q", required = false) String q,
-                                           @RequestParam(name = "page", required = false) Integer page,
-                                           @RequestParam(name = "size", required = false) Integer size) {
-        return PageResponse.of(personService.findPage(q, page, size));
+    public PageResponse<Person> listPeople(
+            @RequestParam(name = "q", required = false) String q,
+            @RequestParam(name = "page", required = false) Integer page,
+            @RequestParam(name = "size", required = false) Integer size,
+            @RequestParam(name = "gender", required = false) String gender,
+            @RequestParam(name = "maritalStatus", required = false) String maritalStatus,
+            @RequestParam(name = "bloodType", required = false) String bloodType,
+            @RequestParam(name = "identityDocumentType", required = false) String identityDocumentType) {
+        PersonFilter filter = PersonFilter.of(gender, maritalStatus, bloodType, identityDocumentType);
+        return PageResponse.of(personService.findPage(q, filter, page, size));
     }
 
     @PostMapping("/person")

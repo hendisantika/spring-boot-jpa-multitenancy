@@ -13,9 +13,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 /**
  * The business units inside whichever tenant the request resolved to. Not to be
@@ -46,10 +45,20 @@ public class OrganizationController {
         return organizationService.findById(id).orElse(new Organization());
     }
 
+    /**
+     * Paged and searchable on the same terms as {@code /person}, so a client
+     * that can read one list can read the other.
+     *
+     * @param q    matched against the name, address and email; blank means all of them
+     * @param page zero based
+     * @param size clamped, so a client cannot ask for the lot in one go
+     */
     @GetMapping("/organization")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
-    public List<Organization> listOrganizations() {
-        return organizationService.findAll();
+    public PageResponse<Organization> listOrganizations(@RequestParam(name = "q", required = false) String q,
+                                                        @RequestParam(name = "page", required = false) Integer page,
+                                                        @RequestParam(name = "size", required = false) Integer size) {
+        return PageResponse.of(organizationService.findPage(q, page, size));
     }
 
     @PostMapping("/organization")

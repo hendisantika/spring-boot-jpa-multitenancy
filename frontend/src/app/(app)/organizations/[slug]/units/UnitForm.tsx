@@ -8,7 +8,16 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { Alert, Field, Input } from "@/components/ui";
 import type { FormState, TenantUnit } from "@/lib/types";
 
-export function UnitForm({ slug, editing }: { slug: string; editing: TenantUnit | null }) {
+export function UnitForm({
+  slug,
+  editing,
+  backTo,
+}: {
+  slug: string;
+  editing: TenantUnit | null;
+  /** Where saving and cancelling land, so a search and a page survive both. */
+  backTo: string;
+}) {
   const [state, action] = useActionState<FormState, FormData>(saveUnit, {});
   const value = (field: keyof TenantUnit) =>
     state.values?.[field] ?? (editing?.[field] as string | null) ?? "";
@@ -16,6 +25,7 @@ export function UnitForm({ slug, editing }: { slug: string; editing: TenantUnit 
   return (
     <form action={action} className="space-y-4" key={editing?.id ?? "new"}>
       <input type="hidden" name="slug" value={slug} />
+      <input type="hidden" name="backTo" value={backTo} />
       {editing ? <input type="hidden" name="id" value={editing.id} /> : null}
 
       {state.error ? <Alert>{state.error}</Alert> : null}
@@ -35,7 +45,7 @@ export function UnitForm({ slug, editing }: { slug: string; editing: TenantUnit 
       <div className="flex items-center justify-end gap-3 border-t border-line pt-4">
         {editing ? (
           <Link
-            href={`/organizations/${slug}/units`}
+            href={backTo}
             className="rounded-lg border border-line px-4 py-2 text-sm text-ink transition hover:bg-surface-muted"
           >
             Cancel

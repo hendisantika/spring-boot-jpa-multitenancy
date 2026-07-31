@@ -96,7 +96,7 @@ export async function saveUnit(_prev: FormState, formData: FormData): Promise<Fo
   }
 
   revalidatePath(`/organizations/${slug}/units`);
-  redirect(`/organizations/${slug}/units`);
+  redirect(backTo(formData, `/organizations/${slug}/units`));
 }
 
 export async function deleteUnit(formData: FormData) {

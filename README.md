@@ -456,10 +456,10 @@ from the same code (`TenantListing`), so the two cannot drift apart.
 | `page`    | `0`     | Zero based; past the end is an empty page, not an error    |
 | `size`    | `20`    | Clamped to 1–200, so one request cannot ask for the lot    |
 
-| Endpoint         | `q` is matched against                                                        |
-|------------------|---------------------------------------------------------------------------------|
-| `/person`        | First name, last name, the two joined, email, mobile                            |
-| `/organization`  | Name, address, email, **and the labels** of its unit type, status and province   |
+| Endpoint         | `q` is matched against                                                                    |
+|------------------|---------------------------------------------------------------------------------------------|
+| `/person`        | First name, last name, the two joined, email, mobile, **and the labels** of its four codes   |
+| `/organization`  | Name, address, email, **and the labels** of its unit type, status and province                |
 
 ```bash
 curl -H 'X-Tenant: sehat' -H "Authorization: Bearer $TOKEN" \
@@ -541,18 +541,22 @@ A unit's three are about a place rather than a person: what kind of place it is,
 province it is in. `operatingStatus` exists so a unit that has shut can keep its records instead of being deleted, and
 `province` is the part of an address worth filtering on — the address itself stays free text.
 
-**Searching a unit reaches those three, by label.** A record stores `BRANCH_CLINIC`; somebody looking for it types
-"branch clinic", or "Bali", so the term is resolved to codes and the query matches those. Two consequences worth
+**Searching reaches these fields, by label, on both lists.** A record stores `BRANCH_CLINIC` or `O_POSITIVE`; somebody
+looking for one types "branch clinic", "Bali", "O+", so the term is resolved to codes first and the query matches
+those. Both lists do it the same way, from the same code, so they cannot answer differently. Two consequences worth
 knowing:
 
 * The **label** is searched, never the code. A code is storage — it is never shown, so nobody is searching for one —
   and codes contain underscores, so matching them would make a typed `_` find nearly every record while the free-text
   half of the same search treats it as a literal. `q=BRANCH_CLINIC` therefore finds nothing; `q=branch clinic` finds it.
 * Matching is by substring, so one word can pick out a group: `q=clinic` returns every Main clinic **and** Branch
-  clinic. That is usually what was wanted, but it is worth knowing before reading a count.
+  clinic; `q=Female` returns everybody recorded as such. That is usually what was wanted, but it is worth knowing
+  before reading a count.
 
-Retired values are searched too, so a unit holding a code that is no longer offered is still findable by the label it
-was given. **Searching a person does not yet reach its coded fields** — only `/organization` does.
+Retired values are searched too, so a record holding a code that is no longer offered is still findable by the label it
+was given. A term matching no label finds **nothing** rather than everything — an empty `in` clause is either invalid
+or quietly true depending on who renders it, so the service passes a sentinel no code can equal, and there is a test
+for it on both lists.
 
 All seven are optional. A code that is not in its list is refused with a `400`, whichever field it was sent in and
 whether it arrives from the form or from `curl`: **the dropdown is a courtesy to whoever is typing, not the rule.**

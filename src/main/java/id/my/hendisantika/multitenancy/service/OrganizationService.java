@@ -39,12 +39,6 @@ public class OrganizationService {
     }
 
     /**
-     * No code can equal this, so an {@code in} clause with it is false rather
-     * than the invalid SQL an empty collection would produce.
-     */
-    private static final List<String> NOTHING = List.of("");
-
-    /**
      * Same paging rules as the people list, from the same place, so the two
      * screens cannot drift apart in how they clamp or how they escape.
      * <p>
@@ -61,15 +55,10 @@ public class OrganizationService {
         }
         return organizationRepository.search(
                 term,
-                codesFor("UNIT_TYPE", query),
-                codesFor("OPERATING_STATUS", query),
-                codesFor("PROVINCE", query),
+                referenceDataService.codesForSearch("UNIT_TYPE", query),
+                referenceDataService.codesForSearch("OPERATING_STATUS", query),
+                referenceDataService.codesForSearch("PROVINCE", query),
                 pageable);
-    }
-
-    private List<String> codesFor(String category, String query) {
-        List<String> codes = referenceDataService.codesMatching(category, query);
-        return codes.isEmpty() ? NOTHING : codes;
     }
 
     @Transactional("tenantTransactionManager")

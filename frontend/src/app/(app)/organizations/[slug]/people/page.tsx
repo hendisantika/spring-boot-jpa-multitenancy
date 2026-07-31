@@ -100,7 +100,7 @@ export default async function PeoplePage({ params, searchParams }: PageProps<"/o
             <SearchBox
               action={base}
               query={query}
-              placeholder="Search name, email or mobile"
+              placeholder="Search name, email, mobile, gender or blood type"
               label="Search people"
             />
           </div>

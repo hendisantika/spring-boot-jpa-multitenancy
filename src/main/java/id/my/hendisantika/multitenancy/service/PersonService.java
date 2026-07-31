@@ -44,13 +44,28 @@ public class PersonService {
 
     /**
      * A blank search is not a search: it means "everybody", so it skips the
-     * query with five LIKEs in it rather than matching them all against "%%".
+     * query with all those LIKEs in it rather than matching them all against
+     * "%%".
+     * <p>
+     * The search reaches the coded fields as well as the free-text ones, by
+     * resolving what was typed to codes first: somebody looking for a blood
+     * type types "O+", not {@code O_POSITIVE}. Same as a unit's, from the same
+     * place, so the two screens cannot answer differently.
      */
     @Transactional(value = "tenantTransactionManager", readOnly = true)
     public Page<Person> findPage(String query, Integer page, Integer size) {
         Pageable pageable = TenantListing.pageRequest(page, size);
         String term = TenantListing.searchTerm(query);
-        return term == null ? personRepository.findAll(pageable) : personRepository.search(term, pageable);
+        if (term == null) {
+            return personRepository.findAll(pageable);
+        }
+        return personRepository.search(
+                term,
+                referenceDataService.codesForSearch("GENDER", query),
+                referenceDataService.codesForSearch("MARITAL_STATUS", query),
+                referenceDataService.codesForSearch("BLOOD_TYPE", query),
+                referenceDataService.codesForSearch("IDENTITY_DOCUMENT", query),
+                pageable);
     }
 
     @Transactional("tenantTransactionManager")

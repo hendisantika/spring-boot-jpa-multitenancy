@@ -237,6 +237,101 @@ class PersonListingTest {
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
 
+    private void createCodedPerson(String firstName, String gender, String blood, String document)
+            throws Exception {
+        Map<String, String> person = new LinkedHashMap<>();
+        person.put("firstName", firstName);
+        person.put("lastName", "Probe");
+        person.put("gender", gender);
+        person.put("bloodType", blood);
+        person.put("identityDocumentType", document);
+        mockMvc.perform(asOwner(post("/person"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(person)))
+                .andExpect(status().isCreated());
+    }
+
+    /**
+     * The record stores O_POSITIVE and MALE. Nobody types that, so the search
+     * has to reach the label a clinic actually reads — the same way the units
+     * list does.
+     */
+    @Test
+    void aSearchReachesTheCodedFieldsByTheirLabel() throws Exception {
+        createCodedPerson("Satu", "MALE", "O_POSITIVE", "KTP");
+        createCodedPerson("Dua", "FEMALE", "AB_NEGATIVE", "PASSPORT");
+        createCodedPerson("Tiga", "FEMALE", "O_POSITIVE", "KITAS");
+
+        mockMvc.perform(asOwner(get("/person")).param("q", "Female"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        mockMvc.perform(asOwner(get("/person")).param("q", "AB-"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].firstName").value("Dua"));
+
+        mockMvc.perform(asOwner(get("/person")).param("q", "passport"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].firstName").value("Dua"));
+
+        mockMvc.perform(asOwner(get("/person")).param("q", "KITAS"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].firstName").value("Tiga"));
+    }
+
+    /**
+     * The same line as the units list: the label is searched, never the code.
+     * Codes contain underscores, and matching them would make a typed "_" find
+     * nearly everybody while the free-text half treats it as a literal.
+     */
+    @Test
+    void theStoredCodeIsNotWhatIsSearched() throws Exception {
+        createCodedPerson("Satu", "MALE", "O_POSITIVE", "KTP");
+
+        mockMvc.perform(asOwner(get("/person")).param("q", "O_POSITIVE"))
+                .andExpect(jsonPath("$.totalElements").value(0));
+        mockMvc.perform(asOwner(get("/person")).param("q", "_"))
+                .andExpect(jsonPath("$.totalElements").value(0));
+        mockMvc.perform(asOwner(get("/person")).param("q", "%"))
+                .andExpect(jsonPath("$.totalElements").value(0));
+
+        // The label it stands for does find them.
+        mockMvc.perform(asOwner(get("/person")).param("q", "O+"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    /**
+     * A term matching no label must not quietly match everybody, which is what
+     * an empty {@code in} clause would do if it were written carelessly.
+     */
+    @Test
+    void aTermMatchingNoLabelStillFindsNobody() throws Exception {
+        createCodedPerson("Satu", "MALE", "O_POSITIVE", "KTP");
+        createCodedPerson("Dua", "FEMALE", "AB_NEGATIVE", "PASSPORT");
+
+        mockMvc.perform(asOwner(get("/person")).param("q", "zzz"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    /**
+     * Somebody with nothing coded is still found by name, and is not swept up by
+     * a search for a label they do not carry.
+     */
+    @Test
+    void aPersonWithNoCodesIsUnaffected() throws Exception {
+        createPerson("Polos", "Tanpa", "polos@probe.test", "0899");
+        createCodedPerson("Berkode", "FEMALE", "AB_NEGATIVE", "PASSPORT");
+
+        mockMvc.perform(asOwner(get("/person")).param("q", "polos"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].firstName").value("Polos"));
+
+        mockMvc.perform(asOwner(get("/person")).param("q", "Female"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].firstName").value("Berkode"));
+    }
+
     /**
      * A blank box is not a search for nothing, it is everybody.
      */

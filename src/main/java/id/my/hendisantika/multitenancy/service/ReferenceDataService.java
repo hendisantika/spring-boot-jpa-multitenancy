@@ -33,13 +33,19 @@ public class ReferenceDataService {
      * Every list at once, keyed by category. A form usually needs several of
      * them, so fetching them one request at a time would be the wrong shape.
      * <p>
+     * Switched-off values are included, carrying {@code active: false}. A record
+     * written before a value was retired still holds that code, and a client
+     * that never saw the row could only show the raw code back — which is
+     * storage, not something anybody should read. Offering is the client's job;
+     * refusing a retired code is this service's, in {@link #requireValidCode}.
+     * <p>
      * The map keeps insertion order, and the query orders by category then by
      * sort order, so what a client renders is what a clinic expects to read.
      */
     @Transactional(value = "tenantTransactionManager", readOnly = true)
     public Map<String, List<ReferenceData>> findAllByCategory() {
         Map<String, List<ReferenceData>> byCategory = new LinkedHashMap<>();
-        for (ReferenceData value : referenceDataRepository.findByActiveTrueOrderByCategoryAscSortOrderAsc()) {
+        for (ReferenceData value : referenceDataRepository.findAllByOrderByCategoryAscSortOrderAsc()) {
             byCategory.computeIfAbsent(value.getCategory(), key -> new ArrayList<>()).add(value);
         }
         return byCategory;
@@ -51,7 +57,35 @@ public class ReferenceDataService {
      */
     @Transactional(value = "tenantTransactionManager", readOnly = true)
     public List<ReferenceData> findByCategory(String category) {
-        return referenceDataRepository.findByCategoryAndActiveTrueOrderBySortOrderAsc(
+        return referenceDataRepository.findByCategoryOrderBySortOrderAsc(
                 category == null ? "" : category.trim().toUpperCase());
+    }
+
+    /**
+     * A dropdown is a courtesy to whoever is typing, not a guarantee about what
+     * arrives: the same field can be posted with anything in it. So a stored
+     * code is checked against the list it claims to come from.
+     * <p>
+     * Blank is allowed, because these fields are optional. What is refused is a
+     * value that is not in the list, which would otherwise sit in the database
+     * looking like data.
+     *
+     * @return the code, trimmed and upper-cased, or null when nothing was given
+     */
+    @Transactional(value = "tenantTransactionManager", readOnly = true)
+    public String requireValidCode(String category, String code, String fieldName) {
+        if (code == null || code.isBlank()) {
+            return null;
+        }
+        String normalised = code.trim().toUpperCase();
+        boolean known = referenceDataRepository
+                .findByCategoryAndActiveTrueOrderBySortOrderAsc(category)
+                .stream()
+                .anyMatch(value -> value.getCode().equals(normalised));
+        if (!known) {
+            throw new TenantRecordInvalidException(
+                    "\"" + code + "\" is not one of the " + fieldName + " values this organization keeps");
+        }
+        return normalised;
     }
 }

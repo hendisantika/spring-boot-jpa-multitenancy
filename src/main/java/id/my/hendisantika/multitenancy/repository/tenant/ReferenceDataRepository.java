@@ -18,7 +18,9 @@ import java.util.List;
 @Repository
 public interface ReferenceDataRepository extends JpaRepository<ReferenceData, Long> {
 
-    List<ReferenceData> findByActiveTrueOrderByCategoryAscSortOrderAsc();
+    List<ReferenceData> findAllByOrderByCategoryAscSortOrderAsc();
+
+    List<ReferenceData> findByCategoryOrderBySortOrderAsc(String category);
 
     List<ReferenceData> findByCategoryAndActiveTrueOrderBySortOrderAsc(String category);
 }

@@ -68,6 +68,12 @@ URL rules (`lib/listing.ts`), so they cannot behave differently for no reason.
 Searching follows reading rather than writing: on the units screen a `MEMBER` gets the search box but not the form,
 because a list you cannot narrow is a list you cannot use.
 
+**The dropdowns come from the tenant, not from the code.** Gender, marital status, blood type and identity document on
+the people form are filled from that tenant's own `reference-data`, fetched alongside the page in the same round trip.
+The form stores a code and only ever shows a label, so a value that was switched off after a record was written is
+still shown — marked `(no longer offered)` — rather than silently dropping out of the form. None of this is a check:
+the API refuses an unknown code whatever the page offers.
+
 **The subdomain preview mirrors the backend.** Typing a business name shows the database name and host that would be
 created, using the same slug rules (`TenantSlugs`) the server applies. It is a preview only; the server still decides.
 

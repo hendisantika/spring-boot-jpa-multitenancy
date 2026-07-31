@@ -32,12 +32,19 @@ function backTo(formData: FormData, fallback: string): string {
 }
 
 function personFrom(formData: FormData) {
+  const field = (name: string) => String(formData.get(name) ?? "").trim() || null;
   return {
     firstName: String(formData.get("firstName") ?? "").trim(),
     lastName: String(formData.get("lastName") ?? "").trim(),
-    email: String(formData.get("email") ?? "").trim() || null,
-    mobile: String(formData.get("mobile") ?? "").trim() || null,
-    birthDate: String(formData.get("birthDate") ?? "").trim() || null,
+    email: field("email"),
+    mobile: field("mobile"),
+    birthDate: field("birthDate"),
+    // Codes from the tenant's reference lists. The API checks them again.
+    gender: field("gender"),
+    maritalStatus: field("maritalStatus"),
+    bloodType: field("bloodType"),
+    identityDocumentType: field("identityDocumentType"),
+    identityNumber: field("identityNumber"),
   };
 }
 

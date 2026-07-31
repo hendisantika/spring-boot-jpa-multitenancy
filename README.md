@@ -507,12 +507,34 @@ given the wrong shape. An unknown category is an empty list rather than a `404` 
 
 Each row carries a `code` that is stable across renames, a `sortOrder` so a dropdown reads the way a clinic expects,
 an `active` flag so a value can stop being offered without disappearing from old records, and `systemDefined` marking
-the rows a migration put there. They are seeded **into each tenant database** rather than kept centrally so a clinic
+the rows a migration put there. **Switched-off values are still returned**, carrying `active: false` — a record written
+while a value was current still holds its code, and a client that never saw the row could only show that raw code
+back. Offering is the client's job; refusing a retired code is the server's. They are seeded **into each tenant database** rather than kept centrally so a clinic
 can add its own visit type later; `systemDefined` is what tells the two apart.
 
 > **These are a starting point, not a standard.** The catalogue is one migration file — if a category is wrong or
 > missing for your clinics, change it there. Note that once a migration has been applied it must be corrected by a new
 > version rather than edited, or every tenant database fails its checksum and the application refuses to start.
+
+#### Where a person uses them
+
+Four of the lists are fields on a person, stored as a `code` rather than a label so renaming a label never rewrites
+anybody's record:
+
+| Field                  | List                |
+|------------------------|---------------------|
+| `gender`               | `GENDER`            |
+| `maritalStatus`        | `MARITAL_STATUS`    |
+| `bloodType`            | `BLOOD_TYPE`        |
+| `identityDocumentType` | `IDENTITY_DOCUMENT` |
+
+`identityDocumentType` says what `identityNumber` is — a KTP, a passport, a KITAS. The column was called
+`social_security_number`, which names a thing Indonesia does not have.
+
+All four are optional. A code that is not in its list is refused with a `400`, whichever field it was sent in and
+whether it arrives from the form or from `curl`: **the dropdown is a courtesy to whoever is typing, not the rule.**
+Codes may be sent in any case and are stored upper-cased. There is deliberately no foreign key to `reference_data` —
+one would fix the vocabulary to whatever the migration seeded, which is the opposite of letting a clinic add its own.
 
 The tenant comes from the **host name** — the first label under `application.tenant.base-domain`. A request to the apex
 domain or to `localhost` carries no tenant and reads the central database.

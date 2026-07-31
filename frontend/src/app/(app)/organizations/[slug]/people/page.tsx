@@ -6,7 +6,8 @@ import { deletePerson } from "@/app/actions/tenant-data";
 import { ApiError, api } from "@/lib/api";
 import { PAGE_SIZE, firstValue, listingQuery, listingUrl } from "@/lib/listing";
 import { getRole } from "@/lib/session";
-import type { Page, TenantPerson } from "@/lib/types";
+import type { Page, ReferenceLists, TenantPerson } from "@/lib/types";
+import { referenceLabel } from "@/lib/types";
 import { Pager } from "@/components/Pager";
 import { SearchBox } from "@/components/SearchBox";
 import { Alert, Badge, Card, PageHeading } from "@/components/ui";
@@ -14,6 +15,17 @@ import { Alert, Badge, Card, PageHeading } from "@/components/ui";
 export const metadata = { title: "People" };
 
 const EMPTY: Page<TenantPerson> = { content: [], page: 0, size: PAGE_SIZE, totalElements: 0, totalPages: 0 };
+
+/** The reference fields worth seeing without opening the row, as labels. */
+function describe(person: TenantPerson, lists: ReferenceLists): string {
+  return [
+    referenceLabel(lists.GENDER, person.gender),
+    referenceLabel(lists.BLOOD_TYPE, person.bloodType),
+    referenceLabel(lists.IDENTITY_DOCUMENT, person.identityDocumentType),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
 
 /**
  * This is the tenant's own data, read through its own database rather than the
@@ -38,10 +50,16 @@ export default async function PeoplePage({ params, searchParams }: PageProps<"/o
   const requested = Math.max(0, Number(firstValue(page)) || 0);
 
   let people = EMPTY;
+  let lists: ReferenceLists = {};
   let error: string | null = null;
 
   try {
-    people = await api<Page<TenantPerson>>(`/person?${listingQuery(query, requested)}`, { tenant: slug });
+    // Both at once: the form needs the lists whether or not it is editing, and
+    // waiting for the people first would only make the page slower.
+    [people, lists] = await Promise.all([
+      api<Page<TenantPerson>>(`/person?${listingQuery(query, requested)}`, { tenant: slug }),
+      api<ReferenceLists>("/reference-data", { tenant: slug }),
+    ]);
   } catch (e) {
     error = e instanceof ApiError ? e.message : "Cannot reach the API.";
   }
@@ -97,6 +115,10 @@ export default async function PeoplePage({ params, searchParams }: PageProps<"/o
                   <p className="truncate text-xs text-ink-muted">
                     {[person.email, person.mobile].filter(Boolean).join(" · ") || "No contact details"}
                   </p>
+                  {/* Labels, never codes: a code is storage, not something to read. */}
+                  {describe(person, lists) ? (
+                    <p className="truncate text-xs text-ink-muted/70">{describe(person, lists)}</p>
+                  ) : null}
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <Link
@@ -139,7 +161,7 @@ export default async function PeoplePage({ params, searchParams }: PageProps<"/o
 
         <Card className="p-6">
           <h2 className="mb-4 font-semibold text-ink">{editing ? "Edit person" : "Add someone"}</h2>
-          <PersonForm slug={slug} editing={editing} backTo={here()} />
+          <PersonForm slug={slug} editing={editing} backTo={here()} lists={lists} />
         </Card>
       </div>
     </>

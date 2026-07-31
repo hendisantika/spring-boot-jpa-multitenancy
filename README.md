@@ -148,8 +148,34 @@ Tenants seeded from the previous enum-based setup keep their historical database
 ## Prerequisites
 
 * JDK 25
-* MySQL running on `localhost:3306`
+* MySQL on `localhost:3306` and an S3 compatible bucket — `docker compose up -d` provides both
 * Maven (or just use the bundled `./mvnw`)
+
+## Dependencies with Docker Compose
+
+`compose.yaml` brings up both dependencies with the same values `application.properties` expects, so the application
+needs no extra configuration:
+
+```bash
+docker compose up -d
+```
+
+| Service      | Port   | Credentials             | Notes                                            |
+|--------------|--------|-------------------------|--------------------------------------------------|
+| `mysql`      | 3306   | `root` / `root`         | Data survives restarts in the `mysql-data` volume |
+| `minio`      | 9000   | `minioadmin` / `minioadmin` | S3 API the application talks to               |
+| `minio`      | 9001   | same                    | Web console, <http://localhost:9001>              |
+| `minio-init` | —      | —                       | Runs once and creates the `jvm-uploads` bucket    |
+
+`minio-init` matters: the application does **not** create the bucket, so without it the first photo upload fails.
+
+**If MySQL is already installed on this machine** it will be holding port 3306 and the `mysql` service cannot start.
+Either stop the local server, or map the container to another port and point `application.database.url-template` at it.
+
+```bash
+docker compose down          # stop, keep the data
+docker compose down -v       # stop and delete the databases and bucket
+```
 
 ## Setup
 
@@ -311,13 +337,8 @@ database again. So **a reachable MySQL is required** — the same one configured
 to create and drop databases. The GitHub Actions workflow starts a `mysql:8` service container for exactly this reason.
 
 `S3StorageIntegrationTest` uploads to a real S3 compatible server, reads the bytes back and deletes them, so the
-endpoint, signing and path style settings are exercised rather than mocked. Start MinIO to run it:
-
-```bash
-docker run -d --name minio -p 9000:9000 \
-  -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
-  minio/minio:latest server /data
-```
+endpoint, signing and path style settings are exercised rather than mocked. `docker compose up -d` (see
+[Dependencies with Docker Compose](#dependencies-with-docker-compose)) provides it.
 
 Without it the test **skips**, so no one needs MinIO running to work on the rest. CI sets `S3_INTEGRATION_REQUIRED=true`,
 which turns "nothing is listening" into a failure — otherwise a MinIO that failed to start would look like a pass.
@@ -360,7 +381,8 @@ lowercase `.sql` suffix are required by Flyway's default configuration.
   (`http://localhost:9000`, `minioadmin`); set `application.storage.*` for AWS S3, leaving `endpoint` empty to use the
   default credential chain. Uploads are capped at 5 MB and limited to JPEG, PNG and WebP, and the stored key is
   generated rather than taken from the submitted file name.
-* **The bucket is not created for you.** `application.storage.bucket` must already exist; only the tests create it.
+* **The bucket is not created for you.** `application.storage.bucket` must already exist. Locally the `minio-init`
+  service in `compose.yaml` creates it; in production create it as part of provisioning.
 * Sample users in `Query.sql` have plain-text passwords — sample data only, not for production.
 
 ## Running in production

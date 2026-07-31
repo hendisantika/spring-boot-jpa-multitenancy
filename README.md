@@ -245,6 +245,7 @@ docker compose up -d
 | `minio`      | 9000   | `minioadmin` / `minioadmin` | S3 API the application talks to               |
 | `minio`      | 9001   | same                    | Web console, <http://localhost:9001>              |
 | `minio-init` | —      | —                       | Runs once and creates the `jvm-uploads` bucket    |
+| `redis`      | 6379   | —                       | Shared rate limit counters                        |
 
 `minio-init` matters: the application does **not** create the bucket, so without it the first photo upload fails.
 
@@ -502,6 +503,10 @@ through the tenant-routed repository and asserts the row did **not** land in the
 database again. So **a reachable MySQL is required** — the same one configured in `application.properties`, with rights
 to create and drop databases. The GitHub Actions workflow starts a `mysql:8` service container for exactly this reason.
 
+`RedisRateLimiterIntegrationTest` runs the Lua script against a real Redis, including forty concurrent callers racing
+for twenty tokens, because the atomicity it exists for cannot be shown any other way. It skips when Redis is not
+answering; CI sets `REDIS_INTEGRATION_REQUIRED=true` so a Redis that failed to start fails the build.
+
 `S3StorageIntegrationTest` uploads to a real S3 compatible server, reads the bytes back and deletes them, so the
 endpoint, signing and path style settings are exercised rather than mocked. `docker compose up -d` (see
 [Dependencies with Docker Compose](#dependencies-with-docker-compose)) provides it.
@@ -572,10 +577,25 @@ application.rate-limit.forgot-password.capacity=5
 application.rate-limit.forgot-password.window=15m
 ```
 
-**The counters live in memory**, so each instance allows the configured rate: behind a load balancer this raises the
-cost of guessing rather than capping it across the cluster. Capping it globally needs shared state, which this project
-does not have. Tracked keys are capped and refilled ones are evicted, so spraying unique addresses cannot grow memory
-without bound.
+**The counters live in Redis**, so every instance draws from the same allowance rather than each granting its own. The
+whole read-modify-write runs inside one Lua script, because doing it in Java would let two instances read the same
+count and both decide they are under the limit, and the clock comes from Redis so instances whose clocks disagree
+cannot refill each other's buckets.
+
+```properties
+# AUTO uses Redis when it answers at startup and counts per instance otherwise.
+# Set REDIS in production so a missing Redis is a failure, not a quiet downgrade.
+application.rate-limit.backend=AUTO
+spring.data.redis.host=localhost
+spring.data.redis.port=6379
+```
+
+Without Redis the counters fall back to this process, which still slows guessing down but lets each instance grant the
+rate separately; keys are capped and refilled ones evicted so that cannot grow memory without bound. Redis expires them
+instead.
+
+**If Redis goes down the limiter fails open**, allowing requests rather than locking everyone out of signing in. The
+trade is that protection is lost exactly while Redis is unavailable.
 
 ## Running in production
 

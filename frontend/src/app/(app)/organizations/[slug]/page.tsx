@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { AddMemberForm } from "./AddMemberForm";
+import { InvitationRow } from "./InvitationRow";
+import { InviteForm } from "./InviteForm";
 import { MemberRow } from "./MemberRow";
 import { RefreshSessionNotice } from "./RefreshSessionNotice";
 import { ApiError, api } from "@/lib/api";
@@ -9,6 +10,7 @@ import {
   ORG_STRUCTURES,
   PRACTICE_SPECIALITIES,
   labelOf,
+  type Invitation,
   type Member,
   type Organization,
 } from "@/lib/types";
@@ -33,6 +35,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
 
   let organization: Organization | null = null;
   let members: Member[] = [];
+  let invitations: Invitation[] = [];
   let error: string | null = null;
 
   try {
@@ -40,6 +43,10 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
       api<Organization>(`/api/organizations/${slug}`),
       api<Member[]>(`/api/organizations/${slug}/users`),
     ]);
+    // Owner only, so a member's page does not 403 on a panel they never see.
+    if (role === "OWNER") {
+      invitations = await api<Invitation[]>(`/api/organizations/${slug}/invitations`);
+    }
   } catch (e) {
     error = e instanceof ApiError ? e.message : "Cannot reach the API.";
   }
@@ -116,14 +123,28 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
             </ul>
           </Card>
 
+          {role === "OWNER" && invitations.length > 0 ? (
+            <Card className="p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="font-semibold text-ink">Pending invitations</h2>
+                <span className="text-sm text-ink-muted">{invitations.length}</span>
+              </div>
+              <ul className="divide-y divide-line">
+                {invitations.map((invitation) => (
+                  <InvitationRow key={invitation.id} invitation={invitation} slug={slug} />
+                ))}
+              </ul>
+            </Card>
+          ) : null}
+
           {role === "OWNER" ? (
             <Card className="p-6">
-              <h2 className="mb-1 font-semibold text-ink">Add someone</h2>
+              <h2 className="mb-1 font-semibold text-ink">Invite someone</h2>
               <p className="mb-4 text-sm text-ink-muted">
-                They sign in through the same parent login. An existing account is granted access
-                rather than duplicated.
+                They choose their own password when they accept, so you never handle it. An existing
+                account is granted access rather than duplicated.
               </p>
-              <AddMemberForm slug={slug} />
+              <InviteForm slug={slug} />
             </Card>
           ) : (
             <Card className="p-6">

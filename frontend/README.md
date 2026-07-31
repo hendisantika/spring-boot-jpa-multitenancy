@@ -29,7 +29,8 @@ bun run lint
 | `/login`                | The parent login: one account, every organization it belongs to           |
 | `/dashboard`            | Only the organizations you are a member of                                |
 | `/organizations/new`    | The registration form; creates the database and the subdomain             |
-| `/organizations/[slug]` | Profile, the people in it, and adding people when you are the `OWNER`      |
+| `/organizations/[slug]` | Profile, the people in it, and inviting people when you are the `OWNER`   |
+| `/invitations/[token]`  | Open: accept an invitation, choosing your own password                   |
 
 ## How it is put together
 
@@ -39,6 +40,10 @@ stays server side.
 
 **Forms are server actions** with `useActionState`, so validation errors come back from the same round trip. A rejected
 form re-renders with what you typed still in it — everything except the passwords, which are deliberately not sent back.
+
+**Invitations, not shared passwords.** The owner names an email; the recipient opens the link and chooses their own
+password, so nobody else ever handles it. The link is shown once, with a copy button, because the backend keeps only a
+hash of the token.
 
 **The token lag is explained, not hidden.** An access token carries the tenants the account may reach, so the
 organization you just registered is not in the token that registered it. Rather than showing a bare `403`, the page says

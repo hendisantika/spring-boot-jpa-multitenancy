@@ -1,0 +1,14 @@
+# Build output is produced inside the image, never copied in.
+target/
+!target/*.jar
+
+.git/
+.github/
+.idea/
+*.iml
+
+# Notes and local files that would only invalidate the build cache.
+README.md
+HELP.md
+Query.sql
+compose.yaml

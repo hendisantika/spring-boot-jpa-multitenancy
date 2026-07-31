@@ -93,6 +93,15 @@ export type InvitationPreview = {
   expiresAt: string;
 };
 
+/** One page of a list the backend refuses to hand over whole. */
+export type Page<T> = {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+};
+
 /** A person inside a tenant's own database. */
 export type TenantPerson = {
   id: number;

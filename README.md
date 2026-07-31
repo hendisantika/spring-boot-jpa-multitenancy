@@ -441,6 +441,31 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `DELETE` | `/api/organizations/{slug}/users/{accountId}` | **owner** | Remove a person       |
 | `GET`  | `/organization/{id}` | bearer + membership | Organization by id, from the tenant's database |
 | `GET`  | `/person/{id}`       | bearer + membership | Person by id, from the tenant's database       |
+| `GET`  | `/person`            | bearer + membership | A **page** of people; see below                |
+
+### Listing people
+
+`GET /person` is paged rather than whole. A tenant's list of people only grows, and an endpoint that returns all of it
+is one nobody can withdraw later.
+
+| Parameter | Default | Meaning                                                             |
+|-----------|---------|---------------------------------------------------------------------|
+| `q`       | —       | Matched against first name, last name, the two joined, email, mobile |
+| `page`    | `0`     | Zero based; past the end is an empty page, not an error              |
+| `size`    | `20`    | Clamped to 1–200, so one request cannot ask for the lot              |
+
+```bash
+curl -H 'X-Tenant: sehat' -H "Authorization: Bearer $TOKEN" \
+  'http://localhost:8080/person?q=budi%20santoso&page=0&size=10'
+```
+
+```json
+{ "content": [ ... ], "page": 0, "size": 10, "totalElements": 23, "totalPages": 3 }
+```
+
+The search is case-insensitive and matches anywhere in the value. Because the first and last name are also matched
+joined, typing a whole name finds the person; `%` and `_` are escaped, so a name containing one is found rather than
+matching everybody. Results are ordered by id, which is what makes the next page different from this one.
 
 The tenant comes from the **host name** — the first label under `application.tenant.base-domain`. A request to the apex
 domain or to `localhost` carries no tenant and reads the central database.

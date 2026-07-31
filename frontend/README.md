@@ -31,7 +31,7 @@ bun run lint
 | `/organizations/new`    | The registration form; creates the database and the subdomain             |
 | `/organizations/[slug]` | Profile, the people in it, and inviting people when you are the `OWNER`   |
 | `/organizations/[slug]/edit` | Edit the profile; owner only                                        |
-| `/organizations/[slug]/people` | The tenant's own people: members add and edit, only the owner deletes |
+| `/organizations/[slug]/people` | The tenant's own people, searched and paged from `?q=` and `?page=` |
 | `/organizations/[slug]/units` | The tenant's business units: everyone reads, only the owner changes  |
 | `/invitations/[token]`  | Open: accept an invitation, choosing your own password                   |
 | `/forgot-password`      | Ask for a reset link                                                     |
@@ -58,6 +58,11 @@ from the database at that moment.
 
 **Roles come from the token.** The "add someone" form appears only for an `OWNER`, and `Remove` is not offered for the
 owner, because the backend refuses that anyway.
+
+**Searching and paging are URLs, not state.** The people screen reads `?q=` and `?page=`, so a result can be
+bookmarked and the back button means what it says. The search box is a plain GET form, which works before any
+JavaScript loads. Both survive an edit: saving lands you back on the page you were looking at, and deleting the last
+row of the last page steps back rather than leaving you staring past the end.
 
 **The subdomain preview mirrors the backend.** Typing a business name shows the database name and host that would be
 created, using the same slug rules (`TenantSlugs`) the server applies. It is a preview only; the server still decides.

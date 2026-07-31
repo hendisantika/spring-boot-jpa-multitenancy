@@ -122,6 +122,14 @@ public class AuthService {
         if (!account.isActive()) {
             throw new AuthenticationFailedException("This account is disabled");
         }
+        // Refresh tokens live for two weeks, so a password reset has to disown the
+        // ones handed out before it. Without this, resetting a stolen password
+        // would leave the thief a fortnight of access.
+        if (account.getPasswordChangedAt() != null
+                && jwt.getIssuedAt() != null
+                && jwt.getIssuedAt().isBefore(account.getPasswordChangedAt())) {
+            throw new AuthenticationFailedException("The password changed; please sign in again");
+        }
         return account;
     }
 

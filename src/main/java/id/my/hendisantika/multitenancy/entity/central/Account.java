@@ -44,6 +44,13 @@ public class Account extends BaseEntity {
     private String password;
 
     /**
+     * When the password last changed. A refresh token issued before this is
+     * refused, so a reset disowns sessions handed out earlier.
+     */
+    @Column(name = "password_changed_at")
+    private Instant passwordChangedAt;
+
+    /**
      * Object key of the profile photo in the storage bucket, not a URL, so the
      * bucket or endpoint can change without rewriting rows.
      */

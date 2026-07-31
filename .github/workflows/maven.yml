@@ -40,6 +40,18 @@ jobs:
           --health-timeout=5s
           --health-retries=10
 
+      # Redis backs the shared rate limit counters. Unlike MinIO it needs no
+      # command, so it can be a service container.
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
     steps:
     - uses: actions/checkout@v7
     - name: Set up JDK 25
@@ -77,6 +89,9 @@ jobs:
         # Turns a MinIO that failed to start into a build failure instead of a
         # silently skipped test.
         S3_INTEGRATION_REQUIRED: "true"
+        # Same reasoning: a Redis that failed to start must fail the build rather
+        # than leave its tests silently skipped.
+        REDIS_INTEGRATION_REQUIRED: "true"
 
     # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
     - name: Update dependency graph

@@ -7,6 +7,7 @@ import id.my.hendisantika.multitenancy.service.EmailVerificationException;
 import id.my.hendisantika.multitenancy.service.InvitationException;
 import id.my.hendisantika.multitenancy.service.PasswordResetException;
 import id.my.hendisantika.multitenancy.service.TenantProvisioningException;
+import id.my.hendisantika.multitenancy.service.TenantRecordInvalidException;
 import id.my.hendisantika.multitenancy.service.TenantRecordNotFoundException;
 import id.my.hendisantika.multitenancy.service.storage.StorageException;
 import org.springframework.http.HttpStatus;
@@ -84,6 +85,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(TenantRecordNotFoundException.class)
     public ProblemDetail onTenantRecordMissing(TenantRecordNotFoundException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
+    }
+
+    @ExceptionHandler(TenantRecordInvalidException.class)
+    public ProblemDetail onTenantRecordInvalid(TenantRecordInvalidException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
     }
 
     @ExceptionHandler(UnknownTenantException.class)

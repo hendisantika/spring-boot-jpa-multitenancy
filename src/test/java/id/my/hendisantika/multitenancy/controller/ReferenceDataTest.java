@@ -1,12 +1,15 @@
 package id.my.hendisantika.multitenancy.controller;
 
+import id.my.hendisantika.multitenancy.config.TenantContext;
 import id.my.hendisantika.multitenancy.config.TenantSubdomainInterceptor;
 import id.my.hendisantika.multitenancy.entity.central.Account;
 import id.my.hendisantika.multitenancy.entity.central.AccountStatus;
 import id.my.hendisantika.multitenancy.entity.central.TenantRole;
+import id.my.hendisantika.multitenancy.entity.tenant.ReferenceData;
 import id.my.hendisantika.multitenancy.repository.central.AccountRepository;
 import id.my.hendisantika.multitenancy.repository.central.TenantRegistrationRepository;
 import id.my.hendisantika.multitenancy.repository.central.UserTenantRepository;
+import id.my.hendisantika.multitenancy.repository.tenant.ReferenceDataRepository;
 import id.my.hendisantika.multitenancy.service.MembershipService;
 import id.my.hendisantika.multitenancy.service.OrganizationProfile;
 import id.my.hendisantika.multitenancy.service.TenantProvisioningService;
@@ -28,6 +31,7 @@ import java.util.List;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -71,6 +75,9 @@ class ReferenceDataTest {
 
     @Autowired
     private UserTenantRepository userTenantRepository;
+
+    @Autowired
+    private ReferenceDataRepository referenceDataRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -202,6 +209,188 @@ class ReferenceDataTest {
                         .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.GENDER.length()").value(2));
+    }
+
+    private String personJson(String field, String code) {
+        return "{\"firstName\":\"Probe\",\"lastName\":\"Person\",\"" + field + "\":\"" + code + "\"}";
+    }
+
+    /**
+     * What a clinic would do through whatever administration screen eventually
+     * exists: stop offering a value without deleting it.
+     */
+    private void retirePassport() {
+        TenantContext.setTenant(SLUG);
+        try {
+            ReferenceData passport = referenceDataRepository
+                    .findByCategoryOrderBySortOrderAsc("IDENTITY_DOCUMENT").stream()
+                    .filter(value -> value.getCode().equals("PASSPORT"))
+                    .findFirst()
+                    .orElseThrow();
+            passport.setActive(false);
+            referenceDataRepository.save(passport);
+        } finally {
+            TenantContext.clearTenant();
+        }
+    }
+
+    /**
+     * The form offers a dropdown, but the request can be sent without one, so
+     * the code has to be checked where it is stored rather than where it is
+     * chosen.
+     */
+    @Test
+    void aCodeOutsideTheListIsRefused() throws Exception {
+        mockMvc.perform(post("/person")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(personJson("bloodType", "MADE_UP")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("blood type")));
+
+        mockMvc.perform(post("/person")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(personJson("gender", "ROBOT")))
+                .andExpect(status().isBadRequest());
+    }
+
+    /**
+     * A code that belongs to a different list is still not a value for this one.
+     */
+    @Test
+    void aCodeFromAnotherCategoryIsRefused() throws Exception {
+        mockMvc.perform(post("/person")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(personJson("gender", "O_POSITIVE")))
+                .andExpect(status().isBadRequest());
+    }
+
+    /**
+     * These fields are optional, so nothing is a real answer. Blank is stored as
+     * nothing rather than as an empty string pretending to be a code.
+     */
+    @Test
+    void aBlankCodeIsAcceptedAndStoredAsNothing() throws Exception {
+        mockMvc.perform(post("/person")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(personJson("gender", "")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.gender").doesNotExist());
+    }
+
+    /**
+     * What the dropdown offers is what the record accepts, and it comes back the
+     * way it went in.
+     */
+    @Test
+    void aCodeFromTheListIsStoredAndReadBack() throws Exception {
+        String body = mockMvc.perform(post("/person")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"firstName":"Budi","lastName":"Santoso","gender":"MALE",
+                                 "maritalStatus":"MARRIED","bloodType":"O_POSITIVE",
+                                 "identityDocumentType":"KTP","identityNumber":"3201234567890001"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.gender").value("MALE"))
+                .andExpect(jsonPath("$.bloodType").value("O_POSITIVE"))
+                .andExpect(jsonPath("$.identityNumber").value("3201234567890001"))
+                .andReturn().getResponse().getContentAsString();
+
+        long id = objectMapper.readTree(body).get("id").asLong();
+
+        mockMvc.perform(get("/person/" + id)
+                        .header("Authorization", "Bearer " + memberToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG))
+                .andExpect(jsonPath("$.maritalStatus").value("MARRIED"))
+                .andExpect(jsonPath("$.identityDocumentType").value("KTP"));
+    }
+
+    /**
+     * Somebody typing into an API client should not have to shout, and the
+     * stored code is the canonical one either way.
+     */
+    @Test
+    void aCodeIsAcceptedInAnyCaseAndStoredAsTheCanonicalOne() throws Exception {
+        mockMvc.perform(post("/person")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(personJson("bloodType", "ab_negative")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.bloodType").value("AB_NEGATIVE"));
+    }
+
+    /**
+     * Editing goes through the same check as creating: a record cannot be
+     * corrupted on the way past the first one.
+     */
+    @Test
+    void anEditIsCheckedTheSameWayAsACreate() throws Exception {
+        String body = mockMvc.perform(post("/person")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(personJson("gender", "FEMALE")))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        long id = objectMapper.readTree(body).get("id").asLong();
+
+        mockMvc.perform(put("/person/" + id)
+                        .header("Authorization", "Bearer " + memberToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(personJson("gender", "NOT_A_GENDER")))
+                .andExpect(status().isBadRequest());
+    }
+
+    /**
+     * A value can be retired, but a record written while it was current still
+     * holds its code. The list keeps the row so a client can still put a label
+     * on it; what it must not do is let anybody choose it again.
+     */
+    @Test
+    void aRetiredValueIsStillReadableButNoLongerAcceptable() throws Exception {
+        String body = mockMvc.perform(post("/person")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(personJson("identityDocumentType", "PASSPORT")))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        long id = objectMapper.readTree(body).get("id").asLong();
+
+        retirePassport();
+
+        // Still listed, still labelled, but flagged rather than silently gone.
+        mockMvc.perform(get("/reference-data/IDENTITY_DOCUMENT")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG))
+                .andExpect(jsonPath("$[?(@.code == 'PASSPORT')].label").value("Passport"))
+                .andExpect(jsonPath("$[?(@.code == 'PASSPORT')].active").value(false));
+
+        // The record it was written into is untouched.
+        mockMvc.perform(get("/person/" + id)
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG))
+                .andExpect(jsonPath("$.identityDocumentType").value("PASSPORT"));
+
+        // But nobody may choose it again.
+        mockMvc.perform(post("/person")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(personJson("identityDocumentType", "PASSPORT")))
+                .andExpect(status().isBadRequest());
     }
 
     /**

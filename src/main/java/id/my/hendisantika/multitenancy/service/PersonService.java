@@ -30,6 +30,8 @@ public class PersonService {
 
     private final PersonRepository personRepository;
 
+    private final ReferenceDataService referenceDataService;
+
     @Transactional(value = "tenantTransactionManager", readOnly = true)
     public Optional<Person> findById(Long id) {
         return personRepository.findById(id);
@@ -53,6 +55,7 @@ public class PersonService {
 
     @Transactional("tenantTransactionManager")
     public Person save(Person person) {
+        normaliseCodes(person);
         return personRepository.save(person);
     }
 
@@ -60,14 +63,34 @@ public class PersonService {
     public Person update(Long id, Person changes) {
         Person person = personRepository.findById(id)
                 .orElseThrow(() -> new TenantRecordNotFoundException("No person with id " + id));
+        normaliseCodes(changes);
         person.setFirstName(changes.getFirstName());
         person.setLastName(changes.getLastName());
         person.setEmail(changes.getEmail());
         person.setMobile(changes.getMobile());
         person.setHomePhone(changes.getHomePhone());
         person.setBirthDate(changes.getBirthDate());
-        person.setSocialSecurityNumber(changes.getSocialSecurityNumber());
+        person.setGender(changes.getGender());
+        person.setMaritalStatus(changes.getMaritalStatus());
+        person.setBloodType(changes.getBloodType());
+        person.setIdentityDocumentType(changes.getIdentityDocumentType());
+        person.setIdentityNumber(changes.getIdentityNumber());
         return person;
+    }
+
+    /**
+     * The four fields the form offers as dropdowns hold codes from the tenant's
+     * own reference lists. The form is a courtesy; this is the rule, because the
+     * same request can be sent without it.
+     */
+    private void normaliseCodes(Person person) {
+        person.setGender(referenceDataService.requireValidCode("GENDER", person.getGender(), "gender"));
+        person.setMaritalStatus(referenceDataService.requireValidCode(
+                "MARITAL_STATUS", person.getMaritalStatus(), "marital status"));
+        person.setBloodType(referenceDataService.requireValidCode(
+                "BLOOD_TYPE", person.getBloodType(), "blood type"));
+        person.setIdentityDocumentType(referenceDataService.requireValidCode(
+                "IDENTITY_DOCUMENT", person.getIdentityDocumentType(), "identity document"));
     }
 
     @Transactional("tenantTransactionManager")

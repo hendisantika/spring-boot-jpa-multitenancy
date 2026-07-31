@@ -102,6 +102,23 @@ export type Page<T> = {
   totalPages: number;
 };
 
+/**
+ * One value from a tenant's own reference lists. `code` is what records store,
+ * `label` is only ever shown.
+ */
+export type ReferenceValue = {
+  id: number;
+  category: string;
+  code: string;
+  label: string;
+  sortOrder: number;
+  active: boolean;
+  systemDefined: boolean;
+};
+
+/** Every list a tenant keeps, keyed by category. */
+export type ReferenceLists = Record<string, ReferenceValue[]>;
+
 /** A person inside a tenant's own database. */
 export type TenantPerson = {
   id: number;
@@ -110,7 +127,21 @@ export type TenantPerson = {
   email: string | null;
   mobile: string | null;
   birthDate: string | null;
+  gender: string | null;
+  maritalStatus: string | null;
+  bloodType: string | null;
+  identityDocumentType: string | null;
+  identityNumber: string | null;
 };
+
+/** The label to show for a stored code, falling back to the code itself. */
+export function referenceLabel(
+  values: ReferenceValue[] | undefined,
+  code: string | null,
+): string | null {
+  if (!code) return null;
+  return values?.find((value) => value.code === code)?.label ?? code;
+}
 
 /**
  * A business unit inside a tenant's own database. The backend calls these

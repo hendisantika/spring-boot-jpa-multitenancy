@@ -37,8 +37,28 @@ public class Person extends BaseEntity {
     @Column(name = "last_name")
     private String lastName;
 
-    @Column(name = "social_security_number")
-    private String socialSecurityNumber;
+    /**
+     * A {@code code} from the {@code GENDER} list in reference_data, not its
+     * label: renaming a label should not rewrite anybody's record.
+     */
+    @Column(name = "gender", length = 40)
+    private String gender;
+
+    /** A {@code code} from {@code MARITAL_STATUS}. */
+    @Column(name = "marital_status", length = 40)
+    private String maritalStatus;
+
+    /** A {@code code} from {@code BLOOD_TYPE}. */
+    @Column(name = "blood_type", length = 40)
+    private String bloodType;
+
+    /** A {@code code} from {@code IDENTITY_DOCUMENT}, saying what the number is. */
+    @Column(name = "identity_document_type", length = 40)
+    private String identityDocumentType;
+
+    /** The number on that document: a KTP, a passport or a KITAS. */
+    @Column(name = "identity_number")
+    private String identityNumber;
 
     @Column(name = "home_phone")
     private String homePhone;

@@ -27,8 +27,26 @@ public class Organization extends BaseEntity {
     @Column(name = "name")
     private String name;
 
+    /**
+     * A {@code code} from the {@code UNIT_TYPE} list in reference_data, not its
+     * label: renaming a label should not rewrite anybody's record.
+     */
+    @Column(name = "unit_type", length = 40)
+    private String unitType;
+
+    /**
+     * A {@code code} from {@code OPERATING_STATUS}. A unit that has closed still
+     * owns its records, so it gets a state rather than a deletion.
+     */
+    @Column(name = "operating_status", length = 40)
+    private String operatingStatus;
+
     @Column(name = "address")
     private String address;
+
+    /** A {@code code} from {@code PROVINCE}; the address itself stays free text. */
+    @Column(name = "province", length = 40)
+    private String province;
 
     @Column(name = "email")
     private String email;

@@ -551,6 +551,32 @@ lowercase `.sql` suffix are required by Flyway's default configuration.
   service in `compose.yaml` creates it; in production create it as part of provisioning.
 * Sample users in `Query.sql` have plain-text passwords — sample data only, not for production.
 
+## Rate limiting
+
+Sign-in and forgot-password are open by necessity, so both are limited.
+
+| Endpoint | Default | Counted |
+|---|---|---|
+| `POST /api/auth/login` | 10 per 5 minutes | **failures only** — a correct password never counts, so nobody is locked out by signing in |
+| `POST /api/auth/password/forgot` | 5 per 15 minutes | every request, because each one sends mail |
+
+Each request is keyed by client address **and** by the email in the body. Either alone leaves a hole: by IP only
+punishes everyone behind one NAT and lets a botnet through, by email only lets a single host work through a list of
+addresses. Refused requests answer `429` with `Retry-After`.
+
+```properties
+application.rate-limit.enabled=true
+application.rate-limit.login.capacity=10
+application.rate-limit.login.window=5m
+application.rate-limit.forgot-password.capacity=5
+application.rate-limit.forgot-password.window=15m
+```
+
+**The counters live in memory**, so each instance allows the configured rate: behind a load balancer this raises the
+cost of guessing rather than capping it across the cluster. Capping it globally needs shared state, which this project
+does not have. Tracked keys are capped and refilled ones are evicted, so spraying unique addresses cannot grow memory
+without bound.
+
 ## Running in production
 
 Every credential in `application.properties` is a development placeholder committed to this repository, so none of them

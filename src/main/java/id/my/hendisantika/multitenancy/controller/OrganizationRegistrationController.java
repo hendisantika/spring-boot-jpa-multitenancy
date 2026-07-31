@@ -139,8 +139,9 @@ public class OrganizationRegistrationController {
     }
 
     /**
-     * Returns the accept link. There is no mail server wired up, so the owner
-     * passes it on; swapping in a mailer changes only this method.
+     * The accept link is returned only when the email did not go out. Once the
+     * recipient's mailbox has it, the owner has no reason to hold a credential
+     * that would let them accept on that person's behalf.
      */
     @PostMapping("/{slug}/invitations")
     public ResponseEntity<CreatedInvitationView> invite(@PathVariable String slug,
@@ -154,7 +155,8 @@ public class OrganizationRegistrationController {
                 created.invitation().getEmail(),
                 created.invitation().getRole(),
                 created.invitation().getExpiresAt(),
-                created.acceptUrl()));
+                created.delivered(),
+                created.delivered() ? null : created.acceptUrl()));
     }
 
     @DeleteMapping("/{slug}/invitations/{invitationId}")
@@ -230,10 +232,10 @@ public class OrganizationRegistrationController {
     }
 
     /**
-     * acceptUrl is returned once, at creation: the token is stored only as a
-     * hash and cannot be read back.
+     * acceptUrl is present only when emailed is false, and even then it exists
+     * once: the token is stored as a hash and cannot be read back.
      */
     public record CreatedInvitationView(
-            Long id, String email, TenantRole role, Instant expiresAt, String acceptUrl) {
+            Long id, String email, TenantRole role, Instant expiresAt, boolean emailed, String acceptUrl) {
     }
 }

@@ -129,6 +129,19 @@ class InvitationServiceTest {
         }
     }
 
+    /**
+     * With no Brevo key configured the link is not delivered, which is what tells
+     * the caller to hand it over instead.
+     */
+    @Test
+    void reportsWhetherTheLinkWasEmailed() {
+        InvitationService.CreatedInvitation created =
+                invitationService.invite(SLUG, INVITEE_EMAIL, TenantRole.MEMBER, owner);
+
+        assertThat(created.delivered()).isFalse();
+        assertThat(created.acceptUrl()).contains(created.token());
+    }
+
     @Test
     void acceptingCreatesTheAccountWithAPasswordTheOwnerNeverSees() {
         InvitationService.CreatedInvitation created =

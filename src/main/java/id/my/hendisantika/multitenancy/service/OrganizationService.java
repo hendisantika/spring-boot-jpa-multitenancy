@@ -39,14 +39,37 @@ public class OrganizationService {
     }
 
     /**
-     * Same rules as the people list, from the same place, so the two screens
-     * cannot drift apart in how they clamp or how they escape.
+     * No code can equal this, so an {@code in} clause with it is false rather
+     * than the invalid SQL an empty collection would produce.
+     */
+    private static final List<String> NOTHING = List.of("");
+
+    /**
+     * Same paging rules as the people list, from the same place, so the two
+     * screens cannot drift apart in how they clamp or how they escape.
+     * <p>
+     * The search reaches the coded fields as well as the free-text ones, by
+     * resolving what was typed to codes first: somebody looking for the Bali
+     * branch types "Bali", not {@code BALI}.
      */
     @Transactional(value = "tenantTransactionManager", readOnly = true)
     public Page<Organization> findPage(String query, Integer page, Integer size) {
         Pageable pageable = TenantListing.pageRequest(page, size);
         String term = TenantListing.searchTerm(query);
-        return term == null ? organizationRepository.findAll(pageable) : organizationRepository.search(term, pageable);
+        if (term == null) {
+            return organizationRepository.findAll(pageable);
+        }
+        return organizationRepository.search(
+                term,
+                codesFor("UNIT_TYPE", query),
+                codesFor("OPERATING_STATUS", query),
+                codesFor("PROVINCE", query),
+                pageable);
+    }
+
+    private List<String> codesFor(String category, String query) {
+        List<String> codes = referenceDataService.codesMatching(category, query);
+        return codes.isEmpty() ? NOTHING : codes;
     }
 
     @Transactional("tenantTransactionManager")

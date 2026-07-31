@@ -227,6 +227,129 @@ class UnitListingTest {
                 .andExpect(jsonPath("$.totalElements").value(2));
     }
 
+    private void createCodedUnit(String name, String unitType, String status, String province) throws Exception {
+        Map<String, String> unit = new LinkedHashMap<>();
+        unit.put("name", name);
+        unit.put("unitType", unitType);
+        unit.put("operatingStatus", status);
+        unit.put("province", province);
+        mockMvc.perform(withTenant(post("/organization"), ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(unit)))
+                .andExpect(status().isCreated());
+    }
+
+    /**
+     * The record stores BRANCH_CLINIC and DKI_JAKARTA. Nobody types that, so the
+     * search has to reach the label a clinic actually reads.
+     */
+    @Test
+    void aSearchReachesTheCodedFieldsByTheirLabel() throws Exception {
+        createCodedUnit("Satu", "MAIN_CLINIC", "OPEN", "DKI_JAKARTA");
+        createCodedUnit("Dua", "BRANCH_CLINIC", "TEMPORARILY_CLOSED", "BALI");
+        createCodedUnit("Tiga", "PHARMACY", "OPEN", "JAWA_BARAT");
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("q", "Bali"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Dua"));
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("q", "branch clinic"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Dua"));
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("q", "pharmacy"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Tiga"));
+
+        // Case does not matter, here as everywhere else.
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("q", "JAWA BARAT"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    /**
+     * A label matches by substring, so one word can pick out a whole group.
+     */
+    @Test
+    void aPartialLabelMatchesEveryUnitThatShareIt() throws Exception {
+        createCodedUnit("Satu", "MAIN_CLINIC", "OPEN", "DKI_JAKARTA");
+        createCodedUnit("Dua", "BRANCH_CLINIC", "OPEN", "BALI");
+        createCodedUnit("Tiga", "PHARMACY", "OPEN", "BALI");
+
+        // "clinic" is in both Main clinic and Branch clinic.
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("q", "clinic"))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("q", "open"))
+                .andExpect(jsonPath("$.totalElements").value(3));
+    }
+
+    /**
+     * The search is over labels, which are what a person reads. The stored code
+     * is never shown, so nobody is searching for one, and matching it would
+     * make a typed underscore behave unlike everywhere else.
+     */
+    @Test
+    void theStoredCodeIsNotWhatIsSearched() throws Exception {
+        createCodedUnit("Dua", "BRANCH_CLINIC", "OPEN", "BALI");
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("q", "BRANCH_CLINIC"))
+                .andExpect(jsonPath("$.totalElements").value(0));
+
+        // The label it stands for does find it.
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("q", "Branch clinic"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    /**
+     * A term that matches no label must not quietly match everything, which is
+     * what an empty {@code in} clause would do if it were written carelessly.
+     */
+    @Test
+    void aTermMatchingNoLabelStillFindsNothing() throws Exception {
+        createCodedUnit("Satu", "MAIN_CLINIC", "OPEN", "DKI_JAKARTA");
+        createCodedUnit("Dua", "BRANCH_CLINIC", "OPEN", "BALI");
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("q", "zzz"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    /**
+     * A unit with nothing coded is found by its name as before, and is not swept
+     * up by a search for a label it does not carry.
+     */
+    @Test
+    void aUnitWithNoCodesIsUnaffected() throws Exception {
+        createUnit("Cabang Polos", "Jalan Kosong", "polos@probe.test");
+        createCodedUnit("Cabang Bali", "BRANCH_CLINIC", "OPEN", "BALI");
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("q", "polos"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Cabang Polos"));
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("q", "Bali"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Cabang Bali"));
+    }
+
+    /**
+     * A wildcard is still a character somebody typed, not an instruction — the
+     * label side matches in Java, so it never had any to honour.
+     */
+    @Test
+    void wildcardsStayLiteralAcrossBothSidesOfTheSearch() throws Exception {
+        createCodedUnit("Cabang Bali", "BRANCH_CLINIC", "OPEN", "BALI");
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("q", "%"))
+                .andExpect(jsonPath("$.totalElements").value(0));
+
+        // The trap this caught: codes contain underscores, so matching them
+        // would have made a bare "_" find every unit with a two-word code.
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("q", "_"))
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
     @Test
     void aBlankSearchIsEverything() throws Exception {
         createUnits(4);

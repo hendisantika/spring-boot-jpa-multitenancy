@@ -2,17 +2,28 @@ import Link from "next/link";
 
 import { ApiError, api } from "@/lib/api";
 import { getMemberships } from "@/lib/session";
-import { ORG_STRUCTURES, PRACTICE_SPECIALITIES, labelOf, type Organization } from "@/lib/types";
+import {
+  ORG_STRUCTURES,
+  PRACTICE_SPECIALITIES,
+  labelOf,
+  type Account,
+  type Organization,
+} from "@/lib/types";
+import { VerifyEmailBanner } from "./VerifyEmailBanner";
 import { Alert, Badge, Card, PageHeading } from "@/components/ui";
 
 export const metadata = { title: "Your organizations" };
 
 export default async function DashboardPage() {
   let organizations: Organization[] = [];
+  let account: Account | null = null;
   let error: string | null = null;
 
   try {
-    organizations = await api<Organization[]>("/api/organizations");
+    [organizations, account] = await Promise.all([
+      api<Organization[]>("/api/organizations"),
+      api<Account>("/api/auth/me"),
+    ]);
   } catch (e) {
     error = e instanceof ApiError ? e.message : "Cannot reach the API.";
   }
@@ -20,6 +31,8 @@ export default async function DashboardPage() {
 
   return (
     <>
+      {account && !account.emailVerified ? <VerifyEmailBanner email={account.email} /> : null}
+
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PageHeading
           title="Your organizations"

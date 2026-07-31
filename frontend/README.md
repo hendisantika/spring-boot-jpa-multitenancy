@@ -33,6 +33,7 @@ bun run lint
 | `/invitations/[token]`  | Open: accept an invitation, choosing your own password                   |
 | `/forgot-password`      | Ask for a reset link                                                     |
 | `/reset-password/[token]` | Open: choose a new password                                            |
+| `/verify-email/[token]` | Open: confirm an email address                                           |
 
 ## How it is put together
 

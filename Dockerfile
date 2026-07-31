@@ -26,6 +26,11 @@ FROM eclipse-temurin:25-jre
 
 WORKDIR /app
 
+# curl is only here for HEALTHCHECK; the base image ships neither it nor wget.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
 # Runs unprivileged: nothing here needs root.
 RUN groupadd --system --gid 1001 app \
     && useradd --system --uid 1001 --gid app --home /app app
@@ -41,5 +46,14 @@ EXPOSE 8080
 
 # Leaves heap sizing to the container limits rather than a fixed value.
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0"
+
+# The overall health group, not /health/readiness: the default readiness group
+# contains only readinessState and stays UP with the database unreachable, which
+# was confirmed by pulling the network from a running container. The overall
+# group includes the database, so "healthy" means the application can really
+# serve. start-period covers boot and the Flyway migrations and is not counted
+# as failure time.
+HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=3 \
+    CMD curl -fsS http://localhost:8080/actuator/health || exit 1
 
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]

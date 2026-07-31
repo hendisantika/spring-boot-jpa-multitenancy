@@ -51,6 +51,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
         </dependency>
+        <!--Health endpoint the container HEALTHCHECK and orchestrators probe-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
         <!--Photo storage on any S3 compatible endpoint (AWS S3, MinIO)-->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>

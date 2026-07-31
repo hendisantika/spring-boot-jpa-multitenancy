@@ -59,6 +59,11 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST,
                                 "/api/auth/signup", "/api/auth/login", "/api/auth/refresh").permitAll()
+                        // The container HEALTHCHECK and any orchestrator probe this
+                        // without credentials. Details stay hidden unless authorized,
+                        // so it only ever reveals UP or DOWN.
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        // Every other actuator endpoint stays behind a token.
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> {
                 }))

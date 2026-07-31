@@ -195,6 +195,28 @@ does not have; CI is what runs them.
 
 Heap is left to the container limit via `-XX:MaxRAMPercentage=75.0`; override `JAVA_OPTS` to change it.
 
+### Health
+
+Actuator exposes exactly one endpoint, and it needs no token because the container `HEALTHCHECK` and any orchestrator
+probe it anonymously:
+
+```bash
+curl http://localhost:8080/actuator/health              # {"status":"UP"}
+curl http://localhost:8080/actuator/health/liveness     # process is alive
+curl http://localhost:8080/actuator/health/readiness    # accepting traffic
+```
+
+Details are hidden unless the caller is authorized, so an anonymous probe learns `UP` or `DOWN` and nothing about the
+database behind it. Every other actuator endpoint is unexposed.
+
+The container `HEALTHCHECK` deliberately probes `/actuator/health` rather than `/actuator/health/readiness`: the default
+readiness group contains only `readinessState` and **stays `UP` with the database unreachable**, while the overall group
+includes the database. Confirmed by pulling the network from a running container — the overall status flipped to `DOWN`
+and Docker reported the container `unhealthy`, while readiness still claimed `UP`.
+
+For Kubernetes, use `/actuator/health/liveness` and `/actuator/health/readiness` instead: tying readiness to the
+database means every pod goes unready together during a database blip.
+
 ## Setup
 
 ### 1. Configure the datasource

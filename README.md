@@ -442,17 +442,24 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `GET`  | `/organization/{id}` | bearer + membership | Organization by id, from the tenant's database |
 | `GET`  | `/person/{id}`       | bearer + membership | Person by id, from the tenant's database       |
 | `GET`  | `/person`            | bearer + membership | A **page** of people; see below                |
+| `GET`  | `/organization`      | bearer + membership | A **page** of business units; see below        |
 
-### Listing people
+### Paged lists
 
-`GET /person` is paged rather than whole. A tenant's list of people only grows, and an endpoint that returns all of it
-is one nobody can withdraw later.
+`GET /person` and `GET /organization` are paged rather than whole. A tenant's data only grows, and an endpoint that
+returns all of it is one nobody can withdraw later. Both take the same three parameters and answer in the same shape,
+from the same code (`TenantListing`), so the two cannot drift apart.
 
-| Parameter | Default | Meaning                                                             |
-|-----------|---------|---------------------------------------------------------------------|
-| `q`       | —       | Matched against first name, last name, the two joined, email, mobile |
-| `page`    | `0`     | Zero based; past the end is an empty page, not an error              |
-| `size`    | `20`    | Clamped to 1–200, so one request cannot ask for the lot              |
+| Parameter | Default | Meaning                                                  |
+|-----------|---------|-----------------------------------------------------------|
+| `q`       | —       | See the table below; blank means everything                |
+| `page`    | `0`     | Zero based; past the end is an empty page, not an error    |
+| `size`    | `20`    | Clamped to 1–200, so one request cannot ask for the lot    |
+
+| Endpoint         | `q` is matched against                                     |
+|------------------|-------------------------------------------------------------|
+| `/person`        | First name, last name, the two joined, email, mobile         |
+| `/organization`  | Name, address, email                                         |
 
 ```bash
 curl -H 'X-Tenant: sehat' -H "Authorization: Bearer $TOKEN" \
@@ -463,9 +470,12 @@ curl -H 'X-Tenant: sehat' -H "Authorization: Bearer $TOKEN" \
 { "content": [ ... ], "page": 0, "size": 10, "totalElements": 23, "totalPages": 3 }
 ```
 
-The search is case-insensitive and matches anywhere in the value. Because the first and last name are also matched
-joined, typing a whole name finds the person; `%` and `_` are escaped, so a name containing one is found rather than
-matching everybody. Results are ordered by id, which is what makes the next page different from this one.
+The search is case-insensitive and matches anywhere in the value. For people the first and last name are also matched
+joined, so typing a whole name finds the person. `%` and `_` are escaped, so a value containing one is found rather
+than matching everything. Results are ordered by id, which is what makes the next page different from this one.
+
+Searching follows reading, not writing: a `MEMBER` may narrow the business units even though only an `OWNER` may
+change them, because a list you cannot narrow is a list you cannot use.
 
 The tenant comes from the **host name** — the first label under `application.tenant.base-domain`. A request to the apex
 domain or to `localhost` carries no tenant and reads the central database.

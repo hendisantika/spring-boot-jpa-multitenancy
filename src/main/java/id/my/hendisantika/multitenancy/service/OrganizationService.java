@@ -3,6 +3,8 @@ package id.my.hendisantika.multitenancy.service;
 import id.my.hendisantika.multitenancy.entity.tenant.Organization;
 import id.my.hendisantika.multitenancy.repository.tenant.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,7 +33,18 @@ public class OrganizationService {
 
     @Transactional(value = "tenantTransactionManager", readOnly = true)
     public List<Organization> findAll() {
-        return organizationRepository.findAll();
+        return organizationRepository.findAll(TenantListing.ORDER);
+    }
+
+    /**
+     * Same rules as the people list, from the same place, so the two screens
+     * cannot drift apart in how they clamp or how they escape.
+     */
+    @Transactional(value = "tenantTransactionManager", readOnly = true)
+    public Page<Organization> findPage(String query, Integer page, Integer size) {
+        Pageable pageable = TenantListing.pageRequest(page, size);
+        String term = TenantListing.searchTerm(query);
+        return term == null ? organizationRepository.findAll(pageable) : organizationRepository.search(term, pageable);
     }
 
     @Transactional("tenantTransactionManager")

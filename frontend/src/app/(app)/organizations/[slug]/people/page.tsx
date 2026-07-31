@@ -1,31 +1,23 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { Pager } from "./Pager";
-import { PeopleSearch } from "./PeopleSearch";
 import { PersonForm } from "./PersonForm";
 import { deletePerson } from "@/app/actions/tenant-data";
 import { ApiError, api } from "@/lib/api";
+import { PAGE_SIZE, firstValue, listingQuery, listingUrl } from "@/lib/listing";
 import { getRole } from "@/lib/session";
 import type { Page, TenantPerson } from "@/lib/types";
+import { Pager } from "@/components/Pager";
+import { SearchBox } from "@/components/SearchBox";
 import { Alert, Badge, Card, PageHeading } from "@/components/ui";
 
 export const metadata = { title: "People" };
 
-const PAGE_SIZE = 10;
-
 const EMPTY: Page<TenantPerson> = { content: [], page: 0, size: PAGE_SIZE, totalElements: 0, totalPages: 0 };
-
-function first(value: string | string[] | undefined): string {
-  return typeof value === "string" ? value : "";
-}
 
 /**
  * This is the tenant's own data, read through its own database rather than the
  * central one, so every call carries the tenant.
- *
- * The search and the page live in the URL rather than in state, which is what
- * lets a link to page 3 of "santoso" still mean that when it is opened again.
  */
 export default async function PeoplePage({ params, searchParams }: PageProps<"/organizations/[slug]/people">) {
   const { slug } = await params;
@@ -41,45 +33,26 @@ export default async function PeoplePage({ params, searchParams }: PageProps<"/o
     );
   }
 
-  const query = first(q).trim();
-  const requested = Math.max(0, Number(first(page)) || 0);
-
-  const search = new URLSearchParams({ page: String(requested), size: String(PAGE_SIZE) });
-  if (query) search.set("q", query);
+  const base = `/organizations/${slug}/people`;
+  const query = firstValue(q).trim();
+  const requested = Math.max(0, Number(firstValue(page)) || 0);
 
   let people = EMPTY;
   let error: string | null = null;
 
   try {
-    people = await api<Page<TenantPerson>>(`/person?${search}`, { tenant: slug });
+    people = await api<Page<TenantPerson>>(`/person?${listingQuery(query, requested)}`, { tenant: slug });
   } catch (e) {
     error = e instanceof ApiError ? e.message : "Cannot reach the API.";
   }
 
-  const pageUrl = (target: number) => {
-    const params = new URLSearchParams();
-    if (query) params.set("q", query);
-    if (target > 0) params.set("page", String(target));
-    const suffix = params.toString();
-    return `/organizations/${slug}/people${suffix ? `?${suffix}` : ""}`;
-  };
-
   // Deleting the last row of the last page leaves you standing past the end.
   if (people.totalElements > 0 && people.content.length === 0 && requested >= people.totalPages) {
-    redirect(pageUrl(people.totalPages - 1));
+    redirect(listingUrl(base, query, people.totalPages - 1));
   }
 
-  /** Every link back into this screen keeps whatever the search and page are. */
-  const urlFor = (extra: Record<string, string> = {}) => {
-    const target = new URLSearchParams();
-    if (query) target.set("q", query);
-    if (people.page > 0) target.set("page", String(people.page));
-    for (const [key, value] of Object.entries(extra)) target.set(key, value);
-    const suffix = target.toString();
-    return `/organizations/${slug}/people${suffix ? `?${suffix}` : ""}`;
-  };
-
-  const editingId = Number(first(edit));
+  const here = (extra?: Record<string, string>) => listingUrl(base, query, people.page, extra);
+  const editingId = Number(firstValue(edit));
   const editing = people.content.find((person) => person.id === editingId) ?? null;
 
   return (
@@ -106,7 +79,12 @@ export default async function PeoplePage({ params, searchParams }: PageProps<"/o
           </div>
 
           <div className="mb-4">
-            <PeopleSearch slug={slug} query={query} />
+            <SearchBox
+              action={base}
+              query={query}
+              placeholder="Search name, email or mobile"
+              label="Search people"
+            />
           </div>
 
           <ul className="divide-y divide-line">
@@ -122,7 +100,7 @@ export default async function PeoplePage({ params, searchParams }: PageProps<"/o
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <Link
-                    href={urlFor({ edit: String(person.id) })}
+                    href={here({ edit: String(person.id) })}
                     className="rounded-md px-2 py-1 text-xs text-ink-muted transition hover:bg-surface-muted hover:text-ink"
                   >
                     Edit
@@ -151,7 +129,7 @@ export default async function PeoplePage({ params, searchParams }: PageProps<"/o
           </ul>
 
           <Pager
-            href={pageUrl}
+            href={(target) => listingUrl(base, query, target)}
             page={people.page}
             size={people.size}
             totalElements={people.totalElements}
@@ -161,7 +139,7 @@ export default async function PeoplePage({ params, searchParams }: PageProps<"/o
 
         <Card className="p-6">
           <h2 className="mb-4 font-semibold text-ink">{editing ? "Edit person" : "Add someone"}</h2>
-          <PersonForm slug={slug} editing={editing} backTo={urlFor()} />
+          <PersonForm slug={slug} editing={editing} backTo={here()} />
         </Card>
       </div>
     </>

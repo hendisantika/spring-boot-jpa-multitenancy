@@ -8,7 +8,16 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { Alert, Field, Input } from "@/components/ui";
 import type { FormState, TenantPerson } from "@/lib/types";
 
-export function PersonForm({ slug, editing }: { slug: string; editing: TenantPerson | null }) {
+export function PersonForm({
+  slug,
+  editing,
+  backTo,
+}: {
+  slug: string;
+  editing: TenantPerson | null;
+  /** Where saving and cancelling land, so a search and a page survive both. */
+  backTo: string;
+}) {
   const [state, action] = useActionState<FormState, FormData>(savePerson, {});
   // What was submitted wins over what was loaded, so a rejected form keeps edits.
   const value = (field: keyof TenantPerson) =>
@@ -18,6 +27,7 @@ export function PersonForm({ slug, editing }: { slug: string; editing: TenantPer
     // The key resets the uncontrolled inputs when switching between rows.
     <form action={action} className="space-y-4" key={editing?.id ?? "new"}>
       <input type="hidden" name="slug" value={slug} />
+      <input type="hidden" name="backTo" value={backTo} />
       {editing ? <input type="hidden" name="id" value={editing.id} /> : null}
 
       {state.error ? <Alert>{state.error}</Alert> : null}
@@ -47,7 +57,7 @@ export function PersonForm({ slug, editing }: { slug: string; editing: TenantPer
       <div className="flex items-center justify-end gap-3 border-t border-line pt-4">
         {editing ? (
           <Link
-            href={`/organizations/${slug}/people`}
+            href={backTo}
             className="rounded-lg border border-line px-4 py-2 text-sm text-ink transition hover:bg-surface-muted"
           >
             Cancel

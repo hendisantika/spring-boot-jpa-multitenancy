@@ -13,9 +13,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 /**
  * People inside whichever tenant the request resolved to.
@@ -45,10 +44,20 @@ public class PersonController {
         return personService.findById(id).orElse(null);
     }
 
+    /**
+     * Paged rather than whole: a tenant's list of people only grows, and a
+     * request that returns all of it is one nobody can withdraw later.
+     *
+     * @param q    matched against the names, email and mobile; blank means everybody
+     * @param page zero based
+     * @param size clamped, so a client cannot ask for the lot in one go
+     */
     @GetMapping("/person")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
-    public List<Person> listPeople() {
-        return personService.findAll();
+    public PageResponse<Person> listPeople(@RequestParam(name = "q", required = false) String q,
+                                           @RequestParam(name = "page", required = false) Integer page,
+                                           @RequestParam(name = "size", required = false) Integer size) {
+        return PageResponse.of(personService.findPage(q, page, size));
     }
 
     @PostMapping("/person")

@@ -21,6 +21,16 @@ function messageOf(error: unknown): string {
   return "Something went wrong. Please try again.";
 }
 
+/**
+ * Where to land after saving. It arrives as a form field, so it is checked
+ * against the screen it claims to belong to rather than trusted: a redirect
+ * target a page can choose is a redirect an attacker can choose.
+ */
+function backTo(formData: FormData, fallback: string): string {
+  const target = String(formData.get("backTo") ?? "");
+  return target === fallback || target.startsWith(`${fallback}?`) ? target : fallback;
+}
+
 function personFrom(formData: FormData) {
   return {
     firstName: String(formData.get("firstName") ?? "").trim(),
@@ -48,7 +58,7 @@ export async function savePerson(_prev: FormState, formData: FormData): Promise<
   }
 
   revalidatePath(`/organizations/${slug}/people`);
-  redirect(`/organizations/${slug}/people`);
+  redirect(backTo(formData, `/organizations/${slug}/people`));
 }
 
 export async function deletePerson(formData: FormData) {

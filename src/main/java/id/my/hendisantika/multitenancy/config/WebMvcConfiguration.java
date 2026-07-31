@@ -1,8 +1,13 @@
 package id.my.hendisantika.multitenancy.config;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
+import tools.jackson.databind.ObjectMapper;
+
+import java.time.Clock;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -24,6 +29,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebMvcConfiguration implements WebMvcConfigurer {
 
     private final TenantProperties tenantProperties;
+    private final RateLimitProperties rateLimitProperties;
 
     @Bean
     public TenantSubdomainInterceptor tenantSubdomainInterceptor() {
@@ -35,8 +41,36 @@ public class WebMvcConfiguration implements WebMvcConfigurer {
         return new TenantAccessInterceptor();
     }
 
+    /**
+     * Runs before the interceptors, because the address it extracts is what they
+     * key on.
+     */
+    @Bean
+    public FilterRegistrationBean<RateLimitBodyFilter> rateLimitBodyFilter(ObjectMapper objectMapper) {
+        FilterRegistrationBean<RateLimitBodyFilter> registration =
+                new FilterRegistrationBean<>(new RateLimitBodyFilter(objectMapper));
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return registration;
+    }
+
+    private RateLimiter limiterFor(RateLimitProperties.Limit limit) {
+        return new RateLimiter(limit.getCapacity(), limit.getWindow(),
+                rateLimitProperties.getMaxKeys(), Clock.systemUTC());
+    }
+
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        if (rateLimitProperties.isEnabled()) {
+            // Only failed sign-ins count, so the right password never locks anyone out.
+            registry.addInterceptor(new RateLimitInterceptor(
+                            limiterFor(rateLimitProperties.getLogin()), "login", true))
+                    .addPathPatterns("/api/auth/login");
+            // Every request costs here, because each one sends mail.
+            registry.addInterceptor(new RateLimitInterceptor(
+                            limiterFor(rateLimitProperties.getForgotPassword()), "forgot-password", false))
+                    .addPathPatterns("/api/auth/password/forgot");
+        }
+
         registry.addInterceptor(tenantSubdomainInterceptor()).addPathPatterns("/**");
         registry.addInterceptor(tenantAccessInterceptor())
                 .addPathPatterns("/**")

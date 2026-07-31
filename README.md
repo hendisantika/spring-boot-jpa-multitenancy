@@ -361,6 +361,26 @@ trip. Registering an organization makes the caller its `OWNER`; that membership 
 again (or call `/api/auth/refresh`) after creating one. Refresh tokens carry no memberships — they are read fresh from
 the database on every refresh, so a grant or revocation takes effect then.
 
+### Resetting a password
+
+```bash
+curl -X POST http://localhost:8080/api/auth/password/forgot \
+  -H 'Content-Type: application/json' -d '{"email":"owner@example.com"}'
+```
+
+The answer is the same whether or not the address has an account, so the endpoint cannot be used to find out who is
+registered. When it does exist, a link is emailed; with delivery off, `resetUrl` comes back instead.
+
+| Property | Behaviour |
+|---|---|
+| Storage | Only a SHA-256 of the token is kept |
+| Lifetime | `application.password-reset.ttl`, 1 hour by default: shorter than an invitation, since it is a way into an existing account |
+| Reuse | Single use, and asking again invalidates the earlier link |
+| After a reset | **Refresh tokens issued before it stop working**, so resetting a stolen password does not leave a fortnight of access |
+
+Access tokens are not revoked, since nothing checks them against the database; they expire on their own within
+`application.jwt.access-token-ttl`, 30 minutes by default. That window is the trade for stateless authentication.
+
 ## API
 
 | Method | Endpoint             | Auth        | Description                                      |
@@ -368,6 +388,9 @@ the database on every refresh, so a grant or revocation takes effect then.
 | `POST` | `/api/auth/signup`   | open        | Register an owner: email, phone, password, photo  |
 | `POST` | `/api/auth/login`    | open        | Exchange credentials for a token pair             |
 | `POST` | `/api/auth/refresh`  | open        | Exchange a refresh token for a new pair           |
+| `POST` | `/api/auth/password/forgot` | open | Ask for a reset link                            |
+| `GET`  | `/api/auth/password/reset/{token}` | open | Whose account the link belongs to        |
+| `POST` | `/api/auth/password/reset/{token}` | open | Set a new password                       |
 | `GET`  | `/api/auth/me`       | bearer      | The signed-in account                             |
 | `GET`  | `/api/organizations` | bearer      | Organizations the caller belongs to               |
 | `POST` | `/api/organizations` | bearer      | Register an organization; caller becomes `OWNER`  |

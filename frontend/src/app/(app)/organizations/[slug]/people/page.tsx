@@ -1,0 +1,112 @@
+import Link from "next/link";
+
+import { PersonForm } from "./PersonForm";
+import { deletePerson } from "@/app/actions/tenant-data";
+import { ApiError, api } from "@/lib/api";
+import { getRole } from "@/lib/session";
+import type { TenantPerson } from "@/lib/types";
+import { Alert, Badge, Card, PageHeading } from "@/components/ui";
+
+export const metadata = { title: "People" };
+
+/**
+ * This is the tenant's own data, read through its own database rather than the
+ * central one, so every call carries the tenant.
+ */
+export default async function PeoplePage({ params, searchParams }: PageProps<"/organizations/[slug]/people">) {
+  const { slug } = await params;
+  const { edit } = await searchParams;
+  const role = await getRole(slug);
+
+  if (!role) {
+    return (
+      <>
+        <PageHeading title="People" />
+        <Alert>You are not a member of this organization.</Alert>
+      </>
+    );
+  }
+
+  let people: TenantPerson[] = [];
+  let error: string | null = null;
+
+  try {
+    people = await api<TenantPerson[]>("/person", { tenant: slug });
+  } catch (e) {
+    error = e instanceof ApiError ? e.message : "Cannot reach the API.";
+  }
+
+  const editingId = typeof edit === "string" ? Number(edit) : null;
+  const editing = people.find((person) => person.id === editingId) ?? null;
+
+  return (
+    <>
+      <Link href={`/organizations/${slug}`} className="mb-4 inline-block text-sm text-ink-muted hover:text-ink">
+        ← Back
+      </Link>
+
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <PageHeading
+          title="People"
+          description={`In the ${slug} database. Members can add and edit; only the owner can delete.`}
+        />
+        <Badge tone={role === "OWNER" ? "brand" : "muted"}>You are {role}</Badge>
+      </div>
+
+      {error ? <Alert>{error}</Alert> : null}
+
+      <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+        <Card className="p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="font-semibold text-ink">Everyone</h2>
+            <span className="text-sm text-ink-muted">{people.length}</span>
+          </div>
+
+          <ul className="divide-y divide-line">
+            {people.map((person) => (
+              <li key={person.id} className="flex items-center justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm text-ink">
+                    {[person.firstName, person.lastName].filter(Boolean).join(" ") || "—"}
+                  </p>
+                  <p className="truncate text-xs text-ink-muted">
+                    {[person.email, person.mobile].filter(Boolean).join(" · ") || "No contact details"}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Link
+                    href={`/organizations/${slug}/people?edit=${person.id}`}
+                    className="rounded-md px-2 py-1 text-xs text-ink-muted transition hover:bg-surface-muted hover:text-ink"
+                  >
+                    Edit
+                  </Link>
+                  {/* Offered only to an owner, because the API refuses it for anyone else. */}
+                  {role === "OWNER" ? (
+                    <form action={deletePerson}>
+                      <input type="hidden" name="slug" value={slug} />
+                      <input type="hidden" name="id" value={person.id} />
+                      <button
+                        type="submit"
+                        className="rounded-md px-2 py-1 text-xs text-ink-muted transition hover:bg-danger/10 hover:text-danger"
+                      >
+                        Delete
+                      </button>
+                    </form>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+            {people.length === 0 && !error ? (
+              <li className="py-3 text-sm text-ink-muted">Nobody yet.</li>
+            ) : null}
+          </ul>
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="mb-4 font-semibold text-ink">{editing ? "Edit person" : "Add someone"}</h2>
+          <PersonForm slug={slug} editing={editing} />
+        </Card>
+      </div>
+    </>
+  );
+}

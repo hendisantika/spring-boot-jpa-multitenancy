@@ -577,6 +577,10 @@ organizations are closer to the shape of the business than to its daily work, so
 Roles are **per tenant**: owning one organization buys nothing in another, and a request that resolves to no tenant at
 all cannot write, so nothing lands in the central database by accident.
 
+The frontend follows the same table at `/organizations/[slug]/people` and `/organizations/[slug]/units`: a member sees
+no `Delete`, and is told plainly that units are the owner's to change. That is courtesy, not security — the API refuses
+those calls regardless of what the page offers.
+
 ## Rate limiting
 
 Sign-in and forgot-password are open by necessity, so both are limited.

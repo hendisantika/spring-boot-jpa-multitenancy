@@ -92,3 +92,25 @@ export type InvitationPreview = {
   accountExists: boolean;
   expiresAt: string;
 };
+
+/** A person inside a tenant's own database. */
+export type TenantPerson = {
+  id: number;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  mobile: string | null;
+  birthDate: string | null;
+};
+
+/**
+ * A business unit inside a tenant's own database. The backend calls these
+ * organizations, which collides with the organization that owns the tenant, so
+ * the UI does not.
+ */
+export type TenantUnit = {
+  id: number;
+  name: string | null;
+  address: string | null;
+  email: string | null;
+};

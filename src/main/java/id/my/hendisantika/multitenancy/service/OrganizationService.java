@@ -60,7 +60,8 @@ public class OrganizationService {
                 referenceDataService.codesForSearch("PROVINCE", query),
                 filter.unitType(),
                 filter.operatingStatus(),
-                filter.province(),
+                filter.anyProvince(),
+                TenantListing.orNothing(filter.provinces()),
                 pageable);
     }
 

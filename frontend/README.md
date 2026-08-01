@@ -65,10 +65,15 @@ are one plain GET form — one rather than several, because applying a filter mu
 box — and it works before any JavaScript loads. There is an **Apply** button rather than a submit-on-change, so several
 filters can be set before the page reloads once.
 
+**Province takes several at once**, as checkboxes sharing one name — which is how HTML has always submitted a repeated
+parameter, so it still needs no JavaScript. They are folded into a `<details>` whose summary says how many are chosen,
+because 38 provinces would otherwise own the page. A `<select multiple>` would have been shorter to write, but
+choosing several from one means knowing to hold a modifier key, and clicking without it silently throws the rest away.
+
 All of it survives an edit: saving lands you back on the same search, filters and page, and deleting the last row of
 the last page steps back rather than leaving you staring past the end. The screens share one `ListingControls`, one
-`ReferenceSelect`, one `Pager` and one set of URL rules (`lib/listing.ts`), so they cannot behave differently for no
-reason.
+`ReferenceSelect`, one `ReferenceCheckboxes`, one `Pager` and one set of URL rules (`lib/listing.ts`), so they cannot
+behave differently for no reason.
 
 Searching follows reading rather than writing: on the units screen a `MEMBER` gets the search box but not the form,
 because a list you cannot narrow is a list you cannot use.

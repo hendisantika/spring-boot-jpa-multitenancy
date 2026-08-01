@@ -36,6 +36,10 @@ public interface OrganizationRepository extends JpaRepository<Organization, Long
      * <p>
      * A collection is never empty: the caller passes a sentinel that no code can
      * equal, so the clause is simply false rather than invalid SQL.
+     * <p>
+     * Province filters on several values at once, so it is switched off by its
+     * own flag rather than by a null. Within it the values mean either; against
+     * the other filters they still mean both.
      */
     @Query("""
             select o from Organization o
@@ -47,7 +51,7 @@ public interface OrganizationRepository extends JpaRepository<Organization, Long
                 or o.province in :provinces)
               and (:unitTypeIs is null or o.unitType = :unitTypeIs)
               and (:operatingStatusIs is null or o.operatingStatus = :operatingStatusIs)
-              and (:provinceIs is null or o.province = :provinceIs)
+              and (:anyProvince = true or o.province in :provinceIn)
             """)
     Page<Organization> search(@Param("term") String term,
                               @Param("unitTypes") Collection<String> unitTypes,
@@ -55,6 +59,7 @@ public interface OrganizationRepository extends JpaRepository<Organization, Long
                               @Param("provinces") Collection<String> provinces,
                               @Param("unitTypeIs") String unitTypeIs,
                               @Param("operatingStatusIs") String operatingStatusIs,
-                              @Param("provinceIs") String provinceIs,
+                              @Param("anyProvince") boolean anyProvince,
+                              @Param("provinceIn") Collection<String> provinceIn,
                               Pageable pageable);
 }

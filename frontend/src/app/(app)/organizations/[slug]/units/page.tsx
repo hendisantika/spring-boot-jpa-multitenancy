@@ -20,7 +20,7 @@ const EMPTY: Page<TenantUnit> = { content: [], page: 0, size: PAGE_SIZE, totalEl
 const FILTERS: FilterField[] = [
   { name: "unitType", label: "Kind of unit", category: "UNIT_TYPE" },
   { name: "operatingStatus", label: "Operating status", category: "OPERATING_STATUS" },
-  { name: "province", label: "Province", category: "PROVINCE" },
+  { name: "province", label: "Province", category: "PROVINCE", multiple: true },
 ];
 
 /** The reference fields worth seeing without opening the row, as labels. */

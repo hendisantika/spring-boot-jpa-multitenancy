@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 /**
  * The business units inside whichever tenant the request resolved to. Not to be
  * confused with the organization that owns the tenant, which lives centrally.
@@ -52,6 +54,10 @@ public class OrganizationController {
      *
      * A search widens and a filter narrows, so they combine: {@code ?q=cabang}
      * with {@code &province=BALI} means both, not either.
+     * <p>
+     * Province may be repeated — {@code ?province=BALI&province=JAWA_BARAT} —
+     * and then means either of them, while still narrowing whatever else was
+     * asked for.
      *
      * @param q    matched against the name, address, email and the labels behind the codes
      * @param page zero based
@@ -65,7 +71,7 @@ public class OrganizationController {
             @RequestParam(name = "size", required = false) Integer size,
             @RequestParam(name = "unitType", required = false) String unitType,
             @RequestParam(name = "operatingStatus", required = false) String operatingStatus,
-            @RequestParam(name = "province", required = false) String province) {
+            @RequestParam(name = "province", required = false) List<String> province) {
         UnitFilter filter = UnitFilter.of(unitType, operatingStatus, province);
         return PageResponse.of(organizationService.findPage(q, filter, page, size));
     }

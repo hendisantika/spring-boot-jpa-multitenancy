@@ -4,6 +4,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
+
 /**
  * The rules every paged list inside a tenant's database shares.
  * <p>
@@ -52,6 +56,32 @@ public final class TenantListing {
      */
     public static String filterCode(String value) {
         return value == null || value.isBlank() ? null : value.strip().toUpperCase();
+    }
+
+    /**
+     * The same for a filter that accepts several values at once. Blanks are
+     * dropped and duplicates collapsed, so an empty list means "any" exactly as
+     * a null single value does.
+     */
+    public static List<String> filterCodes(Collection<String> values) {
+        if (values == null) {
+            return List.of();
+        }
+        return values.stream()
+                .map(TenantListing::filterCode)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+    }
+
+    /**
+     * A collection for an {@code in} clause that is never empty. Which value it
+     * holds does not matter when the clause is disabled by its "any" flag, but
+     * an empty one would be invalid — or, depending on who renders it, quietly
+     * true — so it is never allowed to happen.
+     */
+    public static List<String> orNothing(List<String> codes) {
+        return codes.isEmpty() ? List.of("") : codes;
     }
 
     public static Pageable pageRequest(Integer page, Integer size) {

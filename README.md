@@ -467,17 +467,18 @@ guessing at what somebody typed. Case does not matter. A blank filter is "any", 
 never empties the list; an unknown code matches nothing, which is the honest answer to "show me the people whose blood
 type is one this organization does not keep".
 
-**`province` and `bloodType` may be repeated**, and then mean either of them:
+**`province`, `unitType` and `bloodType` may be repeated**, and then mean either of them:
 
 ```bash
-'…/organization?province=BALI&province=JAWA_BARAT&operatingStatus=OPEN'
+'…/organization?unitType=BRANCH_CLINIC&unitType=PHARMACY&province=BALI&province=JAWA_BARAT'
 '…/person?bloodType=O_POSITIVE&bloodType=O_NEGATIVE&gender=FEMALE'
 ```
 
-Several values *within* one filter mean **either**; separate filters still mean **both**. So those read "in Bali or
-Jawa Barat, and open" and "O+ or O−, and female". Repeats and blanks are tidied away, and all-blank is no filter at
-all. `gender`, `maritalStatus`, `identityDocumentType` and `unitType` take a single value: they hold a handful each,
-where choosing two is close enough to choosing none that it would only add a control.
+Several values *within* one filter mean **either**; separate filters still mean **both**. So those read "a branch
+clinic or a pharmacy, in Bali or Jawa Barat" and "O+ or O−, and female". Repeats and blanks are tidied away, and
+all-blank is no filter at all. `gender`, `maritalStatus`, `operatingStatus` and `identityDocumentType` take a single
+value: they hold two to four each, where choosing several is close enough to choosing none that it would only add a
+control.
 
 | Endpoint         | `q` is matched against                                                                    |
 |------------------|---------------------------------------------------------------------------------------------|

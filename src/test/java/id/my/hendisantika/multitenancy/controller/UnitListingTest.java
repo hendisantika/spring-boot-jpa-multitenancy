@@ -484,6 +484,53 @@ class UnitListingTest {
     }
 
     /**
+     * "The clinics and the pharmacies" is a question too, so unit type takes
+     * several the same way province does.
+     */
+    @Test
+    void severalUnitTypesMeanEitherOfThem() throws Exception {
+        createCodedUnit("Satu", "MAIN_CLINIC", "OPEN", "BALI");
+        createCodedUnit("Dua", "BRANCH_CLINIC", "OPEN", "BALI");
+        createCodedUnit("Tiga", "PHARMACY", "OPEN", "BALI");
+        createCodedUnit("Empat", "LABORATORY", "OPEN", "BALI");
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken)
+                        .param("unitType", "MAIN_CLINIC", "BRANCH_CLINIC"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("unitType", "PHARMACY"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Tiga"));
+    }
+
+    /**
+     * Two multi-valued filters at once: either within each, both across them.
+     * This is the combination most likely to have been got backwards.
+     */
+    @Test
+    void twoMultiValuedFiltersStillMeanBothAcross() throws Exception {
+        createCodedUnit("Klinik Bali", "BRANCH_CLINIC", "OPEN", "BALI");
+        createCodedUnit("Apotek Bali", "PHARMACY", "OPEN", "BALI");
+        createCodedUnit("Lab Bali", "LABORATORY", "OPEN", "BALI");
+        createCodedUnit("Klinik Bandung", "BRANCH_CLINIC", "OPEN", "JAWA_BARAT");
+        createCodedUnit("Klinik Medan", "BRANCH_CLINIC", "OPEN", "SUMATERA_UTARA");
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken)
+                        .param("unitType", "BRANCH_CLINIC", "PHARMACY")
+                        .param("province", "BALI", "JAWA_BARAT"))
+                .andExpect(jsonPath("$.totalElements").value(3));
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken)
+                        .param("unitType", "BRANCH_CLINIC", "PHARMACY")
+                        .param("province", "BALI", "JAWA_BARAT")
+                        .param("operatingStatus", "OPEN")
+                        .param("q", "Apotek"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Apotek Bali"));
+    }
+
+    /**
      * Repeating a value, or padding it with blanks, is somebody poking at the
      * URL rather than a different question.
      */

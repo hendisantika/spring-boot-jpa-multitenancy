@@ -11,9 +11,12 @@ import java.util.List;
  * matched loosely — while each filter narrows, on one field, exactly. They
  * combine, so a search for "budi" with a blood type of O+ means both.
  * <p>
- * Blood type and identity document take several at once — "O+ or O−", "KTP or
- * Kartu Keluarga" are ordinary questions. Several values within one filter mean
- * <em>either</em>; separate filters still mean <em>both</em>.
+ * Every list but gender takes several at once — "O+ or O−", "KTP or Kartu
+ * Keluarga", "single or widowed" are ordinary questions. Gender holds two
+ * values, where choosing both is choosing neither.
+ * <p>
+ * Several values within one filter mean <em>either</em>; separate filters still
+ * mean <em>both</em>.
  * <p>
  * Created by IntelliJ IDEA.
  * Project : spring-boot-jpa-multitenancy
@@ -23,7 +26,7 @@ import java.util.List;
  * Date: 01/08/26
  * Time: 09.14
  */
-public record PersonFilter(String gender, String maritalStatus, List<String> bloodTypes,
+public record PersonFilter(String gender, List<String> maritalStatuses, List<String> bloodTypes,
                            List<String> identityDocumentTypes) {
 
     /**
@@ -31,17 +34,22 @@ public record PersonFilter(String gender, String maritalStatus, List<String> blo
      * nothing, which is the honest answer to "show me the people whose blood
      * type is one this organization does not keep".
      */
-    public static PersonFilter of(String gender, String maritalStatus, Collection<String> bloodTypes,
-                                  Collection<String> identityDocuments) {
+    public static PersonFilter of(String gender, Collection<String> maritalStatuses,
+                                  Collection<String> bloodTypes, Collection<String> identityDocuments) {
         return new PersonFilter(
                 TenantListing.filterCode(gender),
-                TenantListing.filterCode(maritalStatus),
+                TenantListing.filterCodes(maritalStatuses),
                 TenantListing.filterCodes(bloodTypes),
                 TenantListing.filterCodes(identityDocuments));
     }
 
     public static PersonFilter none() {
-        return new PersonFilter(null, null, List.of(), List.of());
+        return new PersonFilter(null, List.of(), List.of(), List.of());
+    }
+
+    /** Whether the marital status filter is switched off, which is what "any" means. */
+    public boolean anyMaritalStatus() {
+        return maritalStatuses.isEmpty();
     }
 
     /** Whether the blood type filter is switched off, which is what "any" means. */

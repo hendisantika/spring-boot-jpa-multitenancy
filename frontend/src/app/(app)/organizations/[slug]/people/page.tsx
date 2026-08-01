@@ -20,7 +20,7 @@ const EMPTY: Page<TenantPerson> = { content: [], page: 0, size: PAGE_SIZE, total
 const FILTERS: FilterField[] = [
   { name: "gender", label: "Gender", category: "GENDER" },
   { name: "bloodType", label: "Blood type", category: "BLOOD_TYPE", multiple: true },
-  { name: "maritalStatus", label: "Marital status", category: "MARITAL_STATUS" },
+  { name: "maritalStatus", label: "Marital status", category: "MARITAL_STATUS", multiple: true },
   { name: "identityDocumentType", label: "Identity document", category: "IDENTITY_DOCUMENT", multiple: true },
 ];
 

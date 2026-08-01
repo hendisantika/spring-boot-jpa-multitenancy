@@ -55,8 +55,8 @@ public class OrganizationController {
      * A search widens and a filter narrows, so they combine: {@code ?q=cabang}
      * with {@code &province=BALI} means both, not either.
      * <p>
-     * Unit type and province may each be repeated — {@code ?province=BALI&province=JAWA_BARAT}
-     * — and then mean either of them, while still narrowing whatever else was
+     * Every filter may be repeated — {@code ?province=BALI&province=JAWA_BARAT} —
+     * and then means either of them, while still narrowing whatever else was
      * asked for.
      *
      * @param q    matched against the name, address, email and the labels behind the codes
@@ -70,7 +70,7 @@ public class OrganizationController {
             @RequestParam(name = "page", required = false) Integer page,
             @RequestParam(name = "size", required = false) Integer size,
             @RequestParam(name = "unitType", required = false) List<String> unitType,
-            @RequestParam(name = "operatingStatus", required = false) String operatingStatus,
+            @RequestParam(name = "operatingStatus", required = false) List<String> operatingStatus,
             @RequestParam(name = "province", required = false) List<String> province) {
         UnitFilter filter = UnitFilter.of(unitType, operatingStatus, province);
         return PageResponse.of(organizationService.findPage(q, filter, page, size));

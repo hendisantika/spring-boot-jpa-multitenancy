@@ -531,6 +531,32 @@ class UnitListingTest {
     }
 
     /**
+     * "Closed for now or for good" is a question too, and it is the last of the
+     * unit filters to take several — so this is also the case where all three
+     * are multi-valued at once.
+     */
+    @Test
+    void severalOperatingStatusesMeanEitherOfThem() throws Exception {
+        createCodedUnit("Buka", "BRANCH_CLINIC", "OPEN", "BALI");
+        createCodedUnit("Tutup sementara", "BRANCH_CLINIC", "TEMPORARILY_CLOSED", "BALI");
+        createCodedUnit("Tutup permanen", "PHARMACY", "PERMANENTLY_CLOSED", "JAWA_BARAT");
+        createCodedUnit("Segera buka", "PHARMACY", "OPENING_SOON", "DKI_JAKARTA");
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken)
+                        .param("operatingStatus", "TEMPORARILY_CLOSED", "PERMANENTLY_CLOSED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        // All three multi-valued at once: either within each, both across them.
+        mockMvc.perform(withTenant(get("/organization"), ownerToken)
+                        .param("unitType", "BRANCH_CLINIC", "PHARMACY")
+                        .param("operatingStatus", "TEMPORARILY_CLOSED", "PERMANENTLY_CLOSED")
+                        .param("province", "BALI", "DKI_JAKARTA"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Tutup sementara"));
+    }
+
+    /**
      * Repeating a value, or padding it with blanks, is somebody poking at the
      * URL rather than a different question.
      */

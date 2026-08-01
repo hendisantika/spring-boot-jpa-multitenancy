@@ -19,7 +19,7 @@ const EMPTY: Page<TenantUnit> = { content: [], page: 0, size: PAGE_SIZE, totalEl
 
 const FILTERS: FilterField[] = [
   { name: "unitType", label: "Kind of unit", category: "UNIT_TYPE", multiple: true },
-  { name: "operatingStatus", label: "Operating status", category: "OPERATING_STATUS" },
+  { name: "operatingStatus", label: "Operating status", category: "OPERATING_STATUS", multiple: true },
   { name: "province", label: "Province", category: "PROVINCE", multiple: true },
 ];
 

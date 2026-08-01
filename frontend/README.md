@@ -65,14 +65,14 @@ are one plain GET form — one rather than several, because applying a filter mu
 box — and it works before any JavaScript loads. There is an **Apply** button rather than a submit-on-change, so several
 filters can be set before the page reloads once.
 
-**Province and blood type take several at once**, as checkboxes sharing one name — which is how HTML has always
-submitted a repeated parameter, so it still needs no JavaScript. A `<select multiple>` would have been shorter to
-write, but choosing several from one means knowing to hold a modifier key, and clicking without it silently throws the
-rest away.
+**Province, kind of unit and blood type take several at once**, as checkboxes sharing one name — which is how HTML has
+always submitted a repeated parameter, so it still needs no JavaScript. A `<select multiple>` would have been shorter
+to write, but choosing several from one means knowing to hold a modifier key, and clicking without it silently throws
+the rest away.
 
 Past a dozen options the checkboxes fold into a `<details>` whose summary says how many are chosen: 38 provinces would
 otherwise own the page, while putting 8 blood types behind a click would cost a click and hide what is already
-legible. So the provinces fold and the blood types do not.
+legible. So the provinces fold and the shorter lists do not.
 
 All of it survives an edit: saving lands you back on the same search, filters and page, and deleting the last row of
 the last page steps back rather than leaving you staring past the end. The screens share one `ListingControls`, one

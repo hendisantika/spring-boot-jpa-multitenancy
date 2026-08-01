@@ -37,9 +37,9 @@ public interface OrganizationRepository extends JpaRepository<Organization, Long
      * A collection is never empty: the caller passes a sentinel that no code can
      * equal, so the clause is simply false rather than invalid SQL.
      * <p>
-     * Province filters on several values at once, so it is switched off by its
-     * own flag rather than by a null. Within it the values mean either; against
-     * the other filters they still mean both.
+     * Unit type and province filter on several values at once, so each is
+     * switched off by its own flag rather than by a null. Within one the values
+     * mean either; against the other filters they still mean both.
      */
     @Query("""
             select o from Organization o
@@ -49,7 +49,7 @@ public interface OrganizationRepository extends JpaRepository<Organization, Long
                 or o.unitType in :unitTypes
                 or o.operatingStatus in :operatingStatuses
                 or o.province in :provinces)
-              and (:unitTypeIs is null or o.unitType = :unitTypeIs)
+              and (:anyUnitType = true or o.unitType in :unitTypeIn)
               and (:operatingStatusIs is null or o.operatingStatus = :operatingStatusIs)
               and (:anyProvince = true or o.province in :provinceIn)
             """)
@@ -57,7 +57,8 @@ public interface OrganizationRepository extends JpaRepository<Organization, Long
                               @Param("unitTypes") Collection<String> unitTypes,
                               @Param("operatingStatuses") Collection<String> operatingStatuses,
                               @Param("provinces") Collection<String> provinces,
-                              @Param("unitTypeIs") String unitTypeIs,
+                              @Param("anyUnitType") boolean anyUnitType,
+                              @Param("unitTypeIn") Collection<String> unitTypeIn,
                               @Param("operatingStatusIs") String operatingStatusIs,
                               @Param("anyProvince") boolean anyProvince,
                               @Param("provinceIn") Collection<String> provinceIn,

@@ -18,7 +18,7 @@ export const metadata = { title: "Business units" };
 const EMPTY: Page<TenantUnit> = { content: [], page: 0, size: PAGE_SIZE, totalElements: 0, totalPages: 0 };
 
 const FILTERS: FilterField[] = [
-  { name: "unitType", label: "Kind of unit", category: "UNIT_TYPE" },
+  { name: "unitType", label: "Kind of unit", category: "UNIT_TYPE", multiple: true },
   { name: "operatingStatus", label: "Operating status", category: "OPERATING_STATUS" },
   { name: "province", label: "Province", category: "PROVINCE", multiple: true },
 ];

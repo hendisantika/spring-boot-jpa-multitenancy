@@ -11,9 +11,9 @@ import java.util.List;
  * matched loosely — while each filter narrows, on one field, exactly. They
  * combine, so a search for "budi" with a blood type of O+ means both.
  * <p>
- * Blood type takes several at once, because "O+ or O−" is a real question in a
- * clinic. Several values within one filter mean <em>either</em>; separate
- * filters still mean <em>both</em>.
+ * Blood type and identity document take several at once — "O+ or O−", "KTP or
+ * Kartu Keluarga" are ordinary questions. Several values within one filter mean
+ * <em>either</em>; separate filters still mean <em>both</em>.
  * <p>
  * Created by IntelliJ IDEA.
  * Project : spring-boot-jpa-multitenancy
@@ -24,7 +24,7 @@ import java.util.List;
  * Time: 09.14
  */
 public record PersonFilter(String gender, String maritalStatus, List<String> bloodTypes,
-                           String identityDocumentType) {
+                           List<String> identityDocumentTypes) {
 
     /**
      * An unknown code is left alone rather than refused: it simply matches
@@ -32,20 +32,25 @@ public record PersonFilter(String gender, String maritalStatus, List<String> blo
      * type is one this organization does not keep".
      */
     public static PersonFilter of(String gender, String maritalStatus, Collection<String> bloodTypes,
-                                  String identityDocument) {
+                                  Collection<String> identityDocuments) {
         return new PersonFilter(
                 TenantListing.filterCode(gender),
                 TenantListing.filterCode(maritalStatus),
                 TenantListing.filterCodes(bloodTypes),
-                TenantListing.filterCode(identityDocument));
+                TenantListing.filterCodes(identityDocuments));
     }
 
     public static PersonFilter none() {
-        return new PersonFilter(null, null, List.of(), null);
+        return new PersonFilter(null, null, List.of(), List.of());
     }
 
     /** Whether the blood type filter is switched off, which is what "any" means. */
     public boolean anyBloodType() {
         return bloodTypes.isEmpty();
+    }
+
+    /** Whether the identity document filter is switched off. */
+    public boolean anyIdentityDocument() {
+        return identityDocumentTypes.isEmpty();
     }
 }

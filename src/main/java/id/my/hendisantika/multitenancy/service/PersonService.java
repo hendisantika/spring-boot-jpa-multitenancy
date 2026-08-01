@@ -70,7 +70,8 @@ public class PersonService {
                 filter.maritalStatus(),
                 filter.anyBloodType(),
                 TenantListing.orNothing(filter.bloodTypes()),
-                filter.identityDocumentType(),
+                filter.anyIdentityDocument(),
+                TenantListing.orNothing(filter.identityDocumentTypes()),
                 pageable);
     }
 

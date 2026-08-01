@@ -431,6 +431,51 @@ class PersonListingTest {
     }
 
     /**
+     * "KTP or Kartu Keluarga" is a question too, so identity document takes
+     * several the same way blood type does.
+     */
+    @Test
+    void severalIdentityDocumentsMeanEitherOfThem() throws Exception {
+        createCodedPerson("Satu", "MALE", "O_POSITIVE", "KTP");
+        createCodedPerson("Dua", "FEMALE", "O_POSITIVE", "KARTU_KELUARGA");
+        createCodedPerson("Tiga", "FEMALE", "AB_NEGATIVE", "PASSPORT");
+        createCodedPerson("Empat", "MALE", "A_POSITIVE", "KITAS");
+
+        mockMvc.perform(asOwner(get("/person"))
+                        .param("identityDocumentType", "KTP", "KARTU_KELUARGA"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        mockMvc.perform(asOwner(get("/person")).param("identityDocumentType", "KITAS"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].firstName").value("Empat"));
+    }
+
+    /**
+     * Two multi-valued filters at once: either within each, both across them.
+     * This is the combination most easily got backwards.
+     */
+    @Test
+    void twoMultiValuedFiltersStillMeanBothAcross() throws Exception {
+        createCodedPerson("Satu", "MALE", "O_POSITIVE", "KTP");
+        createCodedPerson("Dua", "FEMALE", "O_NEGATIVE", "PASSPORT");
+        createCodedPerson("Tiga", "FEMALE", "AB_NEGATIVE", "KTP");
+        createCodedPerson("Empat", "MALE", "O_POSITIVE", "KITAS");
+
+        mockMvc.perform(asOwner(get("/person"))
+                        .param("bloodType", "O_POSITIVE", "O_NEGATIVE")
+                        .param("identityDocumentType", "KTP", "PASSPORT"))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        mockMvc.perform(asOwner(get("/person"))
+                        .param("bloodType", "O_POSITIVE", "O_NEGATIVE")
+                        .param("identityDocumentType", "KTP", "PASSPORT")
+                        .param("gender", "FEMALE"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].firstName").value("Dua"));
+    }
+
+    /**
      * Repeating a value, or padding it with blanks, is somebody poking at the
      * URL rather than a different question.
      */

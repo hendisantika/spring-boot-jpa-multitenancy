@@ -65,10 +65,11 @@ are one plain GET form — one rather than several, because applying a filter mu
 box — and it works before any JavaScript loads. There is an **Apply** button rather than a submit-on-change, so several
 filters can be set before the page reloads once.
 
-**Province, kind of unit and blood type take several at once**, as checkboxes sharing one name — which is how HTML has
-always submitted a repeated parameter, so it still needs no JavaScript. A `<select multiple>` would have been shorter
-to write, but choosing several from one means knowing to hold a modifier key, and clicking without it silently throws
-the rest away.
+**Province, kind of unit, blood type and identity document take several at once**, as checkboxes sharing one name —
+which is how HTML has always submitted a repeated parameter, so it still needs no JavaScript. A `<select multiple>`
+would have been shorter to write, but choosing several from one means knowing to hold a modifier key, and clicking
+without it silently throws the rest away. Gender, marital status and operating status stay single: two to four values
+each, where choosing several is close enough to choosing none.
 
 Past a dozen options the checkboxes fold into a `<details>` whose summary says how many are chosen: 38 provinces would
 otherwise own the page, while putting 8 blood types behind a click would cost a click and hide what is already

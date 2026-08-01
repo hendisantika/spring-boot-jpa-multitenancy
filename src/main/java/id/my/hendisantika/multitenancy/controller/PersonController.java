@@ -54,9 +54,9 @@ public class PersonController {
      * A search widens and a filter narrows, so they combine: {@code ?q=budi} with
      * {@code &bloodType=O_POSITIVE} means both, not either.
      * <p>
-     * Blood type may be repeated — {@code ?bloodType=O_POSITIVE&bloodType=O_NEGATIVE}
-     * — and then means either of them, while still narrowing whatever else was
-     * asked for.
+     * Blood type and identity document may each be repeated —
+     * {@code ?bloodType=O_POSITIVE&bloodType=O_NEGATIVE} — and then mean either
+     * of them, while still narrowing whatever else was asked for.
      *
      * @param q    matched against the names, email, mobile and the labels behind the codes
      * @param page zero based
@@ -71,7 +71,7 @@ public class PersonController {
             @RequestParam(name = "gender", required = false) String gender,
             @RequestParam(name = "maritalStatus", required = false) String maritalStatus,
             @RequestParam(name = "bloodType", required = false) List<String> bloodType,
-            @RequestParam(name = "identityDocumentType", required = false) String identityDocumentType) {
+            @RequestParam(name = "identityDocumentType", required = false) List<String> identityDocumentType) {
         PersonFilter filter = PersonFilter.of(gender, maritalStatus, bloodType, identityDocumentType);
         return PageResponse.of(personService.findPage(q, filter, page, size));
     }

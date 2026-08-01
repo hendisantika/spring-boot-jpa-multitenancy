@@ -21,7 +21,7 @@ const FILTERS: FilterField[] = [
   { name: "gender", label: "Gender", category: "GENDER" },
   { name: "bloodType", label: "Blood type", category: "BLOOD_TYPE", multiple: true },
   { name: "maritalStatus", label: "Marital status", category: "MARITAL_STATUS" },
-  { name: "identityDocumentType", label: "Identity document", category: "IDENTITY_DOCUMENT" },
+  { name: "identityDocumentType", label: "Identity document", category: "IDENTITY_DOCUMENT", multiple: true },
 ];
 
 /** The reference fields worth seeing without opening the row, as labels. */

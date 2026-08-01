@@ -35,9 +35,9 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
      * sentinel that no code can equal, so the clause is simply false rather than
      * invalid SQL.
      * <p>
-     * Blood type filters on several values at once, so it is switched off by its
-     * own flag rather than by a null. Within it the values mean either; against
-     * the other filters they still mean both.
+     * Blood type and identity document filter on several values at once, so each
+     * is switched off by its own flag rather than by a null. Within one the
+     * values mean either; against the other filters they still mean both.
      */
     @Query("""
             select p from Person p
@@ -53,7 +53,7 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
               and (:genderIs is null or p.gender = :genderIs)
               and (:maritalStatusIs is null or p.maritalStatus = :maritalStatusIs)
               and (:anyBloodType = true or p.bloodType in :bloodTypeIn)
-              and (:identityDocumentIs is null or p.identityDocumentType = :identityDocumentIs)
+              and (:anyIdentityDocument = true or p.identityDocumentType in :identityDocumentIn)
             """)
     Page<Person> search(@Param("term") String term,
                         @Param("genders") Collection<String> genders,
@@ -64,6 +64,7 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
                         @Param("maritalStatusIs") String maritalStatusIs,
                         @Param("anyBloodType") boolean anyBloodType,
                         @Param("bloodTypeIn") Collection<String> bloodTypeIn,
-                        @Param("identityDocumentIs") String identityDocumentIs,
+                        @Param("anyIdentityDocument") boolean anyIdentityDocument,
+                        @Param("identityDocumentIn") Collection<String> identityDocumentIn,
                         Pageable pageable);
 }

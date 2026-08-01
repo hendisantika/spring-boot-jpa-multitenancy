@@ -68,7 +68,8 @@ public class PersonService {
                 referenceDataService.codesForSearch("IDENTITY_DOCUMENT", query),
                 filter.gender(),
                 filter.maritalStatus(),
-                filter.bloodType(),
+                filter.anyBloodType(),
+                TenantListing.orNothing(filter.bloodTypes()),
                 filter.identityDocumentType(),
                 pageable);
     }

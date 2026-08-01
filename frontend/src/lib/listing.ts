@@ -15,6 +15,16 @@ export function firstValue(value: string | string[] | undefined): string {
   return typeof value === "string" ? value : "";
 }
 
+/**
+ * Every value a parameter was given. Filters are held this way whether or not
+ * they accept several, so one set of URL rules serves both rather than two that
+ * could drift apart. A single-valued filter simply never has more than one.
+ */
+function allValues(value: string | string[] | undefined): string[] {
+  const values = typeof value === "string" ? [value] : (value ?? []);
+  return values.map((one) => one.trim()).filter(Boolean);
+}
+
 /** What one screen is currently showing. */
 export type Listing = {
   /** The route the screen lives at, which is also where its form submits. */
@@ -22,7 +32,7 @@ export type Listing = {
   query: string;
   page: number;
   /** Chosen filters by field name. Blank ones are never kept. */
-  filters: Record<string, string>;
+  filters: Record<string, string[]>;
 };
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -32,10 +42,10 @@ type SearchParams = Record<string, string | string[] | undefined>;
  * unrelated parameter cannot be smuggled through into an API call.
  */
 export function readListing(base: string, searchParams: SearchParams, filterNames: string[]): Listing {
-  const filters: Record<string, string> = {};
+  const filters: Record<string, string[]> = {};
   for (const name of filterNames) {
-    const value = firstValue(searchParams[name]).trim();
-    if (value) filters[name] = value;
+    const values = allValues(searchParams[name]);
+    if (values.length) filters[name] = values;
   }
   return {
     base,
@@ -45,11 +55,17 @@ export function readListing(base: string, searchParams: SearchParams, filterName
   };
 }
 
+function appendFilters(params: URLSearchParams, listing: Listing): void {
+  for (const [name, values] of Object.entries(listing.filters)) {
+    for (const value of values) params.append(name, value);
+  }
+}
+
 /** What to ask the API for. */
 export function apiQuery(listing: Listing): string {
   const params = new URLSearchParams({ page: String(listing.page), size: String(PAGE_SIZE) });
   if (listing.query) params.set("q", listing.query);
-  for (const [name, value] of Object.entries(listing.filters)) params.set(name, value);
+  appendFilters(params, listing);
   return params.toString();
 }
 
@@ -64,7 +80,7 @@ export function listingUrl(
   const page = overrides.page ?? listing.page;
   const params = new URLSearchParams();
   if (listing.query) params.set("q", listing.query);
-  for (const [name, value] of Object.entries(listing.filters)) params.set(name, value);
+  appendFilters(params, listing);
   if (page > 0) params.set("page", String(page));
   for (const [key, value] of Object.entries(overrides.extra ?? {})) params.set(key, value);
   const suffix = params.toString();
@@ -74,4 +90,14 @@ export function listingUrl(
 /** Whether anything is narrowing the list, which is what a Clear link is for. */
 export function isNarrowed(listing: Listing): boolean {
   return Boolean(listing.query) || Object.keys(listing.filters).length > 0;
+}
+
+/** What a single-valued filter currently holds, for a dropdown to preselect. */
+export function chosen(listing: Listing, name: string): string {
+  return listing.filters[name]?.[0] ?? "";
+}
+
+/** What a multi-valued filter currently holds. */
+export function chosenAll(listing: Listing, name: string): string[] {
+  return listing.filters[name] ?? [];
 }

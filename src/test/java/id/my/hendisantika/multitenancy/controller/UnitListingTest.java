@@ -432,6 +432,76 @@ class UnitListingTest {
     }
 
     /**
+     * There are 38 provinces, so "the Bali and Jawa Barat branches" is a real
+     * question. Several values in one filter mean either of them.
+     */
+    @Test
+    void severalProvincesMeanEitherOfThem() throws Exception {
+        createCodedUnit("Bali", "BRANCH_CLINIC", "OPEN", "BALI");
+        createCodedUnit("Bandung", "BRANCH_CLINIC", "OPEN", "JAWA_BARAT");
+        createCodedUnit("Jakarta", "BRANCH_CLINIC", "OPEN", "DKI_JAKARTA");
+        createCodedUnit("Medan", "BRANCH_CLINIC", "OPEN", "SUMATERA_UTARA");
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken)
+                        .param("province", "BALI", "JAWA_BARAT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        // One value still behaves exactly as it did before.
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("province", "BALI"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Bali"));
+    }
+
+    /**
+     * Within one filter the values mean either; against another filter they
+     * still mean both. Getting that wrong would widen rather than narrow.
+     */
+    @Test
+    void severalProvincesStillNarrowAgainstTheOtherFilters() throws Exception {
+        createCodedUnit("Bali terbuka", "BRANCH_CLINIC", "OPEN", "BALI");
+        createCodedUnit("Bali tutup", "BRANCH_CLINIC", "TEMPORARILY_CLOSED", "BALI");
+        createCodedUnit("Bandung terbuka", "PHARMACY", "OPEN", "JAWA_BARAT");
+        createCodedUnit("Jakarta terbuka", "BRANCH_CLINIC", "OPEN", "DKI_JAKARTA");
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken)
+                        .param("province", "BALI", "JAWA_BARAT")
+                        .param("operatingStatus", "OPEN"))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken)
+                        .param("province", "BALI", "JAWA_BARAT")
+                        .param("operatingStatus", "OPEN")
+                        .param("unitType", "BRANCH_CLINIC"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Bali terbuka"));
+
+        // And with a search on top, which narrows again rather than widening.
+        mockMvc.perform(withTenant(get("/organization"), ownerToken)
+                        .param("q", "terbuka")
+                        .param("province", "BALI", "JAWA_BARAT"))
+                .andExpect(jsonPath("$.totalElements").value(2));
+    }
+
+    /**
+     * Repeating a value, or padding it with blanks, is somebody poking at the
+     * URL rather than a different question.
+     */
+    @Test
+    void repeatedAndBlankProvincesAreTidiedAway() throws Exception {
+        createCodedUnit("Bali", "BRANCH_CLINIC", "OPEN", "BALI");
+        createCodedUnit("Jakarta", "BRANCH_CLINIC", "OPEN", "DKI_JAKARTA");
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken)
+                        .param("province", "BALI", "bali", "  ", "BALI"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        // All blank is no filter at all, not an empty result.
+        mockMvc.perform(withTenant(get("/organization"), ownerToken).param("province", "", "  "))
+                .andExpect(jsonPath("$.totalElements").value(2));
+    }
+
+    /**
      * A blank filter is "any", not "none": an empty dropdown must not empty the
      * list.
      */

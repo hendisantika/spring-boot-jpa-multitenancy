@@ -34,6 +34,10 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
      * nobody types that. A collection is never empty: the caller passes a
      * sentinel that no code can equal, so the clause is simply false rather than
      * invalid SQL.
+     * <p>
+     * Blood type filters on several values at once, so it is switched off by its
+     * own flag rather than by a null. Within it the values mean either; against
+     * the other filters they still mean both.
      */
     @Query("""
             select p from Person p
@@ -48,7 +52,7 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
                 or p.identityDocumentType in :identityDocuments)
               and (:genderIs is null or p.gender = :genderIs)
               and (:maritalStatusIs is null or p.maritalStatus = :maritalStatusIs)
-              and (:bloodTypeIs is null or p.bloodType = :bloodTypeIs)
+              and (:anyBloodType = true or p.bloodType in :bloodTypeIn)
               and (:identityDocumentIs is null or p.identityDocumentType = :identityDocumentIs)
             """)
     Page<Person> search(@Param("term") String term,
@@ -58,7 +62,8 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
                         @Param("identityDocuments") Collection<String> identityDocuments,
                         @Param("genderIs") String genderIs,
                         @Param("maritalStatusIs") String maritalStatusIs,
-                        @Param("bloodTypeIs") String bloodTypeIs,
+                        @Param("anyBloodType") boolean anyBloodType,
+                        @Param("bloodTypeIn") Collection<String> bloodTypeIn,
                         @Param("identityDocumentIs") String identityDocumentIs,
                         Pageable pageable);
 }

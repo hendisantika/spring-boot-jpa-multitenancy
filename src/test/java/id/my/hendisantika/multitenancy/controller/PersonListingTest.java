@@ -381,6 +381,74 @@ class PersonListingTest {
     }
 
     /**
+     * "O+ or O−" is a real question in a clinic, so blood type takes several at
+     * once and they mean either.
+     */
+    @Test
+    void severalBloodTypesMeanEitherOfThem() throws Exception {
+        createCodedPerson("Satu", "MALE", "O_POSITIVE", "KTP");
+        createCodedPerson("Dua", "FEMALE", "O_NEGATIVE", "KTP");
+        createCodedPerson("Tiga", "FEMALE", "AB_NEGATIVE", "KTP");
+        createCodedPerson("Empat", "MALE", "A_POSITIVE", "KTP");
+
+        mockMvc.perform(asOwner(get("/person")).param("bloodType", "O_POSITIVE", "O_NEGATIVE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        // One value still behaves exactly as it did before.
+        mockMvc.perform(asOwner(get("/person")).param("bloodType", "AB_NEGATIVE"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].firstName").value("Tiga"));
+    }
+
+    /**
+     * Within one filter the values mean either; against another filter, and
+     * against the search, they still mean both.
+     */
+    @Test
+    void severalBloodTypesStillNarrowAgainstEverythingElse() throws Exception {
+        createCodedPerson("Satu", "MALE", "O_POSITIVE", "KTP");
+        createCodedPerson("Dua", "FEMALE", "O_NEGATIVE", "KTP");
+        createCodedPerson("Tiga", "FEMALE", "O_POSITIVE", "PASSPORT");
+
+        mockMvc.perform(asOwner(get("/person"))
+                        .param("bloodType", "O_POSITIVE", "O_NEGATIVE")
+                        .param("gender", "FEMALE"))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        mockMvc.perform(asOwner(get("/person"))
+                        .param("bloodType", "O_POSITIVE", "O_NEGATIVE")
+                        .param("gender", "FEMALE")
+                        .param("identityDocumentType", "PASSPORT"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].firstName").value("Tiga"));
+
+        mockMvc.perform(asOwner(get("/person"))
+                        .param("q", "Female")
+                        .param("bloodType", "O_NEGATIVE"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].firstName").value("Dua"));
+    }
+
+    /**
+     * Repeating a value, or padding it with blanks, is somebody poking at the
+     * URL rather than a different question.
+     */
+    @Test
+    void repeatedAndBlankBloodTypesAreTidiedAway() throws Exception {
+        createCodedPerson("Satu", "MALE", "O_POSITIVE", "KTP");
+        createCodedPerson("Dua", "FEMALE", "AB_NEGATIVE", "KTP");
+
+        mockMvc.perform(asOwner(get("/person"))
+                        .param("bloodType", "O_POSITIVE", "o_positive", "  ", "O_POSITIVE"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        // All blank is no filter at all, not an empty result.
+        mockMvc.perform(asOwner(get("/person")).param("bloodType", "", "  "))
+                .andExpect(jsonPath("$.totalElements").value(2));
+    }
+
+    /**
      * A blank filter is "any", not "none": an empty dropdown must not empty the
      * list. An unknown code matches nothing, which is the honest answer.
      */

@@ -237,6 +237,18 @@ class PersonListingTest {
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
 
+    private void createMarried(String firstName, String gender, String maritalStatus) throws Exception {
+        Map<String, String> person = new LinkedHashMap<>();
+        person.put("firstName", firstName);
+        person.put("lastName", "Probe");
+        person.put("gender", gender);
+        person.put("maritalStatus", maritalStatus);
+        mockMvc.perform(asOwner(post("/person"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(person)))
+                .andExpect(status().isCreated());
+    }
+
     private void createCodedPerson(String firstName, String gender, String blood, String document)
             throws Exception {
         Map<String, String> person = new LinkedHashMap<>();
@@ -470,6 +482,28 @@ class PersonListingTest {
         mockMvc.perform(asOwner(get("/person"))
                         .param("bloodType", "O_POSITIVE", "O_NEGATIVE")
                         .param("identityDocumentType", "KTP", "PASSPORT")
+                        .param("gender", "FEMALE"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].firstName").value("Dua"));
+    }
+
+    /**
+     * "Single or widowed" is a question too. Gender stays single, so this is the
+     * case where three multi-valued filters sit beside a single-valued one.
+     */
+    @Test
+    void severalMaritalStatusesMeanEitherOfThem() throws Exception {
+        createMarried("Satu", "MALE", "SINGLE");
+        createMarried("Dua", "FEMALE", "WIDOWED");
+        createMarried("Tiga", "FEMALE", "MARRIED");
+        createMarried("Empat", "MALE", "DIVORCED");
+
+        mockMvc.perform(asOwner(get("/person")).param("maritalStatus", "SINGLE", "WIDOWED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        mockMvc.perform(asOwner(get("/person"))
+                        .param("maritalStatus", "SINGLE", "WIDOWED")
                         .param("gender", "FEMALE"))
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].firstName").value("Dua"));

@@ -37,9 +37,9 @@ public interface OrganizationRepository extends JpaRepository<Organization, Long
      * A collection is never empty: the caller passes a sentinel that no code can
      * equal, so the clause is simply false rather than invalid SQL.
      * <p>
-     * Unit type and province filter on several values at once, so each is
-     * switched off by its own flag rather than by a null. Within one the values
-     * mean either; against the other filters they still mean both.
+     * Every filter takes several values at once, so each is switched off by its
+     * own flag rather than by a null. Within one the values mean either; against
+     * the other filters they still mean both.
      */
     @Query("""
             select o from Organization o
@@ -50,7 +50,7 @@ public interface OrganizationRepository extends JpaRepository<Organization, Long
                 or o.operatingStatus in :operatingStatuses
                 or o.province in :provinces)
               and (:anyUnitType = true or o.unitType in :unitTypeIn)
-              and (:operatingStatusIs is null or o.operatingStatus = :operatingStatusIs)
+              and (:anyOperatingStatus = true or o.operatingStatus in :operatingStatusIn)
               and (:anyProvince = true or o.province in :provinceIn)
             """)
     Page<Organization> search(@Param("term") String term,
@@ -59,7 +59,8 @@ public interface OrganizationRepository extends JpaRepository<Organization, Long
                               @Param("provinces") Collection<String> provinces,
                               @Param("anyUnitType") boolean anyUnitType,
                               @Param("unitTypeIn") Collection<String> unitTypeIn,
-                              @Param("operatingStatusIs") String operatingStatusIs,
+                              @Param("anyOperatingStatus") boolean anyOperatingStatus,
+                              @Param("operatingStatusIn") Collection<String> operatingStatusIn,
                               @Param("anyProvince") boolean anyProvince,
                               @Param("provinceIn") Collection<String> provinceIn,
                               Pageable pageable);

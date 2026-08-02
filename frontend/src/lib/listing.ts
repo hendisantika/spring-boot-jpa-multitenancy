@@ -92,12 +92,7 @@ export function isNarrowed(listing: Listing): boolean {
   return Boolean(listing.query) || Object.keys(listing.filters).length > 0;
 }
 
-/** What a single-valued filter currently holds, for a dropdown to preselect. */
-export function chosen(listing: Listing, name: string): string {
-  return listing.filters[name]?.[0] ?? "";
-}
-
-/** What a multi-valued filter currently holds. */
+/** What a filter currently holds. */
 export function chosenAll(listing: Listing, name: string): string[] {
   return listing.filters[name] ?? [];
 }

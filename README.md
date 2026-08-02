@@ -467,7 +467,7 @@ guessing at what somebody typed. Case does not matter. A blank filter is "any", 
 never empties the list; an unknown code matches nothing, which is the honest answer to "show me the people whose blood
 type is one this organization does not keep".
 
-**Every filter but `gender` may be repeated**, and then means either of them:
+**Every filter may be repeated**, and then means either of them:
 
 ```bash
 '…/organization?unitType=BRANCH_CLINIC&unitType=PHARMACY&province=BALI&province=JAWA_BARAT'
@@ -478,8 +478,10 @@ Several values *within* one filter mean **either**; separate filters still mean 
 clinic or a pharmacy, in Bali or Jawa Barat" and "O+ or O−, and single or widowed". Repeats and blanks are tidied
 away, and all-blank is no filter at all.
 
-`gender` is the one exception. It holds two values, so choosing both is choosing neither — a control that could only
-ever be set to "any" in a longer-winded way.
+> **Ticking every box is not the same as ticking none.** A filter naming all of its values still matches only records
+> that have one of them, so anybody whose gender was never recorded drops out — while an untouched filter keeps them.
+> That is the honest reading of "gender is male or female", but it surprises people, so it is worth knowing before
+> comparing two counts.
 
 | Endpoint         | `q` is matched against                                                                    |
 |------------------|---------------------------------------------------------------------------------------------|

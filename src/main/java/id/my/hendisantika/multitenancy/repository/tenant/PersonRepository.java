@@ -35,9 +35,9 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
      * sentinel that no code can equal, so the clause is simply false rather than
      * invalid SQL.
      * <p>
-     * Every filter but gender takes several values at once, so each is switched
-     * off by its own flag rather than by a null. Within one the values mean
-     * either; against the other filters they still mean both.
+     * Every filter takes several values at once, so each is switched off by its
+     * own flag rather than by a null. Within one the values mean either; against
+     * the other filters they still mean both.
      */
     @Query("""
             select p from Person p
@@ -50,7 +50,7 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
                 or p.maritalStatus in :maritalStatuses
                 or p.bloodType in :bloodTypes
                 or p.identityDocumentType in :identityDocuments)
-              and (:genderIs is null or p.gender = :genderIs)
+              and (:anyGender = true or p.gender in :genderIn)
               and (:anyMaritalStatus = true or p.maritalStatus in :maritalStatusIn)
               and (:anyBloodType = true or p.bloodType in :bloodTypeIn)
               and (:anyIdentityDocument = true or p.identityDocumentType in :identityDocumentIn)
@@ -60,7 +60,8 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
                         @Param("maritalStatuses") Collection<String> maritalStatuses,
                         @Param("bloodTypes") Collection<String> bloodTypes,
                         @Param("identityDocuments") Collection<String> identityDocuments,
-                        @Param("genderIs") String genderIs,
+                        @Param("anyGender") boolean anyGender,
+                        @Param("genderIn") Collection<String> genderIn,
                         @Param("anyMaritalStatus") boolean anyMaritalStatus,
                         @Param("maritalStatusIn") Collection<String> maritalStatusIn,
                         @Param("anyBloodType") boolean anyBloodType,

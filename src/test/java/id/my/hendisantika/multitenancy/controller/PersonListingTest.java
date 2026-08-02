@@ -488,8 +488,7 @@ class PersonListingTest {
     }
 
     /**
-     * "Single or widowed" is a question too. Gender stays single, so this is the
-     * case where three multi-valued filters sit beside a single-valued one.
+     * "Single or widowed" is a question too.
      */
     @Test
     void severalMaritalStatusesMeanEitherOfThem() throws Exception {
@@ -507,6 +506,65 @@ class PersonListingTest {
                         .param("gender", "FEMALE"))
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].firstName").value("Dua"));
+    }
+
+    @Test
+    void severalGendersMeanEitherOfThem() throws Exception {
+        createCodedPerson("Satu", "MALE", "O_POSITIVE", "KTP");
+        createCodedPerson("Dua", "FEMALE", "AB_NEGATIVE", "PASSPORT");
+        createCodedPerson("Tiga", "FEMALE", "O_POSITIVE", "KITAS");
+
+        mockMvc.perform(asOwner(get("/person")).param("gender", "MALE", "FEMALE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(3));
+
+        mockMvc.perform(asOwner(get("/person")).param("gender", "FEMALE"))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        // Still narrows against another filter rather than widening it.
+        mockMvc.perform(asOwner(get("/person"))
+                        .param("gender", "MALE", "FEMALE")
+                        .param("bloodType", "O_POSITIVE"))
+                .andExpect(jsonPath("$.totalElements").value(2));
+    }
+
+    /**
+     * Ticking every box is not the same as ticking none, and the difference is
+     * whoever has nothing recorded. "Gender is male or female" honestly excludes
+     * the person whose gender was never asked; an untouched filter keeps them.
+     * <p>
+     * It surprises people, so it is pinned here rather than left to be
+     * rediscovered by somebody comparing two counts.
+     */
+    @Test
+    void namingEveryValueIsNotTheSameAsNamingNone() throws Exception {
+        createCodedPerson("Satu", "MALE", "O_POSITIVE", "KTP");
+        createCodedPerson("Dua", "FEMALE", "AB_NEGATIVE", "PASSPORT");
+        createPerson("Tanpa", "Gender", "tanpa@probe.test", "0899");
+
+        mockMvc.perform(asOwner(get("/person")).param("gender", "MALE", "FEMALE"))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        mockMvc.perform(asOwner(get("/person")))
+                .andExpect(jsonPath("$.totalElements").value(3));
+    }
+
+    /**
+     * All four at once, which is now the whole filter set. Either within each,
+     * both across them.
+     */
+    @Test
+    void everyFilterAtOnceStillMeansBothAcross() throws Exception {
+        createCodedPerson("Satu", "MALE", "O_POSITIVE", "KTP");
+        createCodedPerson("Dua", "FEMALE", "O_NEGATIVE", "PASSPORT");
+        createCodedPerson("Tiga", "FEMALE", "O_POSITIVE", "KTP");
+
+        mockMvc.perform(asOwner(get("/person"))
+                        .param("gender", "FEMALE")
+                        .param("bloodType", "O_POSITIVE", "O_NEGATIVE")
+                        .param("identityDocumentType", "KTP", "KITAS"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].firstName").value("Tiga"));
     }
 
     /**

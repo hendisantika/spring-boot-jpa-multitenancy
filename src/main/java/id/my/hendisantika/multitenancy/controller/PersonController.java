@@ -54,7 +54,7 @@ public class PersonController {
      * A search widens and a filter narrows, so they combine: {@code ?q=budi} with
      * {@code &bloodType=O_POSITIVE} means both, not either.
      * <p>
-     * Every filter but gender may be repeated —
+     * Every filter may be repeated —
      * {@code ?bloodType=O_POSITIVE&bloodType=O_NEGATIVE} — and then means either
      * of them, while still narrowing whatever else was asked for.
      *
@@ -68,7 +68,7 @@ public class PersonController {
             @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "page", required = false) Integer page,
             @RequestParam(name = "size", required = false) Integer size,
-            @RequestParam(name = "gender", required = false) String gender,
+            @RequestParam(name = "gender", required = false) List<String> gender,
             @RequestParam(name = "maritalStatus", required = false) List<String> maritalStatus,
             @RequestParam(name = "bloodType", required = false) List<String> bloodType,
             @RequestParam(name = "identityDocumentType", required = false) List<String> identityDocumentType) {

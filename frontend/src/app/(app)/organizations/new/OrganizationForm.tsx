@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 
 import { registerOrganization } from "@/app/actions/organizations";
+import { PhotoField } from "@/components/PhotoField";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Alert, Field, Input, Select } from "@/components/ui";
 import { ORG_STRUCTURES, PRACTICE_SPECIALITIES, type FormState } from "@/lib/types";
@@ -116,9 +117,11 @@ export function OrganizationForm() {
         </Field>
       </div>
 
-      <Field label="Organization photo" hint="Optional. JPEG, PNG or WebP, up to 5 MB.">
-        <Input name="photo" type="file" accept="image/jpeg,image/png,image/webp" className="py-1.5" />
-      </Field>
+      <PhotoField
+        label="Organization photo"
+        hint="Optional. JPEG, PNG or WebP, up to 5 MB."
+        round={false}
+      />
 
       <div className="flex justify-end gap-3 border-t border-line pt-5">
         <SubmitButton pendingLabel="Creating database…">Register organization</SubmitButton>

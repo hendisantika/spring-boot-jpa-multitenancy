@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { updateOrganization } from "@/app/actions/organizations";
+import { PhotoField } from "@/components/PhotoField";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Alert, Field, Input, Select } from "@/components/ui";
 import {
@@ -81,9 +82,11 @@ export function EditOrganizationForm({ organization }: { organization: Organizat
         </Field>
       </div>
 
-      <Field label="Organization photo" hint="Leave empty to keep the current one.">
-        <Input name="photo" type="file" accept="image/jpeg,image/png,image/webp" className="py-1.5" />
-      </Field>
+      <PhotoField
+        label="Organization photo"
+        hint="Leave empty to keep the current one. JPEG, PNG or WebP, up to 5 MB."
+        round={false}
+      />
 
       <div className="flex justify-end gap-3 border-t border-line pt-5">
         <SubmitButton pendingLabel="Saving…">Save changes</SubmitButton>

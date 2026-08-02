@@ -67,11 +67,26 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
       </Link>
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink">
-            {organization.businessName}
-          </h1>
-          <p className="mt-1 font-mono text-sm text-ink-muted">{organization.subdomain}</p>
+        <div className="flex items-center gap-3">
+          {/*
+            A signed URL from the API, good for a short while. Not next/image:
+            the host is whatever the bucket is configured as, and the URL changes
+            every render, so there is nothing to optimise or cache against.
+          */}
+          {organization.photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={organization.photoUrl}
+              alt=""
+              className="size-12 shrink-0 rounded-lg border border-line object-cover"
+            />
+          ) : null}
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-ink">
+              {organization.businessName}
+            </h1>
+            <p className="mt-1 font-mono text-sm text-ink-muted">{organization.subdomain}</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Badge tone={role === "OWNER" ? "brand" : "muted"}>You are {role}</Badge>

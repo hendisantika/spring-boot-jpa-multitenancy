@@ -85,6 +85,7 @@ export function EditOrganizationForm({ organization }: { organization: Organizat
       <PhotoField
         label="Organization photo"
         hint="Leave empty to keep the current one. JPEG, PNG or WebP, up to 5 MB."
+        currentUrl={organization.photoUrl}
         round={false}
       />
 

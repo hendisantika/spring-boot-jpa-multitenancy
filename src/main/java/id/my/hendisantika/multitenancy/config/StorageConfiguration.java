@@ -12,6 +12,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.net.URI;
 
@@ -42,6 +43,39 @@ public class StorageConfiguration {
 
         if (StringUtils.hasText(storageProperties.getEndpoint())) {
             builder.endpointOverride(URI.create(storageProperties.getEndpoint()));
+        }
+        if (StringUtils.hasText(storageProperties.getAccessKey())) {
+            builder.credentialsProvider(StaticCredentialsProvider.create(
+                    AwsBasicCredentials.create(storageProperties.getAccessKey(), storageProperties.getSecretKey())));
+        } else {
+            builder.credentialsProvider(DefaultCredentialsProvider.create());
+        }
+        return builder.build();
+    }
+
+    /**
+     * Signs the read URLs handed to a browser.
+     * <p>
+     * Built separately from the client because it may have to sign against a
+     * different address: a signature covers the host, so inside a compose
+     * network the application reaches MinIO at {@code minio:9000} while the
+     * browser needs the published one, and the URL has to be signed for the
+     * latter.
+     */
+    @Bean
+    @DependsOn("productionCredentialsValidator")
+    public S3Presigner s3Presigner(StorageProperties storageProperties) {
+        var builder = S3Presigner.builder()
+                .region(Region.of(storageProperties.getRegion()))
+                .serviceConfiguration(S3Configuration.builder()
+                        .pathStyleAccessEnabled(storageProperties.isPathStyleAccess())
+                        .build());
+
+        String endpoint = StringUtils.hasText(storageProperties.getSignedUrlEndpoint())
+                ? storageProperties.getSignedUrlEndpoint()
+                : storageProperties.getEndpoint();
+        if (StringUtils.hasText(endpoint)) {
+            builder.endpointOverride(URI.create(endpoint));
         }
         if (StringUtils.hasText(storageProperties.getAccessKey())) {
             builder.credentialsProvider(StaticCredentialsProvider.create(

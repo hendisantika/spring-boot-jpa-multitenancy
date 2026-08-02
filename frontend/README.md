@@ -40,6 +40,17 @@ bun run lint
 
 ## How it is put together
 
+**Photos go through a server action, so its body limit is the narrowest gate.** The default is 1 MB, which
+contradicted every other limit here — the backend takes a 5 MB file — and a 2 MB photo failed with an unhandled
+runtime error rather than a message. `serverActions.bodySizeLimit` in `next.config.ts` is now 6 MB: the limit covers
+the whole multipart body, so the boundaries and the other fields have to fit beside the file.
+
+All three forms that take a photo share one `PhotoField`, which previews the chosen file and refuses one over 5 MB
+before anything is uploaded. That is a courtesy — the API refuses an oversized file anyway — but without it the
+mistake costs a full upload before anybody hears about it. It shows only what was just picked, never the stored photo:
+objects in the bucket are private, so their URLs `403` in a browser. Displaying them would need a signed URL or a
+proxy, which does not exist yet.
+
 **Tokens never reach the browser.** Login stores the access and refresh tokens in httpOnly cookies, and every call to
 the API is made from a server action or a server component. A script on the page cannot read them, and the API base URL
 stays server side.

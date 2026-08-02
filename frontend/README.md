@@ -49,6 +49,12 @@ All three forms that take a photo share one `PhotoField`, which previews the cho
 before anything is uploaded. That is a courtesy — the API refuses an oversized file anyway — but without it the
 mistake costs a full upload before anybody hears about it.
 
+**The header shows the account's photo**, from `currentAccount()` — wrapped in React's `cache`, so the header and the
+dashboard asking for the same account costs one request per render rather than two. It cannot be kept in a cookie
+instead: the URL is signed and expires. It answers null rather than throwing, because it is called from the layout and
+a failure there would take down every page under it; the header then falls back to the first letter of the email,
+which the cookie still has.
+
 **Stored photos are shown from a signed URL.** The bucket is private, so `photoUrl` in an API response is a presigned
 `GET` that expires — 15 minutes by default. Pages are rendered per request with `cache: "no-store"`, so each render
 gets a fresh one; a tab left open past the lifetime needs a reload before its images load again. They are plain `img`

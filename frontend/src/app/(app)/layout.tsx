@@ -2,13 +2,17 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { logOut } from "@/app/actions/auth";
+import { Avatar } from "@/components/Avatar";
+import { currentAccount } from "@/lib/account";
 import { getEmail, isSignedIn } from "@/lib/session";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Every page below this layout needs a session; checking once here keeps the
   // pages themselves free of the guard.
   if (!(await isSignedIn())) redirect("/login");
-  const email = await getEmail();
+  // The email comes from the cookie so the header renders even when the API is
+  // unreachable; the account is only needed for the photo.
+  const [email, account] = await Promise.all([getEmail(), currentAccount()]);
 
   return (
     <div className="min-h-dvh">
@@ -22,6 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </Link>
 
           <div className="flex items-center gap-3">
+            <Avatar photoUrl={account?.photoUrl ?? null} email={account?.email ?? email} />
             <span className="hidden text-sm text-ink-muted sm:inline">{email}</span>
             <form action={logOut}>
               <button

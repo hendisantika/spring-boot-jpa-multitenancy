@@ -25,11 +25,14 @@ export function PhotoField({
   label = "Photo",
   hint,
   name = "photo",
+  /** The stored photo, shown until a new one is picked. */
+  currentUrl = null,
   round = true,
 }: {
   label?: string;
   hint?: string;
   name?: string;
+  currentUrl?: string | null;
   round?: boolean;
 }) {
   const [preview, setPreview] = useState<string | null>(null);
@@ -51,19 +54,19 @@ export function PhotoField({
     setPreview(URL.createObjectURL(file));
   }
 
-  // Only what was just picked. The stored photo is a private object in the
-  // bucket, so its URL 403s in a browser — showing it would be a broken image.
-  // Displaying stored photos needs a signed URL or a proxy, which this is not.
+  // What was just picked wins over what is stored, so the preview shows the
+  // photo that would actually be saved.
+  const shown = preview ?? currentUrl;
   const shape = round ? "rounded-full" : "rounded-lg";
 
   return (
     <>
       <Field label={label} hint={hint}>
         <div className="flex items-center gap-3">
-          {preview ? (
+          {shown ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={preview}
+              src={shown}
               alt=""
               className={`size-12 shrink-0 border border-line object-cover ${shape}`}
             />

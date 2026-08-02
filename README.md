@@ -702,6 +702,21 @@ lowercase `.sql` suffix are required by Flyway's default configuration.
   generated rather than taken from the submitted file name.
 * **The bucket is not created for you.** `application.storage.bucket` must already exist. Locally the `minio-init`
   service in `compose.yaml` creates it; in production create it as part of provisioning.
+* **Photos are read through signed URLs.** The bucket is private, so the plain object URL answers `403` — the
+  `photoUrl` in an API response is a presigned `GET`, built fresh on each read, which is why the database keeps the
+  object key and never a URL. Set `application.storage.signed-url-ttl` (default `15m`); a page left open longer than
+  that needs a reload before its images load again.
+
+  A signed URL is a bearer token in a query string: anybody holding one can read that one object until it expires,
+  with no session and no membership check. That is the mechanism, not a flaw in this implementation, and it is why the
+  lifetime is short.
+
+  Two settings exist for cases that look alike but are not:
+
+  | Setting | When |
+  |---|---|
+  | `application.storage.public-base-url` | The objects are readable without credentials — a CDN, a public bucket. URLs are then handed out plainly, because a signature nothing checks is only a credential in a URL. |
+  | `application.storage.signed-url-endpoint` | The browser reaches the bucket at a different address than the application does. A signature covers the host, so a URL signed for `http://minio:9000` inside a compose network **cannot** be repointed afterwards — it has to be signed for the address the browser will use. `compose.yaml` sets this. |
 * Sample users in `Query.sql` have plain-text passwords — sample data only, not for production.
 
 ## Roles inside a tenant's data

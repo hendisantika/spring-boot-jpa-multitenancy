@@ -13,6 +13,7 @@ import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -48,6 +49,9 @@ class S3StorageIntegrationTest {
 
     @Autowired
     private StorageService storageService;
+
+    @Autowired
+    private S3Presigner s3Presigner;
 
     @Autowired
     private StorageProperties storageProperties;
@@ -86,18 +90,91 @@ class S3StorageIntegrationTest {
                 .isInstanceOf(NoSuchKeyException.class);
     }
 
+    /**
+     * The point of signing: the URL handed to a browser actually fetches the
+     * bytes. Asserting its shape instead is what let a plain URL that answers
+     * 403 sit in the API for a while.
+     */
     @Test
-    void urlPointsAtTheStoredObject() {
+    void aSignedUrlFetchesTheObject() throws Exception {
+        byte[] content = "jpeg-ish".getBytes();
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo", "logo.png", MediaType.IMAGE_JPEG_VALUE, content);
+        String key = storageService.store(photo, "organizations");
+        try {
+            String url = storageService.urlOf(key);
+            assertThat(url).contains("X-Amz-Signature");
+
+            HttpURLConnection connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
+            assertThat(connection.getResponseCode()).isEqualTo(200);
+            try (var body = connection.getInputStream()) {
+                assertThat(body.readAllBytes()).isEqualTo(content);
+            }
+            connection.disconnect();
+        } finally {
+            storageService.delete(key);
+        }
+    }
+
+    /**
+     * And the reason it has to be signed: the bucket is private, so the plain
+     * object URL is refused. If this ever passes, the bucket has been opened up
+     * and the signing is decoration.
+     */
+    @Test
+    void theUnsignedUrlIsRefused() throws Exception {
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo", "logo.png", MediaType.IMAGE_JPEG_VALUE, "jpeg-ish".getBytes());
+        String key = storageService.store(photo, "organizations");
+        try {
+            String plain = storageProperties.getEndpoint().replaceAll("/$", "")
+                    + "/" + storageProperties.getBucket() + "/" + key;
+            HttpURLConnection connection = (HttpURLConnection) URI.create(plain).toURL().openConnection();
+            assertThat(connection.getResponseCode()).isEqualTo(403);
+            connection.disconnect();
+        } finally {
+            storageService.delete(key);
+        }
+    }
+
+    /**
+     * A signed URL is a bearer token in a query string, so its lifetime is the
+     * thing keeping it from being worth passing around.
+     */
+    @Test
+    void theSignedUrlCarriesTheConfiguredLifetime() {
         MockMultipartFile photo = new MockMultipartFile(
                 "photo", "logo.png", MediaType.IMAGE_JPEG_VALUE, "jpeg-ish".getBytes());
         String key = storageService.store(photo, "organizations");
         try {
             assertThat(storageService.urlOf(key))
-                    .isEqualTo(storageProperties.getEndpoint().replaceAll("/$", "")
-                            + "/" + storageProperties.getBucket() + "/" + key);
+                    .contains("X-Amz-Expires=" + storageProperties.getSignedUrlTtl().toSeconds());
         } finally {
             storageService.delete(key);
         }
+    }
+
+    /**
+     * A public bucket or a CDN needs no signature, and adding one would only put
+     * a credential in a URL that nothing checks.
+     */
+    @Test
+    void aPublicBaseUrlIsHandedOutPlainly() {
+        StorageProperties publicProperties = new StorageProperties();
+        publicProperties.setBucket(storageProperties.getBucket());
+        publicProperties.setEndpoint(storageProperties.getEndpoint());
+        publicProperties.setPublicBaseUrl("https://cdn.example.com/");
+
+        StorageService publicStorage = new S3StorageService(s3Client, s3Presigner, publicProperties);
+
+        assertThat(publicStorage.urlOf("organizations/abc.png"))
+                .isEqualTo("https://cdn.example.com/organizations/abc.png");
+    }
+
+    @Test
+    void nothingIsSignedForAMissingKey() {
+        assertThat(storageService.urlOf(null)).isNull();
+        assertThat(storageService.urlOf("  ")).isNull();
     }
 
     private void createBucketIfMissing() {

@@ -47,9 +47,13 @@ the whole multipart body, so the boundaries and the other fields have to fit bes
 
 All three forms that take a photo share one `PhotoField`, which previews the chosen file and refuses one over 5 MB
 before anything is uploaded. That is a courtesy — the API refuses an oversized file anyway — but without it the
-mistake costs a full upload before anybody hears about it. It shows only what was just picked, never the stored photo:
-objects in the bucket are private, so their URLs `403` in a browser. Displaying them would need a signed URL or a
-proxy, which does not exist yet.
+mistake costs a full upload before anybody hears about it.
+
+**Stored photos are shown from a signed URL.** The bucket is private, so `photoUrl` in an API response is a presigned
+`GET` that expires — 15 minutes by default. Pages are rendered per request with `cache: "no-store"`, so each render
+gets a fresh one; a tab left open past the lifetime needs a reload before its images load again. They are plain `img`
+tags rather than `next/image`: the host is whatever the bucket is configured as, and the URL changes every render, so
+there is nothing to optimise or cache against.
 
 **Tokens never reach the browser.** Login stores the access and refresh tokens in httpOnly cookies, and every call to
 the API is made from a server action or a server component. A script on the page cannot read them, and the API base URL

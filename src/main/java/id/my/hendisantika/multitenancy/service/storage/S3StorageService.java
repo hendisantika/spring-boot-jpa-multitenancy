@@ -8,7 +8,10 @@ import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 import java.io.IOException;
 import java.util.Locale;
@@ -31,6 +34,7 @@ import java.util.UUID;
 public class S3StorageService implements StorageService {
 
     private final S3Client s3Client;
+    private final S3Presigner s3Presigner;
     private final StorageProperties storageProperties;
 
     @Override
@@ -52,15 +56,39 @@ public class S3StorageService implements StorageService {
         return key;
     }
 
+    /**
+     * A URL a browser can actually fetch.
+     * <p>
+     * The bucket is private, so the plain object URL answers 403. This signs a
+     * short-lived GET instead, which is why the stored key is the thing kept in
+     * the database and the URL is built fresh on every read.
+     * <p>
+     * A signed URL is a bearer token in a query string: anybody holding it can
+     * read that one object until it expires, with no session. That is the whole
+     * mechanism, and the reason the lifetime is short.
+     * <p>
+     * When {@code publicBaseUrl} is set the objects are readable without
+     * credentials anyway — a CDN or a public bucket — so signing would add a
+     * signature nothing checks, and the plain URL is returned.
+     */
     @Override
     public String urlOf(String key) {
         if (!StringUtils.hasText(key)) {
             return null;
         }
-        String base = StringUtils.hasText(storageProperties.getPublicBaseUrl())
-                ? storageProperties.getPublicBaseUrl()
-                : "%s/%s".formatted(trimTrailingSlash(storageProperties.getEndpoint()), storageProperties.getBucket());
-        return "%s/%s".formatted(trimTrailingSlash(base), key);
+        if (StringUtils.hasText(storageProperties.getPublicBaseUrl())) {
+            return "%s/%s".formatted(trimTrailingSlash(storageProperties.getPublicBaseUrl()), key);
+        }
+        GetObjectRequest get = GetObjectRequest.builder()
+                .bucket(storageProperties.getBucket())
+                .key(key)
+                .build();
+        return s3Presigner.presignGetObject(GetObjectPresignRequest.builder()
+                        .signatureDuration(storageProperties.getSignedUrlTtl())
+                        .getObjectRequest(get)
+                        .build())
+                .url()
+                .toExternalForm();
     }
 
     @Override

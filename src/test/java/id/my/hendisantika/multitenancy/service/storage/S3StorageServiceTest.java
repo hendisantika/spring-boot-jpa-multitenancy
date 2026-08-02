@@ -12,12 +12,20 @@ import org.springframework.mock.web.MockMultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
+
+import java.net.URI;
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 /**
  * Created by IntelliJ IDEA.
@@ -33,6 +41,9 @@ class S3StorageServiceTest {
 
     @Mock
     private S3Client s3Client;
+
+    @Mock
+    private S3Presigner s3Presigner;
 
     @Spy
     private StorageProperties storageProperties = new StorageProperties();
@@ -85,16 +96,48 @@ class S3StorageServiceTest {
         verifyNoInteractions(s3Client);
     }
 
+    /**
+     * The bucket is private, so a read URL is a signed one, asked for with the
+     * key being read and the configured lifetime. That it actually fetches the
+     * bytes is {@code S3StorageIntegrationTest}'s job; this one covers what is
+     * asked for.
+     */
     @Test
-    void buildsAUrlFromTheEndpointOrTheConfiguredPublicBase() {
+    void aPrivateBucketIsReadThroughASignedUrl() throws Exception {
         storageProperties.setEndpoint("http://localhost:9000/");
-        assertThat(storageService.urlOf("accounts/a.png"))
-                .isEqualTo("http://localhost:9000/jvm-uploads/accounts/a.png");
+        storageProperties.setSignedUrlTtl(Duration.ofMinutes(3));
 
+        PresignedGetObjectRequest presigned = mock(PresignedGetObjectRequest.class);
+        when(presigned.url()).thenReturn(URI.create("http://localhost:9000/jvm-uploads/accounts/a.png?X-Amz-Signature=abc").toURL());
+        when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class))).thenReturn(presigned);
+
+        assertThat(storageService.urlOf("accounts/a.png"))
+                .isEqualTo("http://localhost:9000/jvm-uploads/accounts/a.png?X-Amz-Signature=abc");
+
+        ArgumentCaptor<GetObjectPresignRequest> request = ArgumentCaptor.forClass(GetObjectPresignRequest.class);
+        verify(s3Presigner).presignGetObject(request.capture());
+        assertThat(request.getValue().signatureDuration()).isEqualTo(Duration.ofMinutes(3));
+        assertThat(request.getValue().getObjectRequest().bucket()).isEqualTo("jvm-uploads");
+        assertThat(request.getValue().getObjectRequest().key()).isEqualTo("accounts/a.png");
+    }
+
+    /**
+     * A public bucket or a CDN needs no signature, and adding one would only put
+     * a credential in a URL that nothing checks.
+     */
+    @Test
+    void aPublicBaseUrlIsHandedOutPlainly() {
         storageProperties.setPublicBaseUrl("https://cdn.example.test/");
+
         assertThat(storageService.urlOf("accounts/a.png"))
                 .isEqualTo("https://cdn.example.test/accounts/a.png");
+        verifyNoInteractions(s3Presigner);
+    }
 
+    @Test
+    void nothingIsSignedForAMissingKey() {
         assertThat(storageService.urlOf(null)).isNull();
+        assertThat(storageService.urlOf("  ")).isNull();
+        verifyNoInteractions(s3Presigner);
     }
 }

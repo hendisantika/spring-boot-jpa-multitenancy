@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { currentAccount } from "@/lib/account";
 import { ApiError, api } from "@/lib/api";
 import { getMemberships } from "@/lib/session";
 import {
@@ -20,9 +21,11 @@ export default async function DashboardPage() {
   let error: string | null = null;
 
   try {
+    // currentAccount is memoised per render, so the header above has already
+    // fetched this and asking again costs nothing.
     [organizations, account] = await Promise.all([
       api<Organization[]>("/api/organizations"),
-      api<Account>("/api/auth/me"),
+      currentAccount(),
     ]);
   } catch (e) {
     error = e instanceof ApiError ? e.message : "Cannot reach the API.";

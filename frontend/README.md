@@ -144,7 +144,13 @@ the other two use: the same 112px square, and the same fallback to an initial. I
 either of them, and with no photo at all it rendered nothing, so the heading simply slid left and the page looked like
 one that had never had a photo.
 
-The unit's own screen carries the mirror of that link, with the count: "3 people at this unit". Only the count is
+The unit's own screen steps to its neighbours in the order the list shows them, `rel="prev"` and `rel="next"`, with
+each end simply missing one. Steps rather than a row of every unit, unlike the reference lists: eleven categories fit
+across a screen and a tenant's branches may not, and a unit is a record where a category is a fixed catalogue. One
+window of units is looked at to work out who sits either side — past that the steps are not offered at all, because
+being told "next" and landing somewhere arbitrary is worse than not being offered it.
+
+It also carries the mirror of the person's unit link, with the count: "3 people at this unit". Only the count is
 fetched — a page of people to render a number would be a screenful thrown away — and it degrades to the link without a
 number rather than hiding it, because "could not be read" is not "nobody here". An empty unit says 0 rather than
 saying nothing, since that is a fact worth knowing about a place.

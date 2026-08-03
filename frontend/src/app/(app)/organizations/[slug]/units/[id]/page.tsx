@@ -14,6 +14,12 @@ import { Alert, Card, PageHeading } from "@/components/ui";
 export const metadata = { title: "Business unit" };
 
 /**
+ * How many units are looked at to work out which ones sit either side. Past
+ * this the steps are simply not offered, rather than being offered wrongly.
+ */
+const NEIGHBOURS_WINDOW = 200;
+
+/**
  * One unit, whole — the same reasoning as a person: the list has a line each
  * and the form is for changing things, so neither is a place to read a record.
  */
@@ -73,6 +79,22 @@ export default async function UnitPage({ params }: PageProps<"/organizations/[sl
   const people = await api<PageOf<TenantPerson>>(`/person?unit=${unit.id}&size=1`, { tenant: slug })
     .then((page) => page.totalElements)
     .catch(() => null);
+
+  // The neighbours, in the order the list shows them. Steps rather than a row
+  // of every unit: a unit is a record, and a tenant may have a great many —
+  // eleven reference lists fit across a screen, fifty branches do not.
+  //
+  // One window of them, so a tenant past that many simply gets no steps rather
+  // than wrong ones: being told "next" and landing somewhere arbitrary is worse
+  // than not being offered it.
+  const siblings = await api<PageOf<TenantUnit>>(`/organization?size=${NEIGHBOURS_WINDOW}`, {
+    tenant: slug,
+  })
+    .then((page) => page.content)
+    .catch(() => []);
+  const here = siblings.findIndex((candidate) => candidate.id === unit.id);
+  const previous = here > 0 ? siblings[here - 1] : null;
+  const next = here >= 0 && here + 1 < siblings.length ? siblings[here + 1] : null;
 
   return (
     <>
@@ -135,6 +157,36 @@ export default async function UnitPage({ params }: PageProps<"/organizations/[sl
 
         {/* The mirror of the unit row on a person: from this place to the
             people at it, arriving with the filter already applied. */}
+        {previous || next ? (
+          <nav
+            aria-label="The other units"
+            className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-4 text-sm"
+          >
+            {previous ? (
+              <Link
+                href={`/organizations/${slug}/units/${previous.id}`}
+                rel="prev"
+                className="min-w-0 truncate text-ink-muted transition hover:text-ink"
+              >
+                ← {previous.name || "Previous unit"}
+              </Link>
+            ) : (
+              <span />
+            )}
+            {next ? (
+              <Link
+                href={`/organizations/${slug}/units/${next.id}`}
+                rel="next"
+                className="min-w-0 truncate text-right text-ink-muted transition hover:text-ink"
+              >
+                {next.name || "Next unit"} →
+              </Link>
+            ) : (
+              <span />
+            )}
+          </nav>
+        ) : null}
+
         <Link
           href={`/organizations/${slug}/people?unit=${unit.id}`}
           className="mt-4 inline-block border-t border-line pt-4 text-sm text-ink-muted transition hover:text-ink"

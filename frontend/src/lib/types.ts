@@ -133,6 +133,7 @@ export type TenantPerson = {
   lastName: string | null;
   email: string | null;
   mobile: string | null;
+  /** A calendar date, `YYYY-MM-DD`, never an instant — a birthday has no zone. */
   birthDate: string | null;
   gender: string | null;
   maritalStatus: string | null;

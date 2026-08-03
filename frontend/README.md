@@ -33,6 +33,7 @@ bun run lint
 | `/organizations/[slug]` | Profile, its photo, the people in it, and inviting people when you are the `OWNER` |
 | `/organizations/[slug]/edit` | Edit the profile; owner only                                        |
 | `/organizations/[slug]/people` | The tenant's own people, searched and paged from `?q=` and `?page=` |
+| `/organizations/[slug]/people/[id]` | One person, whole, with the photo at a size worth looking at |
 | `/organizations/[slug]/units` | The tenant's business units with their photos, searched and paged the same way |
 | `/invitations/[token]`  | Open: accept an invitation, choosing your own password                   |
 | `/forgot-password`      | Ask for a reset link                                                     |
@@ -51,6 +52,11 @@ The organization page carries a Photo card of its own for the owner, on the same
 to the photo-only endpoint rather than through the profile form: changing a picture should not mean re-submitting
 eight fields that were fine as they were, and re-submitting them is how they get overwritten. The card says so, since
 the form behind **Edit** also has a photo field and two ways to do one thing needs explaining.
+
+**A person has a detail screen of their own.** The list has room for a line each and the form is for changing things;
+neither is a place to simply read a record, and the photo in particular was a 32px thumbnail. The name in the list is
+the way in, Edit goes back to the list where the form already lives, and a missing id says so rather than showing an
+empty page — the API answers 404 for that now.
 
 Units carry a photo of their own, on the same form and the same `PhotoField` as everything else. In the list it is a
 square tile rather than a round one, and falls back to the first letter of the name: a unit is a place, not a face, so

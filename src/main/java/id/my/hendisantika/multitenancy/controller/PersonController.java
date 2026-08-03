@@ -3,6 +3,7 @@ package id.my.hendisantika.multitenancy.controller;
 import id.my.hendisantika.multitenancy.entity.tenant.Person;
 import id.my.hendisantika.multitenancy.service.PersonFilter;
 import id.my.hendisantika.multitenancy.service.PersonService;
+import id.my.hendisantika.multitenancy.service.TenantRecordNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import id.my.hendisantika.multitenancy.service.storage.StorageService;
@@ -49,10 +50,17 @@ public class PersonController {
 
     private final StorageService storageService;
 
+    /**
+     * One person, for the screen that shows the whole record.
+     * <p>
+     * Missing is 404, not 200 with an empty body: a detail screen has to tell
+     * "no such person" apart from "the API is unreachable", and it could not.
+     */
     @GetMapping("/person/{id}")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
     public PersonView getPerson(@PathVariable("id") Long id) {
-        return personService.findById(id).map(this::viewOf).orElse(null);
+        return personService.findById(id).map(this::viewOf)
+                .orElseThrow(() -> new TenantRecordNotFoundException("No person with id " + id));
     }
 
     /**

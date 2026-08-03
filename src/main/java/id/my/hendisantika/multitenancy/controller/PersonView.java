@@ -3,6 +3,8 @@ package id.my.hendisantika.multitenancy.controller;
 import id.my.hendisantika.multitenancy.entity.tenant.Person;
 import id.my.hendisantika.multitenancy.service.storage.StorageService;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Date;
 
 /**
@@ -27,7 +29,7 @@ public record PersonView(
         String email,
         String mobile,
         String homePhone,
-        Date birthDate,
+        LocalDate birthDate,
         String gender,
         String maritalStatus,
         String bloodType,
@@ -44,12 +46,31 @@ public record PersonView(
                 person.getEmail(),
                 person.getMobile(),
                 person.getHomePhone(),
-                person.getBirthDate(),
+                dateOf(person.getBirthDate()),
                 person.getGender(),
                 person.getMaritalStatus(),
                 person.getBloodType(),
                 person.getIdentityDocumentType(),
                 person.getIdentityNumber(),
                 storageService.urlOf(person.getPhotoKey()));
+    }
+
+    /**
+     * A birthday is a calendar date, not a moment, and it was being handed out
+     * as one: midnight in the server's zone, serialised as an instant, which in
+     * Jakarta is the previous day in UTC. Anything reading the first ten
+     * characters — the edit form did — showed a birthday one day early, and
+     * saving it back moved it again.
+     */
+    private static LocalDate dateOf(Date value) {
+        if (value == null) {
+            return null;
+        }
+        // java.sql.Date is what a DATE column comes back as, and it refuses
+        // toInstant() because it has no time to offer.
+        if (value instanceof java.sql.Date date) {
+            return date.toLocalDate();
+        }
+        return value.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
     }
 }

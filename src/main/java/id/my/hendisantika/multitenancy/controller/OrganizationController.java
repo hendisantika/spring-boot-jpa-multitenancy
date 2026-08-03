@@ -2,6 +2,7 @@ package id.my.hendisantika.multitenancy.controller;
 
 import id.my.hendisantika.multitenancy.entity.tenant.Organization;
 import id.my.hendisantika.multitenancy.service.OrganizationService;
+import id.my.hendisantika.multitenancy.service.TenantRecordNotFoundException;
 import id.my.hendisantika.multitenancy.service.UnitFilter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -53,7 +54,8 @@ public class OrganizationController {
     @GetMapping("/organization/{id}")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
     public UnitView getOrganization(@PathVariable("id") Long id) {
-        return organizationService.findById(id).map(this::viewOf).orElse(null);
+        return organizationService.findById(id).map(this::viewOf)
+                .orElseThrow(() -> new TenantRecordNotFoundException("No organization with id " + id));
     }
 
     /**

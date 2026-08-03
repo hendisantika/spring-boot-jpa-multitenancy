@@ -444,7 +444,9 @@ class AuthFlowTest {
         String refreshedToken = objectMapper.readTree(body).get("accessToken").asText();
         assertThat(objectMapper.readTree(body).get("memberships").get(SLUG).asText()).isEqualTo("OWNER");
 
-        mvc().perform(get("/organization/1")
+        // The list rather than a record: what is being asked is whether the
+        // token opens the tenant, and a fresh tenant has no units to fetch.
+        mvc().perform(get("/organization")
                         .header("Authorization", "Bearer " + refreshedToken)
                         .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG))
                 .andExpect(status().isOk());

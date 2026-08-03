@@ -110,12 +110,25 @@ export async function saveUnit(_prev: FormState, formData: FormData): Promise<Fo
   const slug = String(formData.get("slug") ?? "");
   const id = String(formData.get("id") ?? "");
   const values = unitFrom(formData);
+  const photo = formData.get("photo");
+
+  // Multipart for the same reason a person is: the photo arrives with the
+  // record rather than in a second call, so there is no window where the unit
+  // exists without it and nothing to unpick when only one of the two succeeds.
+  const payload = new FormData();
+  payload.append("organization", jsonPart(values), "organization.json");
+  if (photo instanceof File && photo.size > 0) {
+    payload.append("photo", photo, photo.name);
+  } else if (formData.get("removePhoto") === "true") {
+    // Only when no file was chosen: the API takes an upload over the flag.
+    payload.append("removePhoto", "true");
+  }
 
   try {
     if (id) {
-      await api(`/organization/${id}`, { method: "PUT", json: values, tenant: slug });
+      await api(`/organization/${id}`, { method: "PUT", body: payload, tenant: slug });
     } else {
-      await api("/organization", { method: "POST", json: values, tenant: slug });
+      await api("/organization", { method: "POST", body: payload, tenant: slug });
     }
   } catch (error) {
     return { error: messageOf(error), values: Object.fromEntries(

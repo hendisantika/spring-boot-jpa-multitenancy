@@ -2,11 +2,13 @@ package id.my.hendisantika.multitenancy.service;
 
 import id.my.hendisantika.multitenancy.entity.tenant.Organization;
 import id.my.hendisantika.multitenancy.repository.tenant.OrganizationRepository;
+import id.my.hendisantika.multitenancy.service.storage.StorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +29,8 @@ public class OrganizationService {
     private final OrganizationRepository organizationRepository;
 
     private final ReferenceDataService referenceDataService;
+
+    private final StorageService storageService;
 
     @Transactional(value = "tenantTransactionManager", readOnly = true)
     public Optional<Organization> findById(Long id) {
@@ -73,6 +77,18 @@ public class OrganizationService {
         return organizationRepository.save(organization);
     }
 
+    /**
+     * @param newPhotoKey the freshly stored object, or null for a unit with no
+     *                    photo, which is most of them
+     */
+    @Transactional("tenantTransactionManager")
+    public Organization save(Organization organization, String newPhotoKey) {
+        if (StringUtils.hasText(newPhotoKey)) {
+            organization.setPhotoKey(newPhotoKey);
+        }
+        return save(organization);
+    }
+
     @Transactional("tenantTransactionManager")
     public Organization update(Long id, Organization changes) {
         Organization organization = organizationRepository.findById(id)
@@ -84,6 +100,38 @@ public class OrganizationService {
         organization.setAddress(changes.getAddress());
         organization.setProvince(changes.getProvince());
         organization.setEmail(changes.getEmail());
+        return organization;
+    }
+
+    @Transactional("tenantTransactionManager")
+    public Organization update(Long id, Organization changes, String newPhotoKey) {
+        return update(id, changes, newPhotoKey, false);
+    }
+
+    /**
+     * @param newPhotoKey null keeps the current photo; a new one replaces it and
+     *                    the old object is removed, or every edit would leave an
+     *                    orphan in the bucket that nothing points at again
+     * @param removePhoto drops the current photo, for whoever wants none rather
+     *                    than a different one. A supplied photo wins: uploading
+     *                    a file is a clearer statement of intent than a flag,
+     *                    and the two together is a contradiction the screen
+     *                    already prevents
+     */
+    @Transactional("tenantTransactionManager")
+    public Organization update(Long id, Organization changes, String newPhotoKey, boolean removePhoto) {
+        Organization organization = update(id, changes);
+        String previous = organization.getPhotoKey();
+
+        if (StringUtils.hasText(newPhotoKey)) {
+            organization.setPhotoKey(newPhotoKey);
+            if (StringUtils.hasText(previous) && !previous.equals(newPhotoKey)) {
+                storageService.delete(previous);
+            }
+        } else if (removePhoto && StringUtils.hasText(previous)) {
+            organization.setPhotoKey(null);
+            storageService.delete(previous);
+        }
         return organization;
     }
 
@@ -102,9 +150,13 @@ public class OrganizationService {
 
     @Transactional("tenantTransactionManager")
     public void delete(Long id) {
-        if (!organizationRepository.existsById(id)) {
-            throw new TenantRecordNotFoundException("No organization with id " + id);
+        Organization organization = organizationRepository.findById(id)
+                .orElseThrow(() -> new TenantRecordNotFoundException("No organization with id " + id));
+        String photoKey = organization.getPhotoKey();
+        organizationRepository.delete(organization);
+        // Otherwise the bucket keeps a picture of a unit that no longer exists.
+        if (StringUtils.hasText(photoKey)) {
+            storageService.delete(photoKey);
         }
-        organizationRepository.deleteById(id);
     }
 }

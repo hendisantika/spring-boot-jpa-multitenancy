@@ -33,7 +33,7 @@ bun run lint
 | `/organizations/[slug]` | Profile, its photo, the people in it, and inviting people when you are the `OWNER` |
 | `/organizations/[slug]/edit` | Edit the profile; owner only                                        |
 | `/organizations/[slug]/people` | The tenant's own people, searched and paged from `?q=` and `?page=` |
-| `/organizations/[slug]/units` | The tenant's business units, searched and paged the same way        |
+| `/organizations/[slug]/units` | The tenant's business units with their photos, searched and paged the same way |
 | `/invitations/[token]`  | Open: accept an invitation, choosing your own password                   |
 | `/forgot-password`      | Ask for a reset link                                                     |
 | `/reset-password/[token]` | Open: choose a new password                                            |
@@ -51,6 +51,10 @@ The organization page carries a Photo card of its own for the owner, on the same
 to the photo-only endpoint rather than through the profile form: changing a picture should not mean re-submitting
 eight fields that were fine as they were, and re-submitting them is how they get overwritten. The card says so, since
 the form behind **Edit** also has a photo field and two ways to do one thing needs explaining.
+
+Units carry a photo of their own, on the same form and the same `PhotoField` as everything else. In the list it is a
+square tile rather than a round one, and falls back to the first letter of the name: a unit is a place, not a face, so
+`Avatar` takes a `rounded` prop instead of the shape being assumed.
 
 All the forms that take a photo share one `PhotoField`, which previews the chosen file and refuses one over 5 MB
 before anything is uploaded. That is a courtesy — the API refuses an oversized file anyway — but without it the

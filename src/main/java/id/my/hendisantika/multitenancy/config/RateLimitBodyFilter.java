@@ -43,7 +43,8 @@ public class RateLimitBodyFilter extends OncePerRequestFilter {
      */
     private static final int MAX_BODY_BYTES = 8 * 1024;
 
-    private static final Set<String> PATHS = Set.of("/api/auth/login", "/api/auth/password/forgot");
+    private static final Set<String> PATHS =
+            Set.of("/api/auth/login", "/api/auth/password/forgot", "/api/auth/me/email");
 
     private final ObjectMapper objectMapper;
 

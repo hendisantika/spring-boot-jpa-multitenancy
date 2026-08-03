@@ -6,8 +6,61 @@ import { ApiError, api } from "@/lib/api";
 import type { Account, FormState } from "@/lib/types";
 
 /**
- * The photo on your own account. Only the photo: the email is what you sign in
- * with, and changing it means verifying the new one first.
+ * confirmUrl comes back only when mail delivery is off, so the flow stays
+ * followable locally. It is the same shape the forgot-password screen uses.
+ */
+export type EmailChangeState = FormState & { message?: string; confirmUrl?: string | null };
+
+/**
+ * Asks to move the account to a different address. Nothing changes yet: the
+ * account keeps signing in as it does until the link sent to the new mailbox is
+ * opened, so a typo here is a wasted email rather than a lost account.
+ */
+export async function requestEmailChange(
+  _prev: EmailChangeState,
+  formData: FormData,
+): Promise<EmailChangeState> {
+  const email = String(formData.get("email") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  // Handed back so a refusal re-renders filled in. Never the password.
+  const values = { email };
+
+  if (!email) return { error: "Enter the new address.", values };
+  if (!password) return { error: "Enter your current password.", values };
+
+  try {
+    const response = await api<{ message: string; confirmUrl: string | null }>(
+      "/api/auth/me/email",
+      { method: "POST", json: { email, password } },
+    );
+    revalidatePath("/account");
+    return { ok: true, message: response.message, confirmUrl: response.confirmUrl };
+  } catch (error) {
+    return { ...failure(error), values };
+  }
+}
+
+/** Drops the outstanding request, rather than waiting a day for it to lapse. */
+export async function cancelEmailChange(): Promise<FormState> {
+  try {
+    await api("/api/auth/me/email", { method: "DELETE" });
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath("/account");
+  return { ok: true };
+}
+
+function failure(error: unknown): FormState {
+  if (error instanceof ApiError) return { error: error.message };
+  if (error instanceof Error && error.message.includes("fetch failed")) {
+    return { error: "Cannot reach the API." };
+  }
+  return { error: "Something went wrong. Please try again." };
+}
+
+/**
+ * The photo on your own account.
  */
 export async function saveAccountPhoto(_prev: FormState, formData: FormData): Promise<FormState> {
   const photo = formData.get("photo");
@@ -27,11 +80,7 @@ export async function saveAccountPhoto(_prev: FormState, formData: FormData): Pr
   try {
     await api<Account>("/api/auth/me/photo", { method: "PUT", body: payload });
   } catch (error) {
-    if (error instanceof ApiError) return { error: error.message };
-    if (error instanceof Error && error.message.includes("fetch failed")) {
-      return { error: "Cannot reach the API." };
-    }
-    return { error: "Something went wrong. Please try again." };
+    return failure(error);
   }
 
   // The header on every page shows this, so the whole tree is stale, not just

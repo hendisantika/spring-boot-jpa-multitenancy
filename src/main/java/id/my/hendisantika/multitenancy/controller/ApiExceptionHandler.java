@@ -3,6 +3,7 @@ package id.my.hendisantika.multitenancy.controller;
 import id.my.hendisantika.multitenancy.config.UnknownTenantException;
 import id.my.hendisantika.multitenancy.service.AccountAlreadyExistsException;
 import id.my.hendisantika.multitenancy.service.AuthenticationFailedException;
+import id.my.hendisantika.multitenancy.service.EmailChangeException;
 import id.my.hendisantika.multitenancy.service.EmailVerificationException;
 import id.my.hendisantika.multitenancy.service.InvitationException;
 import id.my.hendisantika.multitenancy.service.PasswordResetException;
@@ -50,6 +51,11 @@ public class ApiExceptionHandler {
      */
     @ExceptionHandler(EmailVerificationException.class)
     public ProblemDetail onVerificationFailed(EmailVerificationException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
+    @ExceptionHandler(EmailChangeException.class)
+    public ProblemDetail onEmailChangeFailed(EmailChangeException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
     }
 

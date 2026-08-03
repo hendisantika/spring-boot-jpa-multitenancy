@@ -1,3 +1,4 @@
+import { AccountEmailForm } from "./AccountEmailForm";
 import { AccountPhotoForm } from "./AccountPhotoForm";
 import { currentAccount } from "@/lib/account";
 import { getEmail } from "@/lib/session";
@@ -32,11 +33,6 @@ export default async function AccountPage() {
               <dd className="text-ink">{account?.emailVerified ? "Yes" : "Not yet"}</dd>
             </div>
           </dl>
-          {/* Said plainly rather than left to be discovered by trying. */}
-          <p className="mt-4 text-xs text-ink-muted">
-            Only the photo can be changed here. The email is what you sign in with, so changing it
-            would mean confirming the new one first.
-          </p>
         </Card>
 
         <Card className="p-6">
@@ -45,6 +41,20 @@ export default async function AccountPage() {
             <AccountPhotoForm photoUrl={account.photoUrl} />
           ) : (
             <Alert>Cannot reach the API, so the photo cannot be changed right now.</Alert>
+          )}
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="font-semibold text-ink">Email</h2>
+          <p className="mt-1 mb-4 text-sm text-ink-muted">
+            {/* Set out before the form rather than discovered after submitting. */}
+            The new address has to be confirmed from a link sent to it, and nothing changes until
+            then — so a mistyped address costs an email rather than the account.
+          </p>
+          {account ? (
+            <AccountEmailForm email={account.email} pendingEmail={account.pendingEmail} />
+          ) : (
+            <Alert>Cannot reach the API, so the email cannot be changed right now.</Alert>
           )}
         </Card>
       </div>

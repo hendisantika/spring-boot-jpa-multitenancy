@@ -46,6 +46,13 @@ public class RateLimitProperties {
      */
     private Limit forgotPassword = new Limit(5, Duration.ofMinutes(15));
 
+    /**
+     * Same reasoning as forgot-password, and it matters more here: the address
+     * the mail goes to is one the caller types, so without this an account is a
+     * licence to send mail to anybody.
+     */
+    private Limit emailChange = new Limit(5, Duration.ofMinutes(15));
+
     public enum Backend {
         AUTO, MEMORY, REDIS
     }

@@ -37,7 +37,7 @@ import javax.sql.DataSource;
 @Configuration
 @EnableTransactionManagement
 @EnableConfigurationProperties({DatabaseProperties.class, TenantProperties.class, InvitationProperties.class, PasswordResetProperties.class,
-        EmailVerificationProperties.class, RateLimitProperties.class})
+        EmailVerificationProperties.class, EmailChangeProperties.class, RateLimitProperties.class})
 @EnableJpaRepositories(
         basePackages = "id.my.hendisantika.multitenancy.repository.central",
         entityManagerFactoryRef = "centralEntityManagerFactory",

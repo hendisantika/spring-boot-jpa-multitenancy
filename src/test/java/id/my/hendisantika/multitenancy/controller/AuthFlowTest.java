@@ -5,6 +5,7 @@ import id.my.hendisantika.multitenancy.entity.central.Account;
 import id.my.hendisantika.multitenancy.entity.central.OrgStructure;
 import id.my.hendisantika.multitenancy.entity.central.PracticeSpeciality;
 import id.my.hendisantika.multitenancy.repository.central.AccountRepository;
+import id.my.hendisantika.multitenancy.repository.central.EmailChangeRepository;
 import id.my.hendisantika.multitenancy.repository.central.TenantRegistrationRepository;
 import id.my.hendisantika.multitenancy.repository.central.UserTenantRepository;
 import id.my.hendisantika.multitenancy.service.TenantProvisioningService;
@@ -48,10 +49,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Date: 31/07/26
  * Time: 06.09
  */
-@SpringBootTest
+// Rate limiting is off here because the buckets outlive the test run when Redis
+// backs them: changing an address costs a token that is not refunded, so running
+// this suite a few times within the window would start failing on 429 rather
+// than on anything this test is about. The limits themselves are configuration.
+@SpringBootTest(properties = "application.rate-limit.enabled=false")
 class AuthFlowTest {
 
     private static final String EMAIL = "owner.probe@example.test";
+    private static final String MOVED_EMAIL = "owner.moved@example.test";
     private static final String PASSWORD = "s3cret-password";
     private static final String ORGANIZATION = "Auth Probe Clinic";
     private static final String SLUG = "authprobeclinic";
@@ -67,6 +73,9 @@ class AuthFlowTest {
 
     @Autowired
     private UserTenantRepository userTenantRepository;
+
+    @Autowired
+    private EmailChangeRepository emailChangeRepository;
 
     @Autowired
     private TenantRegistrationRepository tenantRegistrationRepository;
@@ -94,10 +103,14 @@ class AuthFlowTest {
     void cleanUp() {
         tenantRegistrationRepository.findBySlug(SLUG)
                 .ifPresent(tenant -> tenantProvisioningService.deprovision(SLUG));
-        accountRepository.findByEmailIgnoreCase(EMAIL).ifPresent(account -> {
-            userTenantRepository.deleteAll(userTenantRepository.findAllByAccountId(account.getId()));
-            accountRepository.delete(account);
-        });
+        // Either address, because a test here moves the account to the other one.
+        for (String email : new String[]{EMAIL, MOVED_EMAIL}) {
+            accountRepository.findByEmailIgnoreCase(email).ifPresent(account -> {
+                userTenantRepository.deleteAll(userTenantRepository.findAllByAccountId(account.getId()));
+                emailChangeRepository.deleteAll(emailChangeRepository.findAllByAccountId(account.getId()));
+                accountRepository.delete(account);
+            });
+        }
     }
 
     private MockMultipartFile organizationPart() {
@@ -205,6 +218,62 @@ class AuthFlowTest {
                     return r;
                 }).param("removePhoto", "true"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    /**
+     * The address you sign in with really does move, and only once the link is
+     * opened. The rules behind that live in EmailChangeServiceTest; what is
+     * proved here is that logging in follows.
+     */
+    @Test
+    void theSignInAddressMovesOnceTheLinkIsOpened() throws Exception {
+        String token = signUpAndLogin();
+
+        String requested = mvc().perform(post("/api/auth/me/email")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new AuthController.EmailChangeRequest(MOVED_EMAIL, PASSWORD))))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        // Mail delivery is off in tests, so the link comes back instead of being sent.
+        String confirmUrl = objectMapper.readTree(requested).get("confirmUrl").asString();
+
+        // Still the old address, and the new one is shown as waiting.
+        mvc().perform(get("/api/auth/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(EMAIL))
+                .andExpect(jsonPath("$.pendingEmail").value(MOVED_EMAIL));
+        assertThat(logInAs(EMAIL)).isEqualTo(200);
+
+        mvc().perform(post("/api/auth/email-change/"
+                        + confirmUrl.substring(confirmUrl.lastIndexOf('/') + 1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(MOVED_EMAIL));
+
+        assertThat(logInAs(MOVED_EMAIL)).isEqualTo(200);
+        assertThat(logInAs(EMAIL)).isEqualTo(401);
+    }
+
+    /**
+     * Your own account and nobody else's, the same as the photo: there is no id
+     * in the path, so the token decides whose address this is.
+     */
+    @Test
+    void changingAnEmailNeedsASession() throws Exception {
+        mvc().perform(post("/api/auth/me/email")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new AuthController.EmailChangeRequest(MOVED_EMAIL, PASSWORD))))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private int logInAs(String email) throws Exception {
+        return mvc().perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new AuthController.LoginRequest(email, PASSWORD))))
+                .andReturn().getResponse().getStatus();
     }
 
     @Test

@@ -28,7 +28,7 @@ bun run lint
 | `/signup`               | Email, phone, password and an optional photo. Signs you in straight after |
 | `/login`                | The parent login: one account, every organization it belongs to           |
 | `/dashboard`            | Only the organizations you are a member of                                |
-| `/account`              | Your own account; the photo is the only thing changeable here             |
+| `/account`              | Your own account: the photo, and the address you sign in with            |
 | `/organizations/new`    | The registration form; creates the database and the subdomain             |
 | `/organizations/[slug]` | Profile, the people in it, and inviting people when you are the `OWNER`   |
 | `/organizations/[slug]/edit` | Edit the profile; owner only                                        |
@@ -38,6 +38,7 @@ bun run lint
 | `/forgot-password`      | Ask for a reset link                                                     |
 | `/reset-password/[token]` | Open: choose a new password                                            |
 | `/verify-email/[token]` | Open: confirm an email address                                           |
+| `/confirm-email/[token]` | Open: confirm a new address, which is when the change takes effect      |
 
 ## How it is put together
 
@@ -51,15 +52,24 @@ before anything is uploaded. That is a courtesy — the API refuses an oversized
 mistake costs a full upload before anybody hears about it.
 
 The header avatar links to `/account`, where the photo can be changed or removed — signup could set one and nothing
-could afterwards. Only the photo: the email is what you sign in with, so changing it would mean confirming the new one
-first, which is a different piece of work. Saving revalidates the whole layout rather than the route, because the
-header on every page shows it.
+could afterwards. Saving revalidates the whole layout rather than the route, because the header on every page shows it.
+
+**The email is on the same page, and the screen says up front that nothing changes until the link is confirmed.** That
+is the one thing worth knowing before typing: the address is the credential, so the change waits on a link sent to the
+new mailbox, which makes a typo cost an email rather than the account. While one is waiting the card says which
+address and that you still sign in as the old one, with a button to cancel — an invisible pending change would look
+like the form had done nothing. `pendingEmail` comes from `/api/auth/me`; the state the action returns wins over it,
+so the notice appears on submit rather than only after a reload.
 
 **The header shows the account's photo**, from `currentAccount()` — wrapped in React's `cache`, so the header and the
 dashboard asking for the same account costs one request per render rather than two. It cannot be kept in a cookie
 instead: the URL is signed and expires. It answers null rather than throwing, because it is called from the layout and
 a failure there would take down every page under it; the header then falls back to the first letter of the email,
 which the cookie still has.
+
+The header shows `account.email` and falls back to the cookie, not the other way round. The cookie is written at
+sign-in and outlives it, so once an address can change, preferring it would leave the header showing the old one for
+the fortnight the session lasts.
 
 **Stored photos are shown from a signed URL.** The bucket is private, so `photoUrl` in an API response is a presigned
 `GET` that expires — 15 minutes by default. Pages are rendered per request with `cache: "no-store"`, so each render

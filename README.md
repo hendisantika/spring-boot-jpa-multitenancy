@@ -394,6 +394,35 @@ created.
 `application.email-verification.ttl` is 24 hours. `/api/auth/me` reports `emailVerified`, which the dashboard uses to
 show a reminder.
 
+### Changing the address on an account
+
+Signing up fixed the address and nothing could move it. It can now, and the change **does not take effect when it is
+asked for**:
+
+```bash
+curl -X POST http://localhost:8080/api/auth/me/email \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"email":"new@example.com","password":"the-current-one"}'
+# {"message":"Confirm the change from the link sent to new@example.com.","confirmUrl":null}
+```
+
+The address waits in `email_changes` and the account keeps signing in as it did until the link sent to the **new**
+mailbox is opened. That ordering is the whole point: the email is the credential, so applying a typo immediately would
+lock somebody out of the account **and** out of resetting its password. It also means requesting an address reserves
+nothing — whoever confirms first gets it, and the second is refused at that moment.
+
+| Rule | Why |
+|---|---|
+| The current password is required | This is the credential itself; a stolen session alone should not take an account over |
+| The link goes to the new address | The point is to find out whether whoever asked can read that mailbox |
+| Taken addresses are refused twice — asking and confirming | A day may pass in between, and somebody else may register it |
+| Asking again replaces the earlier request | Otherwise two mailboxes hold working links and the first one reached wins |
+| Confirming counts as verifying | Opening the link proves exactly what a confirmation mail asks |
+| `DELETE /api/auth/me/email` cancels | For a typo, rather than waiting a day for the link to lapse |
+
+`/api/auth/me` reports `pendingEmail` so a screen can say a change is waiting rather than showing the old address and
+looking as though nothing happened. `application.email-change.ttl` is 24 hours.
+
 ### Resetting a password
 
 ```bash
@@ -428,6 +457,9 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `POST` | `/api/auth/password/reset/{token}` | open | Set a new password                       |
 | `GET`  | `/api/auth/me`       | bearer      | The signed-in account                             |
 | `PUT`  | `/api/auth/me/photo` | bearer      | Your own photo; multipart, `removePhoto=true` drops it |
+| `POST` | `/api/auth/me/email` | bearer      | Ask to move to another address; needs the current password |
+| `DELETE` | `/api/auth/me/email` | bearer    | Drop the outstanding request                      |
+| `POST` | `/api/auth/email-change/{token}` | open | Confirm the new address, which is when it takes effect |
 | `GET`  | `/api/organizations` | bearer      | Organizations the caller belongs to               |
 | `POST` | `/api/organizations` | bearer      | Register an organization; caller becomes `OWNER`  |
 | `GET`  | `/api/organizations/{slug}` | member | One organization                              |
@@ -766,12 +798,14 @@ those calls regardless of what the page offers.
 
 ## Rate limiting
 
-Sign-in and forgot-password are open by necessity, so both are limited.
+Sign-in and forgot-password are open by necessity, so both are limited. So is changing an address, which is not open
+but sends mail to whatever address the caller types.
 
 | Endpoint | Default | Counted |
 |---|---|---|
 | `POST /api/auth/login` | 10 per 5 minutes | **failures only** — a correct password never counts, so nobody is locked out by signing in |
 | `POST /api/auth/password/forgot` | 5 per 15 minutes | every request, because each one sends mail |
+| `POST /api/auth/me/email` | 5 per 15 minutes | every request; without it an account is a licence to send mail to anybody |
 
 Each request is keyed by client address **and** by the email in the body. Either alone leaves a hole: by IP only
 punishes everyone behind one NAT and lets a botnet through, by email only lets a single host work through a list of
@@ -783,6 +817,8 @@ application.rate-limit.login.capacity=10
 application.rate-limit.login.window=5m
 application.rate-limit.forgot-password.capacity=5
 application.rate-limit.forgot-password.window=15m
+application.rate-limit.email-change.capacity=5
+application.rate-limit.email-change.window=15m
 ```
 
 **The counters live in Redis**, so every instance draws from the same allowance rather than each granting its own. The

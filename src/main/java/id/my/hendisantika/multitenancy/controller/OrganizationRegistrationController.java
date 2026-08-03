@@ -152,6 +152,25 @@ public class OrganizationRegistrationController {
         return viewOf(organizationProfileService.update(slug, profile, photoKey, removePhoto));
     }
 
+    /**
+     * The photo on its own, for the card on the organization page.
+     * <p>
+     * The same three rules as everywhere else — omitting keeps, sending
+     * replaces, {@code removePhoto=true} drops — but without the profile, which
+     * otherwise had to be re-sent in full to change a picture. Re-sending it is
+     * also how the other eight fields get overwritten with whatever the form
+     * was holding, so this is the safer way round as well as the shorter one.
+     */
+    @PutMapping(path = "/{slug}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public OrganizationView updatePhoto(@PathVariable String slug,
+                                        @RequestPart(value = "photo", required = false) MultipartFile photo,
+                                        @RequestParam(value = "removePhoto", defaultValue = "false")
+                                        boolean removePhoto) {
+        tenantSecurity.requireOwner(slug);
+        String photoKey = photo != null && !photo.isEmpty() ? storageService.store(photo, PHOTO_PREFIX) : null;
+        return viewOf(organizationProfileService.updatePhoto(slug, photoKey, removePhoto));
+    }
+
     @GetMapping("/{slug}/users")
     public List<MemberView> members(@PathVariable String slug) {
         tenantSecurity.requireMember(slug);

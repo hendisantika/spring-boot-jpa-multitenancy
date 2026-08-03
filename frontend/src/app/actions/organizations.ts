@@ -85,6 +85,42 @@ function messageOf(error: unknown): string {
   return "Something went wrong. Please try again.";
 }
 
+/**
+ * The photo on its own, from the card on the organization page. It does not go
+ * through the profile form: that would mean re-sending eight fields to change a
+ * picture, and re-sending them is how they get overwritten.
+ */
+export async function saveOrganizationPhoto(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const slug = String(formData.get("slug") ?? "");
+  const photo = formData.get("photo");
+  const removing = formData.get("removePhoto") === "true";
+
+  if (!(photo instanceof File && photo.size > 0) && !removing) {
+    return { error: "Choose a photo, or tick the box to remove the current one." };
+  }
+
+  const payload = new FormData();
+  if (photo instanceof File && photo.size > 0) {
+    payload.append("photo", photo, photo.name);
+  } else {
+    payload.append("removePhoto", "true");
+  }
+
+  try {
+    await api<Organization>(`/api/organizations/${slug}/photo`, { method: "PUT", body: payload });
+  } catch (error) {
+    return { error: messageOf(error) };
+  }
+
+  revalidatePath(`/organizations/${slug}`);
+  // The dashboard lists it with the same photo, so it is stale too.
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
 export async function updateOrganization(
   _prev: FormState,
   formData: FormData,

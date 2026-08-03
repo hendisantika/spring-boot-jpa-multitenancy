@@ -30,7 +30,7 @@ bun run lint
 | `/dashboard`            | Only the organizations you are a member of                                |
 | `/account`              | Your own account: the photo, the phone number, the password, and the address you sign in with |
 | `/organizations/new`    | The registration form; creates the database and the subdomain             |
-| `/organizations/[slug]` | Profile, the people in it, and inviting people when you are the `OWNER`   |
+| `/organizations/[slug]` | Profile, its photo, the people in it, and inviting people when you are the `OWNER` |
 | `/organizations/[slug]/edit` | Edit the profile; owner only                                        |
 | `/organizations/[slug]/people` | The tenant's own people, searched and paged from `?q=` and `?page=` |
 | `/organizations/[slug]/units` | The tenant's business units, searched and paged the same way        |
@@ -47,7 +47,12 @@ contradicted every other limit here — the backend takes a 5 MB file — and a 
 runtime error rather than a message. `serverActions.bodySizeLimit` in `next.config.ts` is now 6 MB: the limit covers
 the whole multipart body, so the boundaries and the other fields have to fit beside the file.
 
-All three forms that take a photo share one `PhotoField`, which previews the chosen file and refuses one over 5 MB
+The organization page carries a Photo card of its own for the owner, on the same `PhotoField` as the rest. It posts
+to the photo-only endpoint rather than through the profile form: changing a picture should not mean re-submitting
+eight fields that were fine as they were, and re-submitting them is how they get overwritten. The card says so, since
+the form behind **Edit** also has a photo field and two ways to do one thing needs explaining.
+
+All the forms that take a photo share one `PhotoField`, which previews the chosen file and refuses one over 5 MB
 before anything is uploaded. That is a courtesy — the API refuses an oversized file anyway — but without it the
 mistake costs a full upload before anybody hears about it.
 

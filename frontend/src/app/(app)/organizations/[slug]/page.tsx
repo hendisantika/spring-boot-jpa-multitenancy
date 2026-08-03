@@ -3,6 +3,7 @@ import Link from "next/link";
 import { InvitationRow } from "./InvitationRow";
 import { InviteForm } from "./InviteForm";
 import { MemberRow } from "./MemberRow";
+import { OrganizationPhotoForm } from "./OrganizationPhotoForm";
 import { RefreshSessionNotice } from "./RefreshSessionNotice";
 import { ApiError, api } from "@/lib/api";
 import { getRole } from "@/lib/session";
@@ -162,6 +163,18 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
               ) : null}
             </ul>
           </Card>
+
+          {role === "OWNER" ? (
+            <Card className="p-6">
+              <h2 className="font-semibold text-ink">Photo</h2>
+              <p className="mt-1 mb-4 text-sm text-ink-muted">
+                {/* Said here because the profile form also carries a photo field. */}
+                Only the photo. The rest of the profile is behind Edit, so changing a picture does
+                not mean re-submitting eight fields that were fine as they were.
+              </p>
+              <OrganizationPhotoForm slug={slug} photoUrl={organization.photoUrl} />
+            </Card>
+          ) : null}
 
           {role === "OWNER" && invitations.length > 0 ? (
             <Card className="p-6">

@@ -133,7 +133,12 @@ the other two use: the same 112px square, and the same fallback to an initial. I
 either of them, and with no photo at all it rendered nothing, so the heading simply slid left and the page looked like
 one that had never had a photo.
 
-On the detail screen the unit is the one row that leads somewhere: it opens the people list already narrowed to that
+The unit's own screen carries the mirror of that link, with the count: "3 people at this unit". Only the count is
+fetched — a page of people to render a number would be a screenful thrown away — and it degrades to the link without a
+number rather than hiding it, because "could not be read" is not "nobody here". An empty unit says 0 rather than
+saying nothing, since that is a fact worth knowing about a place.
+
+On the person's detail screen the unit is the one row that leads somewhere: it opens the people list already narrowed to that
 unit, which is the question a unit answers — who else is here. It carries the id rather than the name, because that is
 what the filter takes, and somebody with no unit is a dash rather than a link to nothing.
 

@@ -86,10 +86,13 @@ Invitation rows link the same way, to a screen that adds who sent it, whether th
 sits on that screen too, which is why `revokeInvitation` revalidates the detail path as well as the organization:
 withdrawing from a page that then still reads PENDING is worse than not offering the button.
 
-The People card searches through `?memberq=` and pages through `?members=`, its own parameters, because the organization page carries several lists and
+The People card searches through `?memberq=`, filters through `?memberrole=` and pages through `?members=`, its own
+parameters, because the organization page carries several lists and
 they have to move independently — walking or searching the memberships must not reset the tenant cards below. The
 search is a plain GET form, so a result is somewhere you can bookmark and come back to, and applying one drops the
-page back to the first: page four of the old search is not page four of the new one. The dashboard now
+page back to the first: page four of the old search is not page four of the new one. The role checkboxes belong to
+that same form through `form="member-search"`, so one Apply carries the search and the filter together rather than
+making somebody submit twice. The dashboard now
 asks for only the five faces it draws and takes the count from `totalElements`; it used to fetch every member of every
 organization to show five of them.
 

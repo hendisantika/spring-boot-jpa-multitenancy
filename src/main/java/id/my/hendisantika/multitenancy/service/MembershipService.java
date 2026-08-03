@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -78,18 +79,42 @@ public class MembershipService {
      *
      * @param query matched against the address and the role; null or blank
      *              means everybody
+     * @param roles narrows to these, and several of them mean either — empty
+     *              means no filtering at all
      * @param page  zero based
      * @param size  clamped, so a client cannot ask for the lot in one go
      */
     @Transactional(value = "centralTransactionManager", readOnly = true)
-    public Page<UserTenant> membersOf(String tenantSlug, String query, Integer page, Integer size) {
+    public Page<UserTenant> membersOf(String tenantSlug, String query, Collection<String> roles,
+                                      Integer page, Integer size) {
         String term = TenantListing.searchTerm(query);
+        // Nothing asked for is no filter at all; something asked for that maps
+        // to no role is a filter that matches nothing, which is what asking for
+        // a role nobody holds should give you.
+        boolean anyRole = roles == null || roles.isEmpty();
         return userTenantRepository.search(
                 tenantSlug,
                 // Blank means everybody, not nobody.
                 term == null ? TenantListing.MATCH_EVERYTHING : term,
                 rolesMatching(query),
+                anyRole,
+                anyRole ? List.of() : parseRoles(roles),
                 TenantListing.pageRequest(page, size));
+    }
+
+    /**
+     * @return the roles among what was asked for, dropping anything that is not
+     * one. An unknown role narrows to nothing rather than being ignored: a
+     * filter nobody can satisfy is a filter, not an oversight.
+     */
+    private static List<TenantRole> parseRoles(Collection<String> roles) {
+        return roles.stream()
+                .filter(value -> value != null && !value.isBlank())
+                .map(value -> value.strip().toUpperCase(Locale.ROOT))
+                .distinct()
+                .flatMap(value -> Arrays.stream(TenantRole.values())
+                        .filter(role -> role.name().equals(value)))
+                .toList();
     }
 
     /**

@@ -347,6 +347,50 @@ class OrganizationRegistrationTest {
     }
 
     /**
+     * A filter narrows and a search widens, so the two combine: owners called
+     * "probe" means both, not either. Several roles at once mean either of
+     * them, while still narrowing whatever was searched for.
+     */
+    @Test
+    void theMembershipListCanBeFilteredByRole() throws Exception {
+        String ownerToken = registerOrganization(signUp(OWNER_EMAIL));
+        mvc().perform(post("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new OrganizationRegistrationController.AddMemberRequest(
+                                        MEMBER_EMAIL, "+62 813 0000 1111", PASSWORD, TenantRole.MEMBER))))
+                .andExpect(status().isCreated());
+
+        mvc().perform(get("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken).param("role", "OWNER"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].email").value(OWNER_EMAIL));
+
+        // Both of them is either of them, not neither.
+        mvc().perform(get("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("role", "OWNER").param("role", "MEMBER"))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        // Narrowing and widening at once: the filter is AND'd with the search.
+        mvc().perform(get("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("q", "member.probe").param("role", "OWNER"))
+                .andExpect(jsonPath("$.totalElements").value(0));
+
+        // A role nobody holds narrows to nothing rather than being ignored.
+        mvc().perform(get("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken).param("role", "ADMIRAL"))
+                .andExpect(jsonPath("$.totalElements").value(0));
+
+        // And asking for none is no filter at all.
+        mvc().perform(get("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.totalElements").value(2));
+    }
+
+    /**
      * The list showed the address a membership was granted to, while the detail
      * showed the account's own — so after somebody moved address the two
      * disagreed about who they were.

@@ -36,11 +36,16 @@ const MEMBERS_PER_PAGE = 8;
 
 export default async function OrganizationPage({ params, searchParams }: PageProps<"/organizations/[slug]">) {
   const { slug } = await params;
-  const { fresh, members: membersPage, memberq } = await searchParams;
+  const { fresh, members: membersPage, memberq, memberrole } = await searchParams;
   // Their own parameters, because this page carries more than one list and they
   // move independently.
   const page = Math.max(0, Number(firstValue(membersPage)) || 0);
   const query = (firstValue(memberq) ?? "").trim();
+  // Repeatable, so ticking both means either — the same shape the tenant lists
+  // use for their reference filters.
+  const roles = (Array.isArray(memberrole) ? memberrole : memberrole ? [memberrole] : []).filter(
+    (value): value is string => typeof value === "string" && value.length > 0,
+  );
 
   const role = await getRole(slug);
 
@@ -65,7 +70,8 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
       api<Organization>(`/api/organizations/${slug}`),
       api<PageOf<Member>>(
         `/api/organizations/${slug}/users?page=${page}&size=${MEMBERS_PER_PAGE}` +
-          (query ? `&q=${encodeURIComponent(query)}` : ""),
+          (query ? `&q=${encodeURIComponent(query)}` : "") +
+          roles.map((value) => `&role=${encodeURIComponent(value)}`).join(""),
       ),
     ]);
     // Owner only, so a member's page does not 403 on a panel they never see.
@@ -194,7 +200,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                 somewhere you can come back to. Paging resets to the first page,
                 because page four of the old search is not page four of this
                 one. */}
-            <form action={`/organizations/${slug}`} className="mb-4 flex gap-2">
+            <form id="member-search" action={`/organizations/${slug}`} className="mb-4 flex gap-2">
               <input
                 type="search"
                 name="memberq"
@@ -211,6 +217,26 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
               </button>
             </form>
 
+            {/* Part of the same form, so one Apply carries both. Ticking
+                neither is no filter; ticking both is either of them, which is
+                what a filter with several values means everywhere here. */}
+            <fieldset className="mb-4 flex items-center gap-4">
+              <legend className="sr-only">Filter by role</legend>
+              {(["OWNER", "MEMBER"] as const).map((value) => (
+                <label key={value} className="flex items-center gap-2 text-sm text-ink-muted">
+                  <input
+                    type="checkbox"
+                    name="memberrole"
+                    value={value}
+                    form="member-search"
+                    defaultChecked={roles.includes(value)}
+                    className="size-4 rounded border-line"
+                  />
+                  {value === "OWNER" ? "Owner" : "Member"}
+                </label>
+              ))}
+            </fieldset>
+
             <ul className="divide-y divide-line">
               {members.content.map((member) => (
                 <MemberRow
@@ -222,7 +248,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
               ))}
               {members.totalElements === 0 ? (
                 <li className="py-3 text-sm text-ink-muted">
-                  {query ? `Nobody here matches "${query}".` : "No one yet."}
+                  {query || roles.length > 0 ? "Nobody here matches that." : "No one yet."}
                 </li>
               ) : null}
             </ul>
@@ -232,7 +258,8 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
             <Pager
               href={(next) =>
                 `/organizations/${slug}?members=${next}` +
-                (query ? `&memberq=${encodeURIComponent(query)}` : "")
+                (query ? `&memberq=${encodeURIComponent(query)}` : "") +
+                roles.map((value) => `&memberrole=${encodeURIComponent(value)}`).join("")
               }
               page={members.page}
               size={members.size}

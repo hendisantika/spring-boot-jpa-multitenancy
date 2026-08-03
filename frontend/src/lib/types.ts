@@ -100,6 +100,20 @@ export type Invitation = {
 
 export type CreatedInvitation = Invitation & { emailed: boolean; acceptUrl: string | null };
 
+/**
+ * One invitation, whole. No accept link: the token is stored as a hash, so it
+ * exists in the recipient's mailbox and nowhere else.
+ */
+export type InvitationDetail = Invitation & {
+  status: "PENDING" | "ACCEPTED" | "REVOKED";
+  /** PENDING but past its date. Nothing sweeps them, so the status alone lies. */
+  expired: boolean;
+  invitedBy: string | null;
+  createdAt: string;
+  acceptedAt: string | null;
+  accountExists: boolean;
+};
+
 export type InvitationPreview = {
   email: string;
   role: TenantRole;

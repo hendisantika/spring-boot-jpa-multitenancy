@@ -426,6 +426,23 @@ Without that it lands microseconds *after* the pair minted beside it, and the ve
 login landing in the same second as a reset had the same problem. The cost is that a session opened in the same second
 as the change survives it, which is as fine-grained as a second-precision claim can be.
 
+### One invitation, whole
+
+`GET /api/organizations/{slug}/invitations/{id}` answers who sent it, when, when it expires, whether it has been
+accepted or withdrawn, and whether the address already has an account — which decides whether accepting grants an
+existing account or creates one.
+
+**It is not restricted to pending ones**, unlike revoking. A screen opened while an invitation was pending should say
+that it has since been withdrawn or accepted rather than turning into "does not exist" and leaving the owner
+wondering. An id belonging to another tenant is 404 either way.
+
+**There is no accept link in the answer and there cannot be**: only a hash of the token is stored, so it exists in
+the recipient's mailbox and nowhere else. The screen says so, because that is the first thing an owner looks for.
+
+`expired` is its own field because the status does not carry it: nothing sweeps invitations, so one past its date is
+still `PENDING` in the database while being useless to whoever holds the link. It stays withdrawable for exactly that
+reason — it is still in the pending list, and withdrawing is how an owner clears it.
+
 ### One membership, whole
 
 `GET /api/organizations/{slug}/users/{accountId}` answers the list entry plus the phone number, whether the address is
@@ -526,6 +543,7 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `GET`  | `/api/organizations/{slug}/users/{accountId}` | member | One membership, whole; **404** when that account is not a member here |
 | `POST` | `/api/organizations/{slug}/users` | **owner** | Add a person directly, setting their password |
 | `GET`  | `/api/organizations/{slug}/invitations` | **owner** | Pending invitations                |
+| `GET`  | `/api/organizations/{slug}/invitations/{id}` | **owner** | One invitation, whatever became of it |
 | `POST` | `/api/organizations/{slug}/invitations` | **owner** | Invite someone; returns the accept link |
 | `DELETE` | `/api/organizations/{slug}/invitations/{id}` | **owner** | Withdraw an invitation      |
 | `GET`  | `/api/invitations/{token}` | open | What the accept page shows before committing         |

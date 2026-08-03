@@ -37,6 +37,7 @@ bun run lint
 | `/organizations/[slug]/units` | The tenant's business units with their photos, searched and paged the same way |
 | `/organizations/[slug]/units/[id]` | One unit, whole, on the same shape as the person screen   |
 | `/organizations/[slug]/members/[id]` | One membership: the account behind a row on the organization page |
+| `/organizations/[slug]/invitations/[id]` | One invitation, owner only, with Withdraw on it |
 | `/invitations/[token]`  | Open: accept an invitation, choosing your own password                   |
 | `/forgot-password`      | Ask for a reset link                                                     |
 | `/reset-password/[token]` | Open: choose a new password                                            |
@@ -54,6 +55,11 @@ The organization page carries a Photo card of its own for the owner, on the same
 to the photo-only endpoint rather than through the profile form: changing a picture should not mean re-submitting
 eight fields that were fine as they were, and re-submitting them is how they get overwritten. The card says so, since
 the form behind **Edit** also has a photo field and two ways to do one thing needs explaining.
+
+Invitation rows link the same way, to a screen that adds who sent it, whether the address is already registered, and
+— for one past its date — an EXPIRED badge the row cannot show, since the database still calls it PENDING. Withdraw
+sits on that screen too, which is why `revokeInvitation` revalidates the detail path as well as the organization:
+withdrawing from a page that then still reads PENDING is worse than not offering the button.
 
 The membership rows link to `/organizations/[slug]/members/[id]` — the account behind the row, with the phone number
 somebody would actually ring and since when they have had access. Rows with no account yet (an invitation that has

@@ -116,6 +116,31 @@ public class InvitationService {
                 tenantSlug, InvitationStatus.PENDING);
     }
 
+    /**
+     * One invitation of this tenant's, whatever became of it.
+     * <p>
+     * Not restricted to pending ones: a screen opened while it was still
+     * pending should say that it has since been withdrawn or accepted, rather
+     * than turning into "does not exist" and leaving the owner wondering.
+     */
+    @Transactional(value = "centralTransactionManager", readOnly = true)
+    public Invitation oneOf(String tenantSlug, Long invitationId) {
+        return invitationRepository.findById(invitationId)
+                .filter(candidate -> candidate.getTenantSlug().equals(tenantSlug))
+                .orElseThrow(() -> new TenantRecordNotFoundException(
+                        "No invitation of '" + tenantSlug + "' with id " + invitationId));
+    }
+
+    /**
+     * Whether accepting will grant an account that already exists or make a new
+     * one. The recipient is told this before committing; the owner who sent it
+     * has as much business knowing.
+     */
+    @Transactional(value = "centralTransactionManager", readOnly = true)
+    public boolean accountExistsFor(Invitation invitation) {
+        return accountRepository.findByEmailIgnoreCase(invitation.getEmail()).isPresent();
+    }
+
     @Transactional("centralTransactionManager")
     public void revoke(String tenantSlug, Long invitationId) {
         Invitation invitation = invitationRepository.findById(invitationId)

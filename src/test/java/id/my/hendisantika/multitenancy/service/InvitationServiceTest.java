@@ -4,6 +4,7 @@ import id.my.hendisantika.multitenancy.config.InvitationProperties;
 import id.my.hendisantika.multitenancy.entity.central.Account;
 import id.my.hendisantika.multitenancy.entity.central.AccountStatus;
 import id.my.hendisantika.multitenancy.entity.central.InvitationStatus;
+import id.my.hendisantika.multitenancy.service.TenantRecordNotFoundException;
 import id.my.hendisantika.multitenancy.entity.central.TenantRole;
 import id.my.hendisantika.multitenancy.repository.central.AccountRepository;
 import id.my.hendisantika.multitenancy.repository.central.InvitationRepository;
@@ -127,6 +128,62 @@ class InvitationServiceTest {
         } catch (SQLException e) {
             throw new IllegalStateException("Could not expire the invitation", e);
         }
+    }
+
+    /**
+     * A screen opened while the invitation was pending should say what became of
+     * it, so the lookup is not restricted to pending ones the way revoking is.
+     */
+    @Test
+    void oneInvitationCanBeReadWhateverBecameOfIt() {
+        Long id = invitationService.invite(SLUG, INVITEE_EMAIL, TenantRole.MEMBER, owner)
+                .invitation().getId();
+
+        assertThat(invitationService.oneOf(SLUG, id).getStatus()).isEqualTo(InvitationStatus.PENDING);
+        assertThat(invitationService.oneOf(SLUG, id).getInvitedBy().getEmail()).isEqualTo(OWNER_EMAIL);
+
+        invitationService.revoke(SLUG, id);
+        assertThat(invitationService.oneOf(SLUG, id).getStatus()).isEqualTo(InvitationStatus.REVOKED);
+    }
+
+    /**
+     * An id belonging to another tenant is not this tenant's to read, and must
+     * not become readable by asking for it under the wrong slug.
+     */
+    @Test
+    void anInvitationOfAnotherTenantIsNotFound() {
+        Long id = invitationService.invite(SLUG, INVITEE_EMAIL, TenantRole.MEMBER, owner)
+                .invitation().getId();
+
+        assertThatThrownBy(() -> invitationService.oneOf("someothertenant", id))
+                .isInstanceOf(TenantRecordNotFoundException.class);
+        assertThatThrownBy(() -> invitationService.oneOf(SLUG, 999999L))
+                .isInstanceOf(TenantRecordNotFoundException.class);
+    }
+
+    /**
+     * The owner is told whether accepting grants an account that exists or makes
+     * one, which is what the recipient is told too.
+     */
+    @Test
+    void reportsWhetherTheAddressAlreadyHasAnAccount() {
+        // An address nobody has registered: accepting will create the account.
+        assertThat(invitationService.accountExistsFor(
+                invitationService.invite(SLUG, INVITEE_EMAIL, TenantRole.MEMBER, owner).invitation()))
+                .isFalse();
+
+        // One that is registered but belongs to no organization here: accepting
+        // grants that account rather than making a second one for the address.
+        Account existing = new Account();
+        existing.setEmail("someone.else@example.test");
+        existing.setPassword(passwordEncoder.encode("their-own-password"));
+        existing.setStatus(AccountStatus.ACTIVE);
+        existing.setCreatedAt(Instant.now());
+        accountRepository.save(existing);
+
+        assertThat(invitationService.accountExistsFor(
+                invitationService.invite(SLUG, existing.getEmail(), TenantRole.MEMBER, owner).invitation()))
+                .isTrue();
     }
 
     /**

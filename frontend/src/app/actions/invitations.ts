@@ -51,6 +51,10 @@ export async function revokeInvitation(formData: FormData) {
     // The page re-renders from the server, so a failure simply shows no change.
   }
   revalidatePath(`/organizations/${slug}`);
+  // The detail screen offers this too, and it is the one page that has to show
+  // the change: withdrawing from it and still reading PENDING is worse than
+  // not offering the button at all.
+  revalidatePath(`/organizations/${slug}/invitations/${invitationId}`);
 }
 
 /**

@@ -118,20 +118,34 @@ public class PersonService {
         return person;
     }
 
+    @Transactional("tenantTransactionManager")
+    public Person update(Long id, Person changes, String newPhotoKey) {
+        return update(id, changes, newPhotoKey, false);
+    }
+
     /**
      * @param newPhotoKey null keeps the current photo; a new one replaces it and
      *                    the old object is removed, or every edit would leave an
      *                    orphan in the bucket that nothing points at again
+     * @param removePhoto drops the current photo, for whoever wants none rather
+     *                    than a different one. A supplied photo wins: uploading
+     *                    a file is a clearer statement of intent than a flag,
+     *                    and the two together is a contradiction the screen
+     *                    already prevents
      */
     @Transactional("tenantTransactionManager")
-    public Person update(Long id, Person changes, String newPhotoKey) {
+    public Person update(Long id, Person changes, String newPhotoKey, boolean removePhoto) {
         Person person = update(id, changes);
+        String previous = person.getPhotoKey();
+
         if (StringUtils.hasText(newPhotoKey)) {
-            String previous = person.getPhotoKey();
             person.setPhotoKey(newPhotoKey);
             if (StringUtils.hasText(previous) && !previous.equals(newPhotoKey)) {
                 storageService.delete(previous);
             }
+        } else if (removePhoto && StringUtils.hasText(previous)) {
+            person.setPhotoKey(null);
+            storageService.delete(previous);
         }
         return person;
     }

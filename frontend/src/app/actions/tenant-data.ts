@@ -62,6 +62,10 @@ export async function savePerson(_prev: FormState, formData: FormData): Promise<
   payload.append("person", jsonPart(values), "person.json");
   if (photo instanceof File && photo.size > 0) {
     payload.append("photo", photo, photo.name);
+  } else if (formData.get("removePhoto") === "true") {
+    // Only when no file was chosen: the API takes an upload over the flag, and
+    // the form does not let both happen, but saying so twice costs nothing.
+    payload.append("removePhoto", "true");
   }
 
   try {

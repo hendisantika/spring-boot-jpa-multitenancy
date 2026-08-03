@@ -34,6 +34,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -699,6 +701,79 @@ class PersonListingTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.lastName").value("Diubah"))
                 .andExpect(jsonPath("$.photoUrl").isNotEmpty());
+    }
+
+    /**
+     * Replacing a photo was possible; having none again was not. Somebody who
+     * uploaded the wrong face had no way back.
+     */
+    @Test
+    void aPhotoCanBeRemoved() throws Exception {
+        String body = mockMvc.perform(asOwnerMultipart(multipart("/person"))
+                        .file(personPart("Dihapus")).file(photoPart("png-bytes")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.photoUrl").isNotEmpty())
+                .andReturn().getResponse().getContentAsString();
+        long id = objectMapper.readTree(body).get("id").asLong();
+
+        mockMvc.perform(asOwnerMultipart(multipart("/person/" + id))
+                        .file(personPart("Dihapus"))
+                        .param("removePhoto", "true")
+                        .with(request -> {
+                            request.setMethod("PUT");
+                            return request;
+                        }))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.photoUrl").doesNotExist());
+
+        // The object goes with it rather than lingering unreferenced.
+        verify(storageService).delete("persons/probe.png");
+    }
+
+    /**
+     * Asking to remove one while uploading another is a contradiction. The
+     * upload wins — choosing a file says more than ticking a box — and the
+     * record must not end up with neither.
+     */
+    @Test
+    void anUploadWinsOverTheRemovalFlag() throws Exception {
+        String body = mockMvc.perform(asOwnerMultipart(multipart("/person"))
+                        .file(personPart("Bimbang")).file(photoPart("png-bytes")))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        long id = objectMapper.readTree(body).get("id").asLong();
+
+        mockMvc.perform(asOwnerMultipart(multipart("/person/" + id))
+                        .file(personPart("Bimbang"))
+                        .file(photoPart("other-bytes"))
+                        .param("removePhoto", "true")
+                        .with(request -> {
+                            request.setMethod("PUT");
+                            return request;
+                        }))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.photoUrl").isNotEmpty());
+    }
+
+    /**
+     * The flag on somebody who has no photo is not an error, it is nothing.
+     */
+    @Test
+    void removingWhenThereIsNoPhotoDoesNothing() throws Exception {
+        createPerson("Tanpa", "Foto", "tanpa@probe.test", "0899");
+        long id = objectMapper.readTree(mockMvc.perform(asOwner(get("/person")))
+                .andReturn().getResponse().getContentAsString()).get("content").get(0).get("id").asLong();
+
+        mockMvc.perform(asOwnerMultipart(multipart("/person/" + id))
+                        .file(personPart("Tanpa"))
+                        .param("removePhoto", "true")
+                        .with(request -> {
+                            request.setMethod("PUT");
+                            return request;
+                        }))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.photoUrl").doesNotExist());
+        verify(storageService, never()).delete(any());
     }
 
     /**

@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -124,12 +125,16 @@ public class OrganizationRegistrationController {
      * business name changes the label and nothing else.
      * <p>
      * Omitting the photo part keeps the current photo; sending one replaces it
-     * and the previous object is deleted.
+     * and the previous object is deleted; {@code removePhoto=true} drops it.
+     * <p>
+     * Sending both a photo and the flag is a contradiction, and the upload wins.
      */
     @PutMapping(path = "/{slug}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public OrganizationView update(@PathVariable String slug,
                                    @Valid @RequestPart("organization") RegisterOrganizationRequest request,
-                                   @RequestPart(value = "photo", required = false) MultipartFile photo) {
+                                   @RequestPart(value = "photo", required = false) MultipartFile photo,
+                                   @RequestParam(value = "removePhoto", defaultValue = "false")
+                                   boolean removePhoto) {
         tenantSecurity.requireOwner(slug);
         String photoKey = photo != null && !photo.isEmpty() ? storageService.store(photo, PHOTO_PREFIX) : null;
 
@@ -144,7 +149,7 @@ public class OrganizationRegistrationController {
                 request.orgStructure(),
                 request.practiceSpeciality());
 
-        return viewOf(organizationProfileService.update(slug, profile, photoKey));
+        return viewOf(organizationProfileService.update(slug, profile, photoKey, removePhoto));
     }
 
     @GetMapping("/{slug}/users")

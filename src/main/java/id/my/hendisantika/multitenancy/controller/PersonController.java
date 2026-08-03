@@ -115,15 +115,20 @@ public class PersonController {
 
     /**
      * Omitting the photo part keeps the current one; sending one replaces it and
-     * the old object is removed.
+     * the old object is removed; {@code removePhoto=true} drops it entirely.
+     * <p>
+     * Sending both a photo and the flag is a contradiction, and the upload wins
+     * — choosing a file says more than ticking a box, and the screen does not
+     * let the two happen together anyway.
      */
     @PutMapping(path = "/person/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
     public PersonView updatePersonWithPhoto(
             @PathVariable("id") Long id,
             @Valid @RequestPart("person") Person person,
-            @RequestPart(value = "photo", required = false) MultipartFile photo) {
-        return viewOf(personService.update(id, person, keyOf(photo)));
+            @RequestPart(value = "photo", required = false) MultipartFile photo,
+            @RequestParam(value = "removePhoto", defaultValue = "false") boolean removePhoto) {
+        return viewOf(personService.update(id, person, keyOf(photo), removePhoto));
     }
 
     private String keyOf(MultipartFile photo) {

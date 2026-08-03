@@ -37,11 +37,15 @@ export function PhotoField({
 }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   function onChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     setError(null);
     setPreview(null);
+    // Choosing a file and asking to remove one are contradictory, so picking a
+    // file un-asks the removal rather than leaving the server to guess.
+    setRemoving(false);
     if (!file) return;
 
     if (file.size > MAX_PHOTO_BYTES) {
@@ -55,8 +59,9 @@ export function PhotoField({
   }
 
   // What was just picked wins over what is stored, so the preview shows the
-  // photo that would actually be saved.
-  const shown = preview ?? currentUrl;
+  // photo that would actually be saved — and nothing at all once removal is
+  // asked for, since that is what saving would leave.
+  const shown = preview ?? (removing ? null : currentUrl);
   const shape = round ? "rounded-full" : "rounded-lg";
 
   return (
@@ -86,6 +91,32 @@ export function PhotoField({
           />
         </div>
       </Field>
+      {/*
+        Only offered when there is something to remove. A checkbox that can
+        never do anything is worse than no checkbox.
+      */}
+      {currentUrl ? (
+        <label className="flex items-center gap-2 text-sm text-ink-muted">
+          <input
+            type="checkbox"
+            name="removePhoto"
+            value="true"
+            checked={removing}
+            onChange={(event) => {
+              setRemoving(event.target.checked);
+              if (event.target.checked) {
+                // Ticking it clears whatever was picked, for the same reason.
+                setPreview(null);
+                const input = event.target.form?.elements.namedItem(name);
+                if (input instanceof HTMLInputElement) input.value = "";
+              }
+            }}
+            className="size-4 rounded border-line text-brand focus:ring-brand/30"
+          />
+          Remove the current photo
+        </label>
+      ) : null}
+
       {error ? <Alert>{error}</Alert> : null}
     </>
   );

@@ -108,6 +108,8 @@ export async function updateOrganization(
   // Omitting the part keeps the current photo, which is what the API expects.
   if (photo instanceof File && photo.size > 0) {
     payload.append("photo", photo, photo.name);
+  } else if (formData.get("removePhoto") === "true") {
+    payload.append("removePhoto", "true");
   }
 
   try {

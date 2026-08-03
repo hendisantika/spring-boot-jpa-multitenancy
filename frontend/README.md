@@ -101,6 +101,9 @@ disappear with the rows, and there would be no way to clear it.
 Invitation rows carry no face, unlike every other list here. An invitation is an address, and it may belong to
 somebody who is not a member of anything here and has agreed to nothing — see the note in the root README.
 
+An invitation's screen steps between invitations too, following the list's own order — newest first, every state —
+rather than by id, which would have stepped in the opposite direction to the screen somebody arrived from.
+
 Invitation rows link the same way, to a screen that adds who sent it, whether the address is already registered, and
 — for one past its date — an EXPIRED badge the row cannot show, since the database still calls it PENDING. Withdraw
 sits on that screen too, which is why `revokeInvitation` revalidates the detail path as well as the organization:

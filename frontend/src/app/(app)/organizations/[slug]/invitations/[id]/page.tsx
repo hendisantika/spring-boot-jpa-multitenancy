@@ -3,10 +3,17 @@ import Link from "next/link";
 import { revokeInvitation } from "@/app/actions/invitations";
 import { ApiError, api } from "@/lib/api";
 import { getRole } from "@/lib/session";
-import type { InvitationDetail } from "@/lib/types";
+import type { Invitation, InvitationDetail, Page as PageOf } from "@/lib/types";
 import { Alert, Badge, Card, PageHeading } from "@/components/ui";
 
 export const metadata = { title: "Invitation" };
+
+/**
+ * How many invitations are looked at to work out which sit either side, as on
+ * the other three screens. Past this the steps are not offered rather than
+ * offered wrongly.
+ */
+const NEIGHBOURS_WINDOW = 200;
 
 /**
  * One invitation, whole. The row on the organization page has the address, the
@@ -57,6 +64,18 @@ export default async function InvitationPage({ params }: PageProps<"/organizatio
       </>
     );
   }
+
+  // The neighbours, in the order the card lists them — newest first, and every
+  // state, because that is what the list shows by default. Walking them by id
+  // would step in the opposite direction to the screen they came from.
+  const siblings = await api<PageOf<Invitation>>(
+    `/api/organizations/${slug}/invitations?size=${NEIGHBOURS_WINDOW}`,
+  )
+    .then((page) => page.content)
+    .catch(() => []);
+  const here = siblings.findIndex((candidate) => candidate.id === invitation.id);
+  const previous = here > 0 ? siblings[here - 1] : null;
+  const next = here >= 0 && here + 1 < siblings.length ? siblings[here + 1] : null;
 
   // Expired is not a separate status: the row is still PENDING and still sits
   // in the list, so withdrawing it is how an owner clears it. The badge says
@@ -112,6 +131,36 @@ export default async function InvitationPage({ params }: PageProps<"/organizatio
           in {invitation.email}&apos;s mailbox and nowhere else. Withdraw this one and send another
           if it needs replacing.
         </p>
+
+        {previous || next ? (
+          <nav
+            aria-label="The other invitations"
+            className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-4 text-sm"
+          >
+            {previous ? (
+              <Link
+                href={`/organizations/${slug}/invitations/${previous.id}`}
+                rel="prev"
+                className="min-w-0 truncate text-ink-muted transition hover:text-ink"
+              >
+                ← {previous.email}
+              </Link>
+            ) : (
+              <span />
+            )}
+            {next ? (
+              <Link
+                href={`/organizations/${slug}/invitations/${next.id}`}
+                rel="next"
+                className="min-w-0 truncate text-right text-ink-muted transition hover:text-ink"
+              >
+                {next.email} →
+              </Link>
+            ) : (
+              <span />
+            )}
+          </nav>
+        ) : null}
 
         {withdrawable ? (
           <form action={revokeInvitation} className="mt-4 flex justify-end border-t border-line pt-4">

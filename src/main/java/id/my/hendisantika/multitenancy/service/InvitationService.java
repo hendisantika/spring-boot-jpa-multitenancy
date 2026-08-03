@@ -30,7 +30,6 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 
 /**
  * Invitations: the owner names an email, the recipient sets their own password.
@@ -133,32 +132,19 @@ public class InvitationService {
     }
 
     /**
-     * The account an invited address already belongs to, if any.
-     * <p>
-     * Empty is the ordinary case: an invitation is sent to an address, and
-     * whether anybody has registered it is exactly what accepting resolves.
-     * <p>
-     * This is what tells an owner whether accepting grants an account that
-     * exists or makes one, and it is where the invited person's photo comes
-     * from. That last part is worth knowing about: it means an owner who types
-     * an address learns whether it is registered and, if so, what its owner
-     * looks like, before that person has agreed to anything. The list is owner
-     * only, and the address was theirs to type, but it is more than the boolean
-     * alone gives away.
-     */
-    @Transactional(value = "centralTransactionManager", readOnly = true)
-    public Optional<Account> accountFor(Invitation invitation) {
-        return accountRepository.findByEmailIgnoreCase(invitation.getEmail());
-    }
-
-    /**
      * Whether accepting will grant an account that already exists or make a new
      * one. The recipient is told this before committing; the owner who sent it
      * has as much business knowing.
+     * <p>
+     * A boolean, and deliberately only a boolean. Handing back the account
+     * would let an invitation carry that person's photo, which would mean an
+     * owner who types an address learns what its owner looks like before that
+     * person has agreed to anything. This is the one place in the application
+     * where the subject is not a member, so it stops here.
      */
     @Transactional(value = "centralTransactionManager", readOnly = true)
     public boolean accountExistsFor(Invitation invitation) {
-        return accountFor(invitation).isPresent();
+        return accountRepository.findByEmailIgnoreCase(invitation.getEmail()).isPresent();
     }
 
     @Transactional("centralTransactionManager")

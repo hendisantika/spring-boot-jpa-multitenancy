@@ -191,7 +191,6 @@ public class OrganizationRegistrationController {
     public InvitationDetailView invitation(@PathVariable String slug, @PathVariable Long invitationId) {
         tenantSecurity.requireOwner(slug);
         Invitation invitation = invitationService.oneOf(slug, invitationId);
-        Account account = invitationService.accountFor(invitation).orElse(null);
         return new InvitationDetailView(
                 invitation.getId(),
                 invitation.getEmail(),
@@ -202,8 +201,7 @@ public class OrganizationRegistrationController {
                 invitation.getCreatedAt(),
                 invitation.getExpiresAt(),
                 invitation.getAcceptedAt(),
-                account != null,
-                account == null ? null : storageService.urlOf(account.getPhotoKey()));
+                invitationService.accountExistsFor(invitation));
     }
 
     /**
@@ -313,20 +311,13 @@ public class OrganizationRegistrationController {
                 account == null ? null : storageService.urlOf(account.getPhotoKey()));
     }
 
-    /**
-     * The photo belongs to the account that address is already registered to,
-     * when there is one — most invitations are to an address nobody has, and
-     * those carry none rather than a broken image.
-     */
     private InvitationSummary summaryOf(Invitation invitation) {
-        Account account = invitationService.accountFor(invitation).orElse(null);
         return new InvitationSummary(
                 invitation.getId(),
                 invitation.getEmail(),
                 invitation.getRole(),
                 invitation.getExpiresAt(),
-                account == null ? null : storageService.urlOf(account.getPhotoKey()),
-                account != null);
+                invitationService.accountExistsFor(invitation));
     }
 
     private MemberDetailView detailOf(UserTenant membership) {
@@ -386,14 +377,15 @@ public class OrganizationRegistrationController {
     }
 
     /**
-     * @param photoUrl      the photo of the account that address already
-     *                      belongs to, or null when nobody has registered it —
-     *                      which is the ordinary case for an invitation
+     * No photo, deliberately. An invited address may belong to somebody who is
+     * not a member of anything here and has agreed to nothing, so what the
+     * owner gets is whether it is registered and not who it is.
+     *
      * @param accountExists whether accepting grants an existing account or
      *                      makes one
      */
     public record InvitationSummary(Long id, String email, TenantRole role, Instant expiresAt,
-                                    String photoUrl, boolean accountExists) {
+                                    boolean accountExists) {
     }
 
     /**
@@ -408,7 +400,7 @@ public class OrganizationRegistrationController {
     public record InvitationDetailView(
             Long id, String email, TenantRole role, String status, boolean expired,
             String invitedBy, Instant createdAt, Instant expiresAt, Instant acceptedAt,
-            boolean accountExists, String photoUrl) {
+            boolean accountExists) {
     }
 
     /**

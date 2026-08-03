@@ -97,10 +97,10 @@ export type Invitation = {
   role: TenantRole;
   expiresAt: string;
   /**
-   * The photo of the account that address already belongs to, or null when
-   * nobody has registered it — which is the ordinary case for an invitation.
+   * Whether accepting grants an account that already exists or makes one. No
+   * photo goes with it: an invited address may belong to somebody who is not a
+   * member of anything here and has agreed to nothing.
    */
-  photoUrl: string | null;
   accountExists: boolean;
 };
 

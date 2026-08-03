@@ -155,6 +155,10 @@ fetched — a page of people to render a number would be a screenful thrown away
 number rather than hiding it, because "could not be read" is not "nobody here". An empty unit says 0 rather than
 saying nothing, since that is a fact worth knowing about a place.
 
+A person's screen steps to its neighbours the same way a unit's does, and calls each of them by name — falling back
+to the address, and to "Unnamed" for somebody who has neither, because a link with nothing in it is a link nobody can
+aim at.
+
 On the person's detail screen the unit is the one row that leads somewhere: it opens the people list already narrowed to that
 unit, which is the question a unit answers — who else is here. It carries the id rather than the name, because that is
 what the filter takes, and somebody with no unit is a dash rather than a link to nothing.

@@ -68,8 +68,12 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
       </Link>
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           {/*
+            The same tile as the person and unit screens, at the same size: this
+            is the detail screen for an organization, and it was showing its
+            photo smaller than either of them.
+
             A signed URL from the API, good for a short while. Not next/image:
             the host is whatever the bucket is configured as, and the URL changes
             every render, so there is nothing to optimise or cache against.
@@ -79,10 +83,19 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
             <img
               src={organization.photoUrl}
               alt=""
-              className="size-12 shrink-0 rounded-lg border border-line object-cover"
+              className="size-28 shrink-0 rounded-xl border border-line object-cover"
             />
-          ) : null}
-          <div>
+          ) : (
+            // Without this the heading simply slid left and the page looked
+            // like one that had never had a photo at all.
+            <span
+              aria-hidden="true"
+              className="grid size-28 shrink-0 place-items-center rounded-xl border border-line bg-surface-muted text-3xl font-medium text-ink-muted"
+            >
+              {organization.businessName.trim().charAt(0).toUpperCase() || "?"}
+            </span>
+          )}
+          <div className="min-w-0">
             <h1 className="text-2xl font-semibold tracking-tight text-ink">
               {organization.businessName}
             </h1>

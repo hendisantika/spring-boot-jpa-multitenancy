@@ -30,7 +30,7 @@ bun run lint
 | `/dashboard`            | Only the organizations you are a member of                                |
 | `/account`              | Your own account: the photo, the phone number, the password, and the address you sign in with |
 | `/organizations/new`    | The registration form; creates the database and the subdomain             |
-| `/organizations/[slug]` | Profile, its photo, the people in it, and inviting people when you are the `OWNER` |
+| `/organizations/[slug]` | The organization itself: profile, photo, the people in it, and inviting people when you are the `OWNER` |
 | `/organizations/[slug]/edit` | Edit the profile; owner only                                        |
 | `/organizations/[slug]/people` | The tenant's own people, searched and paged from `?q=` and `?page=` |
 | `/organizations/[slug]/people/[id]` | One person, whole, with the photo at a size worth looking at |
@@ -53,6 +53,11 @@ The organization page carries a Photo card of its own for the owner, on the same
 to the photo-only endpoint rather than through the profile form: changing a picture should not mean re-submitting
 eight fields that were fine as they were, and re-submitting them is how they get overwritten. The card says so, since
 the form behind **Edit** also has a photo field and two ways to do one thing needs explaining.
+
+`/organizations/[slug]` is already the detail screen for an organization, so it gained no new route — only the tile
+the other two use: the same 112px square, and the same fallback to an initial. It was showing its photo smaller than
+either of them, and with no photo at all it rendered nothing, so the heading simply slid left and the page looked like
+one that had never had a photo.
 
 **A person has a detail screen of their own.** The list has room for a line each and the form is for changing things;
 neither is a place to simply read a record, and the photo in particular was a 32px thumbnail. The name in the list is

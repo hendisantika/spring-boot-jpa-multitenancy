@@ -11,6 +11,7 @@ import {
   type Organization,
 } from "@/lib/types";
 import { VerifyEmailBanner } from "./VerifyEmailBanner";
+import { Avatar } from "@/components/Avatar";
 import { Alert, Badge, Card, PageHeading } from "@/components/ui";
 
 export const metadata = { title: "Your organizations" };
@@ -72,9 +73,21 @@ export default async function DashboardPage() {
           <Link key={organization.slug} href={`/organizations/${organization.slug}`} className="group">
             <Card className="h-full p-5 transition group-hover:border-brand/40 group-hover:shadow-md">
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="truncate font-semibold text-ink">{organization.businessName}</h2>
-                  <p className="mt-0.5 truncate text-sm text-ink-muted">{organization.subdomain}</p>
+                <div className="flex min-w-0 items-center gap-3">
+                  {/* Every other list in the app shows the photo; this one, the
+                      first screen after signing in, was the last that did not.
+                      Square, and falling back to an initial: an organization is
+                      a place, and a card with a gap where a logo goes reads as
+                      something that failed to load. */}
+                  <Avatar
+                    photoUrl={organization.photoUrl}
+                    email={organization.businessName}
+                    rounded="lg"
+                  />
+                  <div className="min-w-0">
+                    <h2 className="truncate font-semibold text-ink">{organization.businessName}</h2>
+                    <p className="mt-0.5 truncate text-sm text-ink-muted">{organization.subdomain}</p>
+                  </div>
                 </div>
                 {memberships[organization.slug] ? (
                   <Badge tone={memberships[organization.slug] === "OWNER" ? "brand" : "muted"}>

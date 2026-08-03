@@ -523,6 +523,7 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `GET`  | `/person/{id}`       | bearer + membership | Person by id, from the tenant's database       |
 | `GET`  | `/person`            | bearer + membership | A **page** of people; see below                |
 | `POST`/`PUT` | `/person` | bearer + membership | JSON, or multipart to attach a photo          |
+| `POST`/`PUT` | `/organization` | bearer + **owner** | JSON, or multipart to attach a photo    |
 | `GET`  | `/organization`      | bearer + membership | A **page** of business units; see below        |
 
 ### Paged lists
@@ -627,10 +628,11 @@ can add its own visit type later; `systemDefined` is what tells the two apart.
 > missing for your clinics, change it there. Note that once a migration has been applied it must be corrected by a new
 > version rather than edited, or every tenant database fails its checksum and the application refuses to start.
 
-#### Photos on a person
+#### Photos on a person and on a unit
 
 `POST /person` and `PUT /person/{id}` take **either** JSON as before **or** `multipart/form-data` with a `person` JSON
-part and an optional `photo` — the same shape as `/api/organizations`. Two mappings rather than one: turning the JSON
+part and an optional `photo` — the same shape as `/api/organizations`. `POST /organization` and
+`PUT /organization/{id}` do the same with an `organization` part, so a business unit can carry a picture of the place. Two mappings rather than one: turning the JSON
 endpoint into multipart would break every caller storing a record without a photo, which is most of them.
 
 Omitting the photo part on an edit keeps the current one; sending one replaces it and the old object is deleted, so an
@@ -642,8 +644,11 @@ forever but never get back to none. It applies to `PUT /api/organizations/{slug}
 flag is a contradiction and the upload wins — choosing a file says more than ticking a box — though the screens do not
 let the two happen together.
 
-The response is a `PersonView`, not the entity: it carries a signed `photoUrl` and never `photoKey`, which is storage
-rather than something a client should hold.
+The responses are a `PersonView` and a `UnitView`, not the entities: they carry a signed `photoUrl` and never
+`photoKey`, which is storage rather than something a client should hold.
+
+Writing a unit stays the owner's, and attaching a photo is writing, so the multipart way in is owner-only too — it is
+not a way around the rule that a member may read units but not change them.
 
 #### Where the records use them
 

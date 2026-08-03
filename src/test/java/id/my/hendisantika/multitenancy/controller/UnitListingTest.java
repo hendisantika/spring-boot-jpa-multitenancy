@@ -10,15 +10,19 @@ import id.my.hendisantika.multitenancy.repository.central.UserTenantRepository;
 import id.my.hendisantika.multitenancy.service.MembershipService;
 import id.my.hendisantika.multitenancy.service.OrganizationProfile;
 import id.my.hendisantika.multitenancy.service.TenantProvisioningService;
+import id.my.hendisantika.multitenancy.service.storage.StorageService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import tools.jackson.databind.ObjectMapper;
@@ -28,9 +32,17 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -76,6 +88,15 @@ class UnitListingTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    /**
+     * Mocked rather than reaching MinIO, for the same reason the person listing
+     * mocks it: these tests are about how a photo is wired through the
+     * controller and the service, not about the bucket, and CI starts without
+     * one.
+     */
+    @MockitoBean
+    private StorageService storageService;
 
     private MockMvc mockMvc;
     private String ownerToken;
@@ -225,6 +246,146 @@ class UnitListingTest {
                 .andExpect(jsonPath("$.totalElements").value(1));
         mockMvc.perform(withTenant(get("/organization"), ownerToken).param("q", "cabang"))
                 .andExpect(jsonPath("$.totalElements").value(2));
+    }
+
+    private MockMultipartHttpServletRequestBuilder asOwnerMultipart(
+            MockMultipartHttpServletRequestBuilder request) {
+        request.header("Authorization", "Bearer " + ownerToken)
+                .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG);
+        return request;
+    }
+
+    private MockMultipartHttpServletRequestBuilder asPut(MockMultipartHttpServletRequestBuilder request) {
+        return (MockMultipartHttpServletRequestBuilder) request.with(raw -> {
+            raw.setMethod("PUT");
+            return raw;
+        });
+    }
+
+    private MockMultipartFile unitPart(String name) {
+        return new MockMultipartFile("organization", "organization", MediaType.APPLICATION_JSON_VALUE,
+                objectMapper.writeValueAsBytes(Map.of("name", name)));
+    }
+
+    private MockMultipartFile photoPart(String bytes) {
+        given(storageService.store(any(), anyString())).willReturn("units/probe.png");
+        given(storageService.urlOf("units/probe.png"))
+                .willReturn("https://cdn.example.test/units/probe.png?X-Amz-Signature=abc");
+        return new MockMultipartFile("photo", "unit.png", MediaType.IMAGE_PNG_VALUE, bytes.getBytes());
+    }
+
+    private long createUnitWithPhoto(String name) throws Exception {
+        String body = mockMvc.perform(asOwnerMultipart(multipart("/organization"))
+                        .file(unitPart(name)).file(photoPart("png-bytes")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.photoUrl").isNotEmpty())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(body).get("id").asLong();
+    }
+
+    /**
+     * A photo arrives with the unit rather than in a second call, so there is no
+     * window where the unit exists without it.
+     */
+    @Test
+    void aUnitCanBeCreatedWithAPhoto() throws Exception {
+        String body = mockMvc.perform(asOwnerMultipart(multipart("/organization"))
+                        .file(unitPart("Cabang Berfoto")).file(photoPart("png-bytes")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value("Cabang Berfoto"))
+                .andExpect(jsonPath("$.photoUrl").isNotEmpty())
+                .andReturn().getResponse().getContentAsString();
+
+        // The key is storage; what leaves the API is a URL and nothing else.
+        assertThat(body).doesNotContain("photoKey");
+
+        long id = objectMapper.readTree(body).get("id").asLong();
+        mockMvc.perform(withTenant(get("/organization/" + id), ownerToken))
+                .andExpect(jsonPath("$.photoUrl").isNotEmpty());
+    }
+
+    /**
+     * A unit with no photo must come back as null rather than as something that
+     * renders a broken image.
+     */
+    @Test
+    void aUnitWithoutAPhotoHasNoUrl() throws Exception {
+        createUnit("Cabang Polos", "Jalan Polos", "polos@probe.test");
+
+        mockMvc.perform(withTenant(get("/organization"), ownerToken))
+                .andExpect(jsonPath("$.content[0].photoUrl").doesNotExist());
+    }
+
+    /**
+     * An edit that leaves the file input empty must not wipe the photo.
+     */
+    @Test
+    void anEditWithoutAPhotoPartKeepsTheCurrentOne() throws Exception {
+        long id = createUnitWithPhoto("Cabang Tetap");
+
+        mockMvc.perform(withTenant(put("/organization/" + id), ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Cabang Diubah\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Cabang Diubah"))
+                .andExpect(jsonPath("$.photoUrl").isNotEmpty());
+    }
+
+    @Test
+    void aUnitPhotoCanBeRemoved() throws Exception {
+        long id = createUnitWithPhoto("Cabang Dihapus");
+
+        mockMvc.perform(asPut(asOwnerMultipart(multipart("/organization/" + id)))
+                        .file(unitPart("Cabang Dihapus"))
+                        .param("removePhoto", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.photoUrl").doesNotExist());
+
+        // The object goes with it rather than lingering unreferenced.
+        verify(storageService).delete("units/probe.png");
+    }
+
+    /**
+     * Asking to remove one while uploading another is a contradiction. The
+     * upload wins, and the unit must not end up with neither.
+     */
+    @Test
+    void anUploadWinsOverTheRemovalFlagOnAUnit() throws Exception {
+        long id = createUnitWithPhoto("Cabang Bimbang");
+
+        mockMvc.perform(asPut(asOwnerMultipart(multipart("/organization/" + id)))
+                        .file(unitPart("Cabang Bimbang"))
+                        .file(photoPart("other-bytes"))
+                        .param("removePhoto", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.photoUrl").isNotEmpty());
+    }
+
+    /**
+     * Otherwise the bucket keeps a picture of a unit that no longer exists, and
+     * nothing left points at it to say so.
+     */
+    @Test
+    void deletingAUnitTakesItsPhotoWithIt() throws Exception {
+        long id = createUnitWithPhoto("Cabang Ditutup");
+
+        mockMvc.perform(withTenant(delete("/organization/" + id), ownerToken))
+                .andExpect(status().isNoContent());
+
+        verify(storageService).delete("units/probe.png");
+    }
+
+    /**
+     * Writing units is the owner's, and attaching a photo is writing: the
+     * multipart way in must not be a way around that.
+     */
+    @Test
+    void aMemberCannotAttachAPhotoEither() throws Exception {
+        mockMvc.perform(multipart("/organization")
+                        .file(unitPart("Cabang Terlarang")).file(photoPart("png-bytes"))
+                        .header("Authorization", "Bearer " + memberToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG))
+                .andExpect(status().isForbidden());
     }
 
     private void createCodedUnit(String name, String unitType, String status, String province) throws Exception {

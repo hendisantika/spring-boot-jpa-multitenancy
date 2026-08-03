@@ -165,4 +165,6 @@ export type TenantUnit = {
   unitType: string | null;
   operatingStatus: string | null;
   province: string | null;
+  /** Signed and short-lived, or null when the unit has none. */
+  photoUrl: string | null;
 };

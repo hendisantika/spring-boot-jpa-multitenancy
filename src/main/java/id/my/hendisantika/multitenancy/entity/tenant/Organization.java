@@ -50,4 +50,12 @@ public class Organization extends BaseEntity {
 
     @Column(name = "email")
     private String email;
+
+    /**
+     * The stored object key, never a URL — the bucket and the endpoint can
+     * change without touching stored data, and the URL has to be signed fresh
+     * on every read anyway.
+     */
+    @Column(name = "photo_key")
+    private String photoKey;
 }

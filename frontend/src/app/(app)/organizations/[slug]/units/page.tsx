@@ -9,6 +9,7 @@ import type { FilterField } from "@/components/ListingControls";
 import { getRole } from "@/lib/session";
 import type { Page, ReferenceLists, TenantUnit } from "@/lib/types";
 import { referenceLabel } from "@/lib/types";
+import { Avatar } from "@/components/Avatar";
 import { ListingControls } from "@/components/ListingControls";
 import { Pager } from "@/components/Pager";
 import { Alert, Badge, Card, PageHeading } from "@/components/ui";
@@ -118,15 +119,19 @@ export default async function UnitsPage({ params, searchParams }: PageProps<"/or
           <ul className="divide-y divide-line">
             {units.content.map((unit) => (
               <li key={unit.id} className="flex items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm text-ink">{unit.name || "—"}</p>
-                  <p className="truncate text-xs text-ink-muted">
-                    {[unit.address, unit.email].filter(Boolean).join(" · ") || "No details"}
-                  </p>
-                  {/* Labels, never codes: a code is storage, not something to read. */}
-                  {describe(unit, lists) ? (
-                    <p className="truncate text-xs text-ink-muted/70">{describe(unit, lists)}</p>
-                  ) : null}
+                <div className="flex min-w-0 items-center gap-3">
+                  {/* Square rather than round: this is a place, not a face. */}
+                  <Avatar photoUrl={unit.photoUrl} email={unit.name} rounded="lg" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-ink">{unit.name || "—"}</p>
+                    <p className="truncate text-xs text-ink-muted">
+                      {[unit.address, unit.email].filter(Boolean).join(" · ") || "No details"}
+                    </p>
+                    {/* Labels, never codes: a code is storage, not something to read. */}
+                    {describe(unit, lists) ? (
+                      <p className="truncate text-xs text-ink-muted/70">{describe(unit, lists)}</p>
+                    ) : null}
+                  </div>
                 </div>
                 {role === "OWNER" ? (
                   <div className="flex shrink-0 items-center gap-1">

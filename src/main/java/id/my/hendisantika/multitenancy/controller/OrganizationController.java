@@ -8,11 +8,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import id.my.hendisantika.multitenancy.service.storage.StorageService;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -40,12 +44,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class OrganizationController {
 
+    private static final String PHOTO_PREFIX = "units";
+
     private final OrganizationService organizationService;
+
+    private final StorageService storageService;
 
     @GetMapping("/organization/{id}")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
-    public Organization getOrganization(@PathVariable("id") Long id) {
-        return organizationService.findById(id).orElse(new Organization());
+    public UnitView getOrganization(@PathVariable("id") Long id) {
+        return organizationService.findById(id).map(this::viewOf).orElse(null);
     }
 
     /**
@@ -65,7 +73,7 @@ public class OrganizationController {
      */
     @GetMapping("/organization")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
-    public PageResponse<Organization> listOrganizations(
+    public PageResponse<UnitView> listOrganizations(
             @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "page", required = false) Integer page,
             @RequestParam(name = "size", required = false) Integer size,
@@ -73,20 +81,62 @@ public class OrganizationController {
             @RequestParam(name = "operatingStatus", required = false) List<String> operatingStatus,
             @RequestParam(name = "province", required = false) List<String> province) {
         UnitFilter filter = UnitFilter.of(unitType, operatingStatus, province);
-        return PageResponse.of(organizationService.findPage(q, filter, page, size));
+        return PageResponse.of(organizationService.findPage(q, filter, page, size).map(this::viewOf));
     }
 
     @PostMapping("/organization")
     @PreAuthorize("@tenantSecurity.isOwnerOfCurrentTenant()")
-    public ResponseEntity<Organization> createOrganization(@Valid @RequestBody Organization organization) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(organizationService.save(organization));
+    public ResponseEntity<UnitView> createOrganization(@Valid @RequestBody Organization organization) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(viewOf(organizationService.save(organization)));
+    }
+
+    /**
+     * The same thing with a photo attached.
+     * <p>
+     * A second mapping rather than turning the JSON one into multipart, exactly
+     * as on a person: that would break every caller already posting JSON for a
+     * unit with no photo, which is most of them.
+     */
+    @PostMapping(path = "/organization", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("@tenantSecurity.isOwnerOfCurrentTenant()")
+    public ResponseEntity<UnitView> createOrganizationWithPhoto(
+            @Valid @RequestPart("organization") Organization organization,
+            @RequestPart(value = "photo", required = false) MultipartFile photo) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(viewOf(organizationService.save(organization, keyOf(photo))));
     }
 
     @PutMapping("/organization/{id}")
     @PreAuthorize("@tenantSecurity.isOwnerOfCurrentTenant()")
-    public Organization updateOrganization(@PathVariable("id") Long id,
-                                           @Valid @RequestBody Organization organization) {
-        return organizationService.update(id, organization);
+    public UnitView updateOrganization(@PathVariable("id") Long id,
+                                       @Valid @RequestBody Organization organization) {
+        return viewOf(organizationService.update(id, organization));
+    }
+
+    /**
+     * Omitting the photo part keeps the current one; sending one replaces it and
+     * the old object is removed; {@code removePhoto=true} drops it entirely.
+     * <p>
+     * Sending both a photo and the flag is a contradiction, and the upload wins
+     * — the same three rules as a person, an account and an organization, so
+     * there is one thing to learn rather than four.
+     */
+    @PutMapping(path = "/organization/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("@tenantSecurity.isOwnerOfCurrentTenant()")
+    public UnitView updateOrganizationWithPhoto(
+            @PathVariable("id") Long id,
+            @Valid @RequestPart("organization") Organization organization,
+            @RequestPart(value = "photo", required = false) MultipartFile photo,
+            @RequestParam(value = "removePhoto", defaultValue = "false") boolean removePhoto) {
+        return viewOf(organizationService.update(id, organization, keyOf(photo), removePhoto));
+    }
+
+    private String keyOf(MultipartFile photo) {
+        return photo != null && !photo.isEmpty() ? storageService.store(photo, PHOTO_PREFIX) : null;
+    }
+
+    private UnitView viewOf(Organization organization) {
+        return UnitView.of(organization, storageService);
     }
 
     @DeleteMapping("/organization/{id}")

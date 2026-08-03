@@ -149,6 +149,16 @@ export type ReferenceValue = {
 /** Every list a tenant keeps, keyed by category. */
 export type ReferenceLists = Record<string, ReferenceValue[]>;
 
+/**
+ * `MARITAL_STATUS` as "Marital status". Derived rather than looked up in a map:
+ * the catalogue is a migration file and a tenant may add categories to it, so a
+ * hard-coded list would go stale without anything failing to say so.
+ */
+export function categoryName(category: string): string {
+  const spaced = category.replace(/_/g, " ").toLowerCase();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
 /** A person inside a tenant's own database. */
 export type TenantPerson = {
   id: number;

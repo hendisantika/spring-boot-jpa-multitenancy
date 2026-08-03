@@ -14,7 +14,9 @@ import {
   type Invitation,
   type Member,
   type Organization,
+  categoryName,
   type Page as PageOf,
+  type ReferenceLists,
   type TenantPerson,
   type TenantUnit,
 } from "@/lib/types";
@@ -62,9 +64,10 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
   // The tenant's own database, fetched apart from the rest: everything above
   // lives centrally, and a tenant database that is unreachable should empty two
   // cards rather than take the profile down with it.
-  const [people, units] = await Promise.all([
+  const [people, units, lists] = await Promise.all([
     api<PageOf<TenantPerson>>(`/person?size=${PREVIEW}`, { tenant: slug }).catch(() => null),
     api<PageOf<TenantUnit>>(`/organization?size=${PREVIEW}`, { tenant: slug }).catch(() => null),
+    api<ReferenceLists>("/reference-data", { tenant: slug }).catch(() => null),
   ]);
 
   if (error || !organization) {
@@ -267,6 +270,43 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
             />
           ))}
         </TenantCard>
+
+        <Card className="p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="font-semibold text-ink">Reference lists</h2>
+            <span className="text-sm text-ink-muted">
+              {lists ? Object.keys(lists).length : "—"}
+            </span>
+          </div>
+          <p className="mb-4 text-sm text-ink-muted">
+            {/* Worth one line: these are the tenant's own copy, not a shared
+                catalogue, which is why they are on this page at all. */}
+            This tenant&apos;s own copy of the lists behind every dropdown. Renaming a label
+            here would not rewrite anybody&apos;s record: a record stores the code.
+          </p>
+
+          {lists === null ? (
+            <p className="text-sm text-ink-muted">This tenant&apos;s database could not be read.</p>
+          ) : (
+            <ul className="divide-y divide-line">
+              {Object.entries(lists).map(([category, values]) => (
+                <li key={category}>
+                  <Link
+                    href={`/organizations/${slug}/reference-data/${category}`}
+                    className="flex items-center justify-between gap-3 py-3 transition hover:opacity-80"
+                  >
+                    <span className="truncate text-sm text-ink hover:underline">
+                      {categoryName(category)}
+                    </span>
+                    <span className="shrink-0 text-xs text-ink-muted">
+                      {values.filter((value) => value.active).length} of {values.length} in use
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
       </div>
     </>
   );

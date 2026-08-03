@@ -5,7 +5,9 @@ import id.my.hendisantika.multitenancy.service.PersonFilter;
 import id.my.hendisantika.multitenancy.service.PersonService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import id.my.hendisantika.multitenancy.service.storage.StorageService;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -15,7 +17,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -39,12 +43,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PersonController {
 
+    private static final String PHOTO_PREFIX = "persons";
+
     private final PersonService personService;
+
+    private final StorageService storageService;
 
     @GetMapping("/person/{id}")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
-    public Person getPerson(@PathVariable("id") Long id) {
-        return personService.findById(id).orElse(null);
+    public PersonView getPerson(@PathVariable("id") Long id) {
+        return personService.findById(id).map(this::viewOf).orElse(null);
     }
 
     /**
@@ -64,7 +72,7 @@ public class PersonController {
      */
     @GetMapping("/person")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
-    public PageResponse<Person> listPeople(
+    public PageResponse<PersonView> listPeople(
             @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "page", required = false) Integer page,
             @RequestParam(name = "size", required = false) Integer size,
@@ -73,19 +81,57 @@ public class PersonController {
             @RequestParam(name = "bloodType", required = false) List<String> bloodType,
             @RequestParam(name = "identityDocumentType", required = false) List<String> identityDocumentType) {
         PersonFilter filter = PersonFilter.of(gender, maritalStatus, bloodType, identityDocumentType);
-        return PageResponse.of(personService.findPage(q, filter, page, size));
+        return PageResponse.of(personService.findPage(q, filter, page, size).map(this::viewOf));
     }
 
     @PostMapping("/person")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
-    public ResponseEntity<Person> createPerson(@Valid @RequestBody Person person) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(personService.save(person));
+    public ResponseEntity<PersonView> createPerson(@Valid @RequestBody Person person) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(viewOf(personService.save(person)));
+    }
+
+    /**
+     * The same thing with a photo attached.
+     * <p>
+     * A second mapping rather than turning the JSON one into multipart: that
+     * would break every caller that already posts JSON for a record with no
+     * photo, which is most of them. The shape matches the organization
+     * endpoints — a JSON part named after the record, plus an optional photo.
+     */
+    @PostMapping(path = "/person", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
+    public ResponseEntity<PersonView> createPersonWithPhoto(
+            @Valid @RequestPart("person") Person person,
+            @RequestPart(value = "photo", required = false) MultipartFile photo) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(viewOf(personService.save(person, keyOf(photo))));
     }
 
     @PutMapping("/person/{id}")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
-    public Person updatePerson(@PathVariable("id") Long id, @Valid @RequestBody Person person) {
-        return personService.update(id, person);
+    public PersonView updatePerson(@PathVariable("id") Long id, @Valid @RequestBody Person person) {
+        return viewOf(personService.update(id, person));
+    }
+
+    /**
+     * Omitting the photo part keeps the current one; sending one replaces it and
+     * the old object is removed.
+     */
+    @PutMapping(path = "/person/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
+    public PersonView updatePersonWithPhoto(
+            @PathVariable("id") Long id,
+            @Valid @RequestPart("person") Person person,
+            @RequestPart(value = "photo", required = false) MultipartFile photo) {
+        return viewOf(personService.update(id, person, keyOf(photo)));
+    }
+
+    private String keyOf(MultipartFile photo) {
+        return photo != null && !photo.isEmpty() ? storageService.store(photo, PHOTO_PREFIX) : null;
+    }
+
+    private PersonView viewOf(Person person) {
+        return PersonView.of(person, storageService);
     }
 
     @DeleteMapping("/person/{id}")

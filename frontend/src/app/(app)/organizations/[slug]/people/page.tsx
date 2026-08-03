@@ -10,6 +10,7 @@ import { getRole } from "@/lib/session";
 import type { Page, ReferenceLists, TenantPerson } from "@/lib/types";
 import { referenceLabel } from "@/lib/types";
 import { ListingControls } from "@/components/ListingControls";
+import { Avatar } from "@/components/Avatar";
 import { Pager } from "@/components/Pager";
 import { Alert, Badge, Card, PageHeading } from "@/components/ui";
 
@@ -116,7 +117,9 @@ export default async function PeoplePage({ params, searchParams }: PageProps<"/o
           <ul className="divide-y divide-line">
             {people.content.map((person) => (
               <li key={person.id} className="flex items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-3">
+                  <Avatar photoUrl={person.photoUrl} email={person.firstName ?? person.email} />
+                  <div className="min-w-0">
                   <p className="truncate text-sm text-ink">
                     {[person.firstName, person.lastName].filter(Boolean).join(" ") || "—"}
                   </p>
@@ -127,6 +130,7 @@ export default async function PeoplePage({ params, searchParams }: PageProps<"/o
                   {describe(person, lists) ? (
                     <p className="truncate text-xs text-ink-muted/70">{describe(person, lists)}</p>
                   ) : null}
+                  </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <Link

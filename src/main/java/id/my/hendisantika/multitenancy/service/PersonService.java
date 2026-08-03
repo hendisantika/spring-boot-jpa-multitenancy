@@ -5,8 +5,10 @@ import id.my.hendisantika.multitenancy.repository.tenant.PersonRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import id.my.hendisantika.multitenancy.service.storage.StorageService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,6 +33,8 @@ public class PersonService {
     private final PersonRepository personRepository;
 
     private final ReferenceDataService referenceDataService;
+
+    private final StorageService storageService;
 
     @Transactional(value = "tenantTransactionManager", readOnly = true)
     public Optional<Person> findById(Long id) {
@@ -83,6 +87,18 @@ public class PersonService {
         return personRepository.save(person);
     }
 
+    /**
+     * @param newPhotoKey null keeps whatever is already there, which is what an
+     *                    edit form that left the file input empty means
+     */
+    @Transactional("tenantTransactionManager")
+    public Person save(Person person, String newPhotoKey) {
+        if (StringUtils.hasText(newPhotoKey)) {
+            person.setPhotoKey(newPhotoKey);
+        }
+        return save(person);
+    }
+
     @Transactional("tenantTransactionManager")
     public Person update(Long id, Person changes) {
         Person person = personRepository.findById(id)
@@ -103,6 +119,24 @@ public class PersonService {
     }
 
     /**
+     * @param newPhotoKey null keeps the current photo; a new one replaces it and
+     *                    the old object is removed, or every edit would leave an
+     *                    orphan in the bucket that nothing points at again
+     */
+    @Transactional("tenantTransactionManager")
+    public Person update(Long id, Person changes, String newPhotoKey) {
+        Person person = update(id, changes);
+        if (StringUtils.hasText(newPhotoKey)) {
+            String previous = person.getPhotoKey();
+            person.setPhotoKey(newPhotoKey);
+            if (StringUtils.hasText(previous) && !previous.equals(newPhotoKey)) {
+                storageService.delete(previous);
+            }
+        }
+        return person;
+    }
+
+    /**
      * The four fields the form offers as dropdowns hold codes from the tenant's
      * own reference lists. The form is a courtesy; this is the rule, because the
      * same request can be sent without it.
@@ -119,9 +153,14 @@ public class PersonService {
 
     @Transactional("tenantTransactionManager")
     public void delete(Long id) {
-        if (!personRepository.existsById(id)) {
-            throw new TenantRecordNotFoundException("No person with id " + id);
+        Person person = personRepository.findById(id)
+                .orElseThrow(() -> new TenantRecordNotFoundException("No person with id " + id));
+        String photoKey = person.getPhotoKey();
+        personRepository.delete(person);
+        // The row is the only thing that pointed at the object, so removing one
+        // without the other leaves a photo nobody can reach or account for.
+        if (StringUtils.hasText(photoKey)) {
+            storageService.delete(photoKey);
         }
-        personRepository.deleteById(id);
     }
 }

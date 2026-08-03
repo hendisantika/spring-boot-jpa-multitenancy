@@ -16,7 +16,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import tools.jackson.databind.ObjectMapper;
@@ -26,8 +28,11 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -114,6 +119,12 @@ class PersonListingTest {
         return request
                 .header("Authorization", "Bearer " + token)
                 .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG);
+    }
+
+    private MockMultipartHttpServletRequestBuilder asOwnerMultipart(MockMultipartHttpServletRequestBuilder request) {
+        request.header("Authorization", "Bearer " + token)
+                .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG);
+        return request;
     }
 
     private void createPerson(String firstName, String lastName, String email, String mobile) throws Exception {
@@ -606,6 +617,68 @@ class PersonListingTest {
         // they coincide once upper-cased, which is luck rather than design.)
         mockMvc.perform(asOwner(get("/person")).param("bloodType", "O+"))
                 .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    private MockMultipartFile personPart(String firstName) throws Exception {
+        return new MockMultipartFile("person", "person", MediaType.APPLICATION_JSON_VALUE,
+                objectMapper.writeValueAsBytes(Map.of("firstName", firstName, "lastName", "Probe")));
+    }
+
+    private MockMultipartFile photoPart(String bytes) {
+        return new MockMultipartFile("photo", "me.png", MediaType.IMAGE_PNG_VALUE, bytes.getBytes());
+    }
+
+    /**
+     * A photo arrives with the record rather than in a second call, so there is
+     * no window where the person exists without it.
+     */
+    @Test
+    void aPersonCanBeCreatedWithAPhoto() throws Exception {
+        String body = mockMvc.perform(asOwnerMultipart(multipart("/person"))
+                        .file(personPart("Berfoto")).file(photoPart("png-bytes")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.firstName").value("Berfoto"))
+                .andExpect(jsonPath("$.photoUrl").isNotEmpty())
+                .andReturn().getResponse().getContentAsString();
+
+        // The key is storage; what leaves the API is a URL and nothing else.
+        assertThat(body).doesNotContain("photoKey");
+
+        long id = objectMapper.readTree(body).get("id").asLong();
+        mockMvc.perform(asOwner(get("/person/" + id)))
+                .andExpect(jsonPath("$.photoUrl").isNotEmpty());
+    }
+
+    /**
+     * Somebody with no photo must come back as null rather than as something
+     * that renders a broken image.
+     */
+    @Test
+    void aPersonWithoutAPhotoHasNoUrl() throws Exception {
+        createPerson("Tanpa", "Foto", "tanpa@probe.test", "0899");
+
+        mockMvc.perform(asOwner(get("/person")))
+                .andExpect(jsonPath("$.content[0].photoUrl").doesNotExist());
+    }
+
+    /**
+     * An edit that leaves the file input empty must not wipe the photo — that is
+     * what the omitted part means on the organization form too.
+     */
+    @Test
+    void anEditWithoutAPhotoPartKeepsTheCurrentOne() throws Exception {
+        String body = mockMvc.perform(asOwnerMultipart(multipart("/person"))
+                        .file(personPart("Tetap")).file(photoPart("png-bytes")))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        long id = objectMapper.readTree(body).get("id").asLong();
+
+        mockMvc.perform(asOwner(put("/person/" + id))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"firstName\":\"Tetap\",\"lastName\":\"Diubah\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lastName").value("Diubah"))
+                .andExpect(jsonPath("$.photoUrl").isNotEmpty());
     }
 
     /**

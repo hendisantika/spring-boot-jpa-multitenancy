@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import { savePerson } from "@/app/actions/tenant-data";
+import { PhotoField } from "@/components/PhotoField";
 import { ReferenceSelect } from "@/components/ReferenceSelect";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Alert, Field, Input } from "@/components/ui";
@@ -96,6 +97,12 @@ export function PersonForm({
           <Input name="identityNumber" maxLength={255} defaultValue={value("identityNumber")} />
         </Field>
       </div>
+
+      <PhotoField
+        label="Photo"
+        hint={editing ? "Leave empty to keep the current one." : "Optional. JPEG, PNG or WebP, up to 5 MB."}
+        currentUrl={editing?.photoUrl ?? null}
+      />
 
       <div className="flex items-center justify-end gap-3 border-t border-line pt-4">
         {editing ? (

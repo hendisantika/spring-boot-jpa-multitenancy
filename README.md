@@ -442,6 +442,7 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `GET`  | `/organization/{id}` | bearer + membership | Organization by id, from the tenant's database |
 | `GET`  | `/person/{id}`       | bearer + membership | Person by id, from the tenant's database       |
 | `GET`  | `/person`            | bearer + membership | A **page** of people; see below                |
+| `POST`/`PUT` | `/person` | bearer + membership | JSON, or multipart to attach a photo          |
 | `GET`  | `/organization`      | bearer + membership | A **page** of business units; see below        |
 
 ### Paged lists
@@ -545,6 +546,19 @@ can add its own visit type later; `systemDefined` is what tells the two apart.
 > **These are a starting point, not a standard.** The catalogue is one migration file — if a category is wrong or
 > missing for your clinics, change it there. Note that once a migration has been applied it must be corrected by a new
 > version rather than edited, or every tenant database fails its checksum and the application refuses to start.
+
+#### Photos on a person
+
+`POST /person` and `PUT /person/{id}` take **either** JSON as before **or** `multipart/form-data` with a `person` JSON
+part and an optional `photo` — the same shape as `/api/organizations`. Two mappings rather than one: turning the JSON
+endpoint into multipart would break every caller storing a record without a photo, which is most of them.
+
+Omitting the photo part on an edit keeps the current one; sending one replaces it and the old object is deleted, so an
+edit does not leave an orphan in the bucket. Deleting a person deletes its photo too — the row was the only thing
+pointing at it.
+
+The response is a `PersonView`, not the entity: it carries a signed `photoUrl` and never `photoKey`, which is storage
+rather than something a client should hold.
 
 #### Where the records use them
 

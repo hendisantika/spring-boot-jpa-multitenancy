@@ -60,6 +60,14 @@ public class Person extends BaseEntity {
     @Column(name = "identity_number")
     private String identityNumber;
 
+    /**
+     * The stored object key, never a URL — the bucket and the endpoint can
+     * change without touching stored data, and the URL has to be signed fresh
+     * on every read anyway.
+     */
+    @Column(name = "photo_key")
+    private String photoKey;
+
     @Column(name = "home_phone")
     private String homePhone;
 

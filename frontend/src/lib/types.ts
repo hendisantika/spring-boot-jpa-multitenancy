@@ -134,6 +134,8 @@ export type TenantPerson = {
   bloodType: string | null;
   identityDocumentType: string | null;
   identityNumber: string | null;
+  /** Signed and short-lived, or null when there is none. */
+  photoUrl: string | null;
 };
 
 /** The label to show for a stored code, falling back to the code itself. */

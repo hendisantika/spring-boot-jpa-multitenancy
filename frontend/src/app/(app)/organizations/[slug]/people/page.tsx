@@ -120,9 +120,13 @@ export default async function PeoplePage({ params, searchParams }: PageProps<"/o
                 <div className="flex min-w-0 items-center gap-3">
                   <Avatar photoUrl={person.photoUrl} email={person.firstName ?? person.email} />
                   <div className="min-w-0">
-                  <p className="truncate text-sm text-ink">
+                  {/* The name is the way in to the whole record. */}
+                  <Link
+                    href={`${base}/${person.id}`}
+                    className="block truncate text-sm text-ink hover:underline"
+                  >
                     {[person.firstName, person.lastName].filter(Boolean).join(" ") || "—"}
-                  </p>
+                  </Link>
                   <p className="truncate text-xs text-ink-muted">
                     {[person.email, person.mobile].filter(Boolean).join(" · ") || "No contact details"}
                   </p>

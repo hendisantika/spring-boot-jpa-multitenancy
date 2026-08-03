@@ -218,7 +218,9 @@ class OrganizationRegistrationTest {
 
         // The member the owner just created can log in and reach the tenant.
         String memberToken = login(MEMBER_EMAIL);
-        mvc().perform(get("/organization/1")
+        // The list rather than a record: the question is whether the tenant is
+        // reachable at all, and this one has no units in it yet.
+        mvc().perform(get("/organization")
                         .header("Authorization", "Bearer " + memberToken)
                         .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG))
                 .andExpect(status().isOk());

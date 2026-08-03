@@ -246,6 +246,23 @@ class TenantDataRoleTest {
                 .andExpect(status().isForbidden());
     }
 
+    /**
+     * The detail screen has to tell "no such person" apart from "the API is
+     * unreachable", and a 200 with an empty body says neither.
+     */
+    @Test
+    void readingAMissingRecordIsNotFoundRatherThanAnEmptyBody() throws Exception {
+        mockMvc.perform(get("/person/999999")
+                        .header("Authorization", "Bearer " + memberToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/organization/999999")
+                        .header("Authorization", "Bearer " + memberToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG))
+                .andExpect(status().isNotFound());
+    }
+
     @Test
     void aMissingRecordIsNotFoundRatherThanAServerError() throws Exception {
         mockMvc.perform(put("/person/999999")

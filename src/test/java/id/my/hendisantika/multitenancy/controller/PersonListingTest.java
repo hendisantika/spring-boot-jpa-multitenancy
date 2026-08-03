@@ -651,6 +651,28 @@ class PersonListingTest {
     }
 
     /**
+     * A birthday is a calendar date, not a moment. It used to be handed out as
+     * midnight in the server's zone serialised as an instant, so east of UTC
+     * every client reading the date part showed the day before — and the edit
+     * form saved that back, moving the birthday one day per edit.
+     */
+    @Test
+    void aBirthDateComesBackAsTheDayItWasGiven() throws Exception {
+        String body = mockMvc.perform(asOwner(post("/person"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"firstName\":\"Lahir\",\"lastName\":\"Probe\",\"birthDate\":\"1990-08-17\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.birthDate").value("1990-08-17"))
+                .andReturn().getResponse().getContentAsString();
+
+        long id = objectMapper.readTree(body).get("id").asLong();
+        mockMvc.perform(asOwner(get("/person/" + id)))
+                .andExpect(jsonPath("$.birthDate").value("1990-08-17"));
+        mockMvc.perform(asOwner(get("/person")))
+                .andExpect(jsonPath("$.content[0].birthDate").value("1990-08-17"));
+    }
+
+    /**
      * A photo arrives with the record rather than in a second call, so there is
      * no window where the person exists without it.
      */

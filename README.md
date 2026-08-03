@@ -521,6 +521,7 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `DELETE` | `/api/organizations/{slug}/users/{accountId}` | **owner** | Remove a person       |
 | `GET`  | `/organization/{id}` | bearer + membership | Organization by id, from the tenant's database |
 | `GET`  | `/person/{id}`       | bearer + membership | Person by id, from the tenant's database       |
+| `GET`  | `/person/{id}`       | bearer + membership | One person, whole; **404** when there is none   |
 | `GET`  | `/person`            | bearer + membership | A **page** of people; see below                |
 | `POST`/`PUT` | `/person` | bearer + membership | JSON, or multipart to attach a photo          |
 | `POST`/`PUT` | `/organization` | bearer + **owner** | JSON, or multipart to attach a photo    |
@@ -646,6 +647,13 @@ let the two happen together.
 
 The responses are a `PersonView` and a `UnitView`, not the entities: they carry a signed `photoUrl` and never
 `photoKey`, which is storage rather than something a client should hold.
+
+**`birthDate` is a calendar date, `1990-08-17`, not an instant.** It used to be handed out as midnight in the
+server's zone serialised as UTC — `1990-08-16T17:00:00Z` in Jakarta — so every client reading the date part showed
+the day before, and the edit form saved that back, walking a birthday one day earlier per edit.
+
+**Reading one record by id answers 404 when there is none**, rather than 200 with an empty body. A detail screen has
+to tell "no such person" apart from "the API is unreachable", and an empty 200 says neither.
 
 Writing a unit stays the owner's, and attaching a photo is writing, so the multipart way in is owner-only too — it is
 not a way around the rule that a member may read units but not change them.

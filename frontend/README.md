@@ -79,6 +79,11 @@ list, with the list and the in-use state as filters. The state is a radio — Ei
 value is one or the other and "both" is the absence of an answer rather than picking two, which is the one filter on
 this project that is not a set of checkboxes.
 
+That screen carries the lists across its top, the current one marked with `aria-current`, plus a way out to all of
+them. Not a filter: this screen is one list by construction, so a category filter here could only ever choose what is
+already chosen. What somebody reading one list wants is the next one, and the only place a category genuinely narrows
+anything is the flat list, which the last chip leads to.
+
 The per-category screen reads `/reference-data/{category}`, paged and searchable, and shows the count of what is in use **on this
 page** rather than in the whole list — counting the list would mean fetching the list, which is what paging exists to
 avoid. A missing list is a 404 the screen words itself; a search matching nothing is an empty page of a list that

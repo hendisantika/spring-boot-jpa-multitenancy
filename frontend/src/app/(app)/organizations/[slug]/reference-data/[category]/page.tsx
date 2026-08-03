@@ -44,6 +44,12 @@ export default async function ReferenceListPage({
   let values: PageOf<ReferenceValue> | null = null;
   let error: string | null = null;
 
+  // Not a filter — this screen is one list by construction, so there is nothing
+  // here to narrow. What somebody reading one list wants is the next one, so
+  // the lists are offered as a way across rather than as a filter that could
+  // only ever choose what is already chosen.
+  const categories = await api<string[]>("/reference-categories", { tenant: slug }).catch(() => []);
+
   try {
     // The category endpoint, which answers 404 when the tenant keeps no such
     // list — the distinction an empty page cannot carry on its own.
@@ -97,6 +103,36 @@ export default async function ReferenceListPage({
           {live} of {values.content.length} in use here
         </Badge>
       </div>
+
+      {categories.length > 0 ? (
+        <nav aria-label="The tenant's lists" className="mb-4 flex flex-wrap gap-2">
+          {categories.map((value) => {
+            const here = value === wanted;
+            return (
+              <Link
+                key={value}
+                href={`/organizations/${slug}/reference-data/${value}`}
+                aria-current={here ? "page" : undefined}
+                className={`rounded-lg border px-3 py-1.5 text-sm transition ${
+                  here
+                    ? "border-brand/40 bg-brand/10 text-brand"
+                    : "border-line text-ink-muted hover:bg-surface-muted hover:text-ink"
+                }`}
+              >
+                {categoryName(value)}
+              </Link>
+            );
+          })}
+          {/* The one that does narrow: every list at once, where the category
+              really is a filter because the rows come from all of them. */}
+          <Link
+            href={`/organizations/${slug}/reference-data`}
+            className="rounded-lg px-3 py-1.5 text-sm text-ink-muted transition hover:text-ink"
+          >
+            All lists →
+          </Link>
+        </nav>
+      ) : null}
 
       <Card className="p-6">
         <form action={`/organizations/${slug}/reference-data/${wanted}`} className="mb-4 flex gap-2">

@@ -73,10 +73,10 @@ reading one meant querying the database. A card on the organization page lists t
 are in use, and each opens the list itself: label, the code a record actually stores, the order, whether it is
 switched off, and whether it came with the tenant or was added to it.
 
-That screen reads `/reference-data` and picks its category out of the map rather than calling
-`/reference-data/{category}`. The single-category endpoint answers an unknown category with an empty list, on purpose,
-because an absent dropdown is not an error — but a screen has to tell "this tenant keeps no such list" from "the list
-is empty", and only the map says which.
+That screen reads `/reference-data/{category}`, paged and searchable, and shows the count of what is in use **on this
+page** rather than in the whole list — counting the list would mean fetching the list, which is what paging exists to
+avoid. A missing list is a 404 the screen words itself; a search matching nothing is an empty page of a list that
+exists, and the two say different things.
 
 The invitations card is no longer headed **Pending**: the filter decides which states are on screen, and a heading
 that contradicts the filter is worse than a longer one. Each row carries its state, EXPIRED where a pending one is

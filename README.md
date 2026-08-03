@@ -725,10 +725,20 @@ while a value was current still holds its code, and a client that never saw the 
 back. Offering is the client's job; refusing a retired code is the server's. They are seeded **into each tenant database** rather than kept centrally so a clinic
 can add its own visit type later; `systemDefined` is what tells the two apart.
 
-The UI reads them at `/organizations/{slug}/reference-data/{category}`, which shows the label, the code a record
-stores, the order, whether the value is switched off and whether it came with the tenant. It reads the whole map and
-picks its category out of it: `GET /reference-data/{category}` answers an unknown category with an empty list rather
-than a 404, deliberately, and a screen has to tell that apart from a list that is genuinely empty.
+**`GET /reference-data/{category}` is paged and searchable**: `?page=`, `?size=` clamped to 200, and `?q=` matching
+the label *or* the code. Matching the code is the exception here — everywhere else a code is storage and never shown,
+so searching it would answer questions nobody asked; on this screen the code is a column, and what is on screen is
+what a search should reach. It keeps `sortOrder`, because that is the order a dropdown offers these in and paging by
+id would show them in whatever order somebody inserted them.
+
+**It now answers 404 when the tenant keeps no such list**, where it used to answer an empty one. That was there so a
+dropdown would not break, and no dropdown reads this endpoint — they all read the whole map at `/reference-data`,
+which is unchanged and still simply omits a category it has no rows for. The endpoint had to choose, because "there is
+no such list" and "nothing matched what you typed" are the same empty page otherwise, and a screen that cannot tell
+them apart cannot say anything useful.
+
+The UI reads it at `/organizations/{slug}/reference-data/{category}`, which shows the label, the code a record stores,
+the order, whether the value is switched off and whether it came with the tenant.
 
 > **These are a starting point, not a standard.** The catalogue is one migration file — if a category is wrong or
 > missing for your clinics, change it there. Note that once a migration has been applied it must be corrected by a new

@@ -226,12 +226,12 @@ class ReferenceDataTest {
                         .header("Authorization", "Bearer " + memberToken)
                         .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].code").value("SCHEDULED"))
-                .andExpect(jsonPath("$[1].code").value("CONFIRMED"))
-                .andExpect(jsonPath("$[2].code").value("CHECKED_IN"))
-                .andExpect(jsonPath("$[6].code").value("NO_SHOW"))
-                .andExpect(jsonPath("$[6].label").value("Did not attend"))
-                .andExpect(jsonPath("$[0].systemDefined").value(true));
+                .andExpect(jsonPath("$.content[0].code").value("SCHEDULED"))
+                .andExpect(jsonPath("$.content[1].code").value("CONFIRMED"))
+                .andExpect(jsonPath("$.content[2].code").value("CHECKED_IN"))
+                .andExpect(jsonPath("$.content[6].code").value("NO_SHOW"))
+                .andExpect(jsonPath("$.content[6].label").value("Did not attend"))
+                .andExpect(jsonPath("$.content[0].systemDefined").value(true));
     }
 
     /**
@@ -243,19 +243,81 @@ class ReferenceDataTest {
                         .header("Authorization", "Bearer " + ownerToken)
                         .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(8));
+                .andExpect(jsonPath("$.totalElements").value(8));
     }
 
     /**
-     * A list this tenant does not keep is an empty dropdown, not a failure.
+     * A list this tenant does not keep is 404 here, while the whole map still
+     * simply leaves it out. The two say different things on purpose: a screen
+     * has to tell "no such list" from "nothing matched what you typed", and an
+     * empty page cannot carry that. No dropdown reads this endpoint — they all
+     * read the map — so nothing is broken by the difference.
      */
     @Test
-    void anUnknownCategoryIsEmptyRatherThanAnError() throws Exception {
+    void anUnknownCategoryIsNotFoundWhileTheMapSimplyOmitsIt() throws Exception {
         mockMvc.perform(get("/reference-data/NOT_A_CATEGORY")
                         .header("Authorization", "Bearer " + ownerToken)
                         .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/reference-data")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(0));
+                .andExpect(jsonPath("$.NOT_A_CATEGORY").doesNotExist());
+    }
+
+    /**
+     * A list is handed over a page at a time, in the order a dropdown offers
+     * it, and searched by either the label that is read or the code that is
+     * stored — this is the one screen that shows both.
+     */
+    @Test
+    void aCategoryIsPagedInItsOwnOrderAndSearchable() throws Exception {
+        // The provinces are the long one, which is why paging exists here.
+        mockMvc.perform(get("/reference-data/PROVINCE")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .param("page", "0").param("size", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(5))
+                .andExpect(jsonPath("$.totalElements").value(38))
+                .andExpect(jsonPath("$.content[0].sortOrder").value(1))
+                .andExpect(jsonPath("$.content[4].sortOrder").value(5));
+
+        mockMvc.perform(get("/reference-data/PROVINCE")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .param("page", "1").param("size", "5"))
+                .andExpect(jsonPath("$.content[0].sortOrder").value(6));
+
+        // By label, and by the code nobody reads but every record stores.
+        mockMvc.perform(get("/reference-data/PROVINCE")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .param("q", "bali"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].code").value("BALI"));
+        mockMvc.perform(get("/reference-data/PROVINCE")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .param("q", "jawa_"))
+                .andExpect(jsonPath("$.totalElements").value(3));
+
+        // Nothing matching is an empty page of a list that exists, not a 404.
+        mockMvc.perform(get("/reference-data/PROVINCE")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .param("q", "atlantis"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+
+        // The clamping every other list uses.
+        mockMvc.perform(get("/reference-data/PROVINCE")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .param("size", "100000"))
+                .andExpect(jsonPath("$.size").value(200));
     }
 
     /**
@@ -435,8 +497,8 @@ class ReferenceDataTest {
         mockMvc.perform(get("/reference-data/IDENTITY_DOCUMENT")
                         .header("Authorization", "Bearer " + ownerToken)
                         .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG))
-                .andExpect(jsonPath("$[?(@.code == 'PASSPORT')].label").value("Passport"))
-                .andExpect(jsonPath("$[?(@.code == 'PASSPORT')].active").value(false));
+                .andExpect(jsonPath("$.content[?(@.code == 'PASSPORT')].label").value("Passport"))
+                .andExpect(jsonPath("$.content[?(@.code == 'PASSPORT')].active").value(false));
 
         // The record it was written into is untouched.
         mockMvc.perform(get("/person/" + id)

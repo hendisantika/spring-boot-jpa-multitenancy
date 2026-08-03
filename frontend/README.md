@@ -57,6 +57,11 @@ to the photo-only endpoint rather than through the profile form: changing a pict
 eight fields that were fine as they were, and re-submitting them is how they get overwritten. The card says so, since
 the form behind **Edit** also has a photo field and two ways to do one thing needs explaining.
 
+The dashboard cards already opened `/organizations/[slug]`, which is the organization's detail screen, so what was
+missing there was not a screen but the logo: it was the one listing in the app that showed no photo, on the first page
+after signing in. Square and falling back to an initial, like everywhere else — a card with a gap where a logo goes
+reads as something that failed to load.
+
 **The reference lists had no screen at all** — they were only ever seen one option at a time inside a dropdown, so
 reading one meant querying the database. A card on the organization page lists the categories with how many of each
 are in use, and each opens the list itself: label, the code a record actually stores, the order, whether it is

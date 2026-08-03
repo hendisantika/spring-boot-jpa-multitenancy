@@ -108,7 +108,15 @@ export default async function PersonPage({ params }: PageProps<"/organizations/[
         </div>
 
         <dl className="mt-6 divide-y divide-line border-t border-line text-sm">
-          <Row label="Unit" value={person.unitName} />
+          {/* The one row that leads somewhere: from this person to everybody
+              else at their unit, which is the question a unit answers. The
+              filter takes the id, so the link carries it rather than the name
+              that is read. */}
+          <Row
+            label="Unit"
+            value={person.unitName}
+            href={person.unitId ? `${backToList}?unit=${person.unitId}` : null}
+          />
           <Row label="Date of birth" value={formatDate(person.birthDate)} />
           <Row label="Gender" value={referenceLabel(lists.GENDER, person.gender)} />
           <Row label="Marital status" value={referenceLabel(lists.MARITAL_STATUS, person.maritalStatus)} />
@@ -120,11 +128,28 @@ export default async function PersonPage({ params }: PageProps<"/organizations/[
   );
 }
 
-function Row({ label, value }: { label: string; value?: string | null }) {
+function Row({
+  label,
+  value,
+  href,
+}: {
+  label: string;
+  value?: string | null;
+  /** Where the value leads, when it leads anywhere. */
+  href?: string | null;
+}) {
   return (
     <div className="flex justify-between gap-4 py-3">
       <dt className="shrink-0 text-ink-muted">{label}</dt>
-      <dd className="truncate text-right text-ink">{value || "—"}</dd>
+      <dd className="truncate text-right text-ink">
+        {value && href ? (
+          <Link href={href} className="hover:underline" title={`Everyone at ${value}`}>
+            {value}
+          </Link>
+        ) : (
+          value || "—"
+        )}
+      </dd>
     </div>
   );
 }

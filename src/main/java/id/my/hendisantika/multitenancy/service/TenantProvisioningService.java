@@ -114,6 +114,7 @@ public class TenantProvisioningService {
             membership.setUserName(owner.getEmail());
             membership.setTenantSlug(tenant.getSlug());
             membership.setRole(TenantRole.OWNER);
+            membership.setCreatedAt(Instant.now());
             userTenantRepository.save(membership);
         }
 

@@ -14,6 +14,7 @@ import id.my.hendisantika.multitenancy.service.InvitationService;
 import id.my.hendisantika.multitenancy.service.OrganizationProfile;
 import id.my.hendisantika.multitenancy.service.OrganizationProfileService;
 import id.my.hendisantika.multitenancy.service.TenantProvisioningService;
+import id.my.hendisantika.multitenancy.service.TenantRecordNotFoundException;
 import id.my.hendisantika.multitenancy.service.storage.StorageService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -178,6 +179,25 @@ public class OrganizationRegistrationController {
     }
 
     /**
+     * One membership, for the screen that shows the whole of it.
+     * <p>
+     * Any member may read it: these are colleagues in one organization, and the
+     * list already shows everybody's address and face. Missing is 404 rather
+     * than an empty body, the same as a person or a unit.
+     */
+    @GetMapping("/{slug}/users/{accountId}")
+    public MemberDetailView member(@PathVariable String slug, @PathVariable Long accountId) {
+        tenantSecurity.requireMember(slug);
+        return membershipService.membersOf(slug).stream()
+                .filter(membership -> membership.getAccount() != null
+                        && accountId.equals(membership.getAccount().getId()))
+                .findFirst()
+                .map(this::detailOf)
+                .orElseThrow(() -> new TenantRecordNotFoundException(
+                        "No member of '" + slug + "' with account id " + accountId));
+    }
+
+    /**
      * Only the owner may add people, which is what separates OWNER from MEMBER.
      */
     @PostMapping("/{slug}/users")
@@ -269,6 +289,21 @@ public class OrganizationRegistrationController {
                 account == null ? null : storageService.urlOf(account.getPhotoKey()));
     }
 
+    private MemberDetailView detailOf(UserTenant membership) {
+        Account account = membership.getAccount();
+        return new MemberDetailView(
+                account.getId(),
+                // The membership carries the address it was granted to; the
+                // account is where it may since have moved to, and that is the
+                // one worth showing.
+                account.getEmail(),
+                membership.getRole(),
+                storageService.urlOf(account.getPhotoKey()),
+                account.getPhoneNumber(),
+                account.isEmailVerified(),
+                membership.getCreatedAt());
+    }
+
     public record RegisterOrganizationRequest(
             @NotBlank @Size(max = 100) String businessName,
             @NotBlank @Email @Size(max = 255) String businessEmail,
@@ -298,6 +333,16 @@ public class OrganizationRegistrationController {
     }
 
     public record MemberView(Long accountId, String email, TenantRole role, String photoUrl) {
+    }
+
+    /**
+     * @param joinedAt null on memberships that predate the column being added,
+     *                 which is not the same as having joined at no time and is
+     *                 shown as unknown rather than guessed at
+     */
+    public record MemberDetailView(
+            Long accountId, String email, TenantRole role, String photoUrl,
+            String phoneNumber, boolean emailVerified, Instant joinedAt) {
     }
 
     public record InvitationSummary(Long id, String email, TenantRole role, Instant expiresAt) {

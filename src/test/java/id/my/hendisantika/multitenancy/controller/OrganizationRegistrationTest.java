@@ -275,6 +275,62 @@ class OrganizationRegistrationTest {
     }
 
     /**
+     * A colleague's membership, readable by any member: the list already shows
+     * everybody's address and face, and what this adds is the phone number
+     * somebody would actually ring.
+     */
+    @Test
+    void anyMemberCanReadOneMembership() throws Exception {
+        String ownerToken = registerOrganization(signUp(OWNER_EMAIL));
+        String body = mvc().perform(post("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new OrganizationRegistrationController.AddMemberRequest(
+                                        MEMBER_EMAIL, "+62 813 0000 1111", PASSWORD, TenantRole.MEMBER))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        long memberAccountId = objectMapper.readTree(body).get("accountId").asLong();
+
+        // The member reads their own, and the owner's, and gets the same shape.
+        for (String token : List.of(login(MEMBER_EMAIL), ownerToken)) {
+            mvc().perform(get("/api/organizations/" + SLUG + "/users/" + memberAccountId)
+                            .header("Authorization", "Bearer " + token))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.email").value(MEMBER_EMAIL))
+                    .andExpect(jsonPath("$.role").value("MEMBER"))
+                    .andExpect(jsonPath("$.phoneNumber").value("+62 813 0000 1111"))
+                    // Stamped when the membership was granted, so a screen can
+                    // say since when rather than guessing from the account.
+                    .andExpect(jsonPath("$.joinedAt").isNotEmpty());
+        }
+    }
+
+    /**
+     * An account that exists but belongs to no organization here is 404, not an
+     * empty body and not somebody else's membership.
+     */
+    @Test
+    void anAccountThatIsNotAMemberHereIsNotFound() throws Exception {
+        String ownerToken = registerOrganization(signUp(OWNER_EMAIL));
+        String outsiderToken = signUp(MEMBER_EMAIL);
+
+        long outsiderId = objectMapper.readTree(
+                        mvc().perform(get("/api/auth/me").header("Authorization", "Bearer " + outsiderToken))
+                                .andReturn().getResponse().getContentAsString())
+                .get("id").asLong();
+
+        mvc().perform(get("/api/organizations/" + SLUG + "/users/" + outsiderId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isNotFound());
+
+        // And the outsider cannot read the organization's memberships at all.
+        mvc().perform(get("/api/organizations/" + SLUG + "/users/" + outsiderId)
+                        .header("Authorization", "Bearer " + outsiderToken))
+                .andExpect(status().isForbidden());
+    }
+
+    /**
      * The card is only rendered for an owner, but the endpoint is what decides:
      * a member who reaches it anyway is refused rather than trusted to have been
      * shown the right screen.

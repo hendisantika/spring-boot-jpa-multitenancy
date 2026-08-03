@@ -163,6 +163,7 @@ public class InvitationService {
             membership.setUserName(account.getEmail());
             membership.setTenantSlug(invitation.getTenantSlug());
             membership.setRole(invitation.getRole());
+            membership.setCreatedAt(Instant.now());
             userTenantRepository.save(membership);
         }
 

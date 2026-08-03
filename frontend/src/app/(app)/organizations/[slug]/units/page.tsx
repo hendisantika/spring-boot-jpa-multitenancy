@@ -99,7 +99,9 @@ export default async function UnitsPage({ params, searchParams }: PageProps<"/or
 
       {error ? <Alert>{error}</Alert> : null}
 
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+      {/* One column for a member: with no form beside it, the two-column grid
+          left the list narrow and half the page empty. */}
+      <div className={`grid gap-6 ${role === "OWNER" ? "lg:grid-cols-[1.2fr_1fr]" : ""}`}>
         <Card className="p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-semibold text-ink">Units</h2>
@@ -183,13 +185,7 @@ export default async function UnitsPage({ params, searchParams }: PageProps<"/or
             <h2 className="mb-4 font-semibold text-ink">{editing ? "Edit unit" : "Add a unit"}</h2>
             <UnitForm slug={slug} editing={editing} backTo={listingUrl(shown)} lists={lists} />
           </Card>
-        ) : (
-          <Card className="p-6">
-            <p className="text-sm text-ink-muted">
-              Only the owner of this organization can add or change business units.
-            </p>
-          </Card>
-        )}
+        ) : null}
       </div>
     </>
   );

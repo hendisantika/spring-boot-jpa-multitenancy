@@ -54,6 +54,15 @@ to the photo-only endpoint rather than through the profile form: changing a pict
 eight fields that were fine as they were, and re-submitting them is how they get overwritten. The card says so, since
 the form behind **Edit** also has a photo field and two ways to do one thing needs explaining.
 
+**The organization page shows the tenant's own data, not just links to it.** Two cards below the profile carry the
+first five people and units, each row linking to its detail screen, with the count and a "See all". They replace the
+pair of link buttons that used to sit under the heading: a button that only says where to go is worse than five rows
+that show what is there.
+
+They are fetched apart from everything else on the page, because everything else lives centrally and these two do
+not. A tenant database that cannot be read empties two cards and says so — the count reads `—` rather than `0`, since
+"could not be read" and "nothing in it" are different answers — instead of taking the profile down with it.
+
 **What a member sees is the same screen with the controls gone**, not a different one: no Edit, no photo card, no
 invite form, no Remove beside a name. That was already true, and what was wrong was how the missing controls were
 explained — a bordered card containing one grey sentence about what you cannot do, sitting in a column of its own. On

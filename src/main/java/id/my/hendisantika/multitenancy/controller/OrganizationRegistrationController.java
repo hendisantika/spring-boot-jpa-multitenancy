@@ -229,11 +229,20 @@ public class OrganizationRegistrationController {
                 tenant.getStatus().name());
     }
 
+    /**
+     * The photo comes from the account, not the membership: one account can be a
+     * member of several organizations and has one photo across all of them.
+     * <p>
+     * A signed URL, like every other read of a stored object, so it is built
+     * here rather than kept anywhere.
+     */
     private MemberView viewOf(UserTenant membership) {
+        Account account = membership.getAccount();
         return new MemberView(
-                membership.getAccount() == null ? null : membership.getAccount().getId(),
+                account == null ? null : account.getId(),
                 membership.getUserName(),
-                membership.getRole());
+                membership.getRole(),
+                account == null ? null : storageService.urlOf(account.getPhotoKey()));
     }
 
     public record RegisterOrganizationRequest(
@@ -264,7 +273,7 @@ public class OrganizationRegistrationController {
             String databaseName, String subdomain, String status) {
     }
 
-    public record MemberView(Long accountId, String email, TenantRole role) {
+    public record MemberView(Long accountId, String email, TenantRole role, String photoUrl) {
     }
 
     public record InvitationSummary(Long id, String email, TenantRole role, Instant expiresAt) {

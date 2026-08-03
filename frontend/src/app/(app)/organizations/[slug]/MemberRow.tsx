@@ -1,4 +1,5 @@
 import { removeMember } from "@/app/actions/organizations";
+import { Avatar } from "@/components/Avatar";
 import { Badge } from "@/components/ui";
 import type { Member } from "@/lib/types";
 
@@ -13,7 +14,10 @@ export function MemberRow({
 }) {
   return (
     <li className="flex items-center justify-between gap-3 py-3">
-      <div className="min-w-0">
+      <div className="flex min-w-0 items-center gap-3">
+        {/* The same avatar as the header: these rows are accounts, not the
+            tenant's own person records, which have no photo. */}
+        <Avatar photoUrl={member.photoUrl} email={member.email} />
         <p className="truncate text-sm text-ink">{member.email}</p>
       </div>
       <div className="flex shrink-0 items-center gap-2">

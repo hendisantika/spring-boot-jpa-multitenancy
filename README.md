@@ -431,7 +431,7 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `POST` | `/api/organizations` | bearer      | Register an organization; caller becomes `OWNER`  |
 | `GET`  | `/api/organizations/{slug}` | member | One organization                              |
 | `PUT`  | `/api/organizations/{slug}` | **owner** | Edit the profile; identity stays put       |
-| `GET`  | `/api/organizations/{slug}/users` | member | Its membership list                     |
+| `GET`  | `/api/organizations/{slug}/users` | member | Its membership list, each with the account's photo |
 | `POST` | `/api/organizations/{slug}/users` | **owner** | Add a person directly, setting their password |
 | `GET`  | `/api/organizations/{slug}/invitations` | **owner** | Pending invitations                |
 | `POST` | `/api/organizations/{slug}/invitations` | **owner** | Invite someone; returns the accept link |

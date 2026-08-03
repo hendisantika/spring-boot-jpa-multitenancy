@@ -109,6 +109,24 @@ class OrganizationRegistrationTest {
         return login(email);
     }
 
+    /**
+     * Same as {@link #signUp(String)} but with a photo, so the account has
+     * something to show.
+     */
+    private String signUpWithPhoto(String email) throws Exception {
+        given(storageService.store(any(), anyString())).willReturn("accounts/probe.png");
+        given(storageService.urlOf(anyString())).willReturn("https://cdn.example.test/accounts/probe.png");
+
+        MockMultipartFile account = new MockMultipartFile("account", "account", MediaType.APPLICATION_JSON_VALUE,
+                objectMapper.writeValueAsBytes(
+                        new AuthController.SignUpRequest(email, "+62 812 3456 7890", PASSWORD)));
+        MockMultipartFile photo = new MockMultipartFile("photo", "me.png", MediaType.IMAGE_PNG_VALUE,
+                "not-really-a-png".getBytes());
+        mvc().perform(multipart("/api/auth/signup").file(account).file(photo))
+                .andExpect(status().isCreated());
+        return login(email);
+    }
+
     private String login(String email) throws Exception {
         String body = mvc().perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -203,6 +221,32 @@ class OrganizationRegistrationTest {
                         .header("Authorization", "Bearer " + memberToken)
                         .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG))
                 .andExpect(status().isOk());
+    }
+
+    /**
+     * The membership list is a list of accounts, so it carries each one's photo
+     * — and null for whoever has none, which is the common case and must not
+     * become a broken image.
+     */
+    @Test
+    void theMembershipListCarriesEachAccountsPhoto() throws Exception {
+        String ownerToken = registerOrganization(signUpWithPhoto(OWNER_EMAIL));
+
+        mvc().perform(post("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new OrganizationRegistrationController.AddMemberRequest(
+                                        MEMBER_EMAIL, "+62 813 0000 1111", PASSWORD, TenantRole.MEMBER))))
+                .andExpect(status().isCreated());
+
+        mvc().perform(get("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.email == '" + OWNER_EMAIL + "')].photoUrl")
+                        .value("https://cdn.example.test/accounts/probe.png"))
+                .andExpect(jsonPath("$[?(@.email == '" + MEMBER_EMAIL + "')].photoUrl")
+                        .value(org.hamcrest.Matchers.contains(org.hamcrest.Matchers.nullValue())));
     }
 
     @Test

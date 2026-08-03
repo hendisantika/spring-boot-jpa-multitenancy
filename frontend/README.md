@@ -78,6 +78,10 @@ That screen reads `/reference-data` and picks its category out of the map rather
 because an absent dropdown is not an error — but a screen has to tell "this tenant keeps no such list" from "the list
 is empty", and only the map says which.
 
+Pending invitations search through `?inviteq=` and page through `?invites=`, again their own parameters. The card
+stays on screen while a search is running even when it matches nothing — otherwise the box that emptied it would
+disappear with the rows, and there would be no way to clear it.
+
 Invitation rows carry no face, unlike every other list here. An invitation is an address, and it may belong to
 somebody who is not a member of anything here and has agreed to nothing — see the note in the root README.
 

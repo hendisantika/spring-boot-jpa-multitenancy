@@ -32,6 +32,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -101,6 +102,7 @@ class OrganizationRegistrationTest {
         tenantRegistrationRepository.findBySlug(SLUG)
                 .ifPresent(tenant -> tenantProvisioningService.deprovision(SLUG));
         List.of(OWNER_EMAIL, MEMBER_EMAIL, "nobody.here@example.test", "org.owner.moved@example.test",
+                        "first@example.test", "second@example.test", "third@example.test",
                         "org.paged1@example.test", "org.paged2@example.test", "org.paged3@example.test")
                 .forEach(email ->
                 accountRepository.findByEmailIgnoreCase(email).ifPresent(account -> {
@@ -497,7 +499,8 @@ class OrganizationRegistrationTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        for (var invitation : objectMapper.readTree(body)) {
+        // The body is a page now, so the rows are under content.
+        for (var invitation : objectMapper.readTree(body).get("content")) {
             boolean registered = MEMBER_EMAIL.equals(invitation.get("email").asString());
             assertThat(invitation.get("accountExists").asBoolean())
                     .as("accountExists for %s", invitation.get("email").asString())
@@ -505,6 +508,63 @@ class OrganizationRegistrationTest {
         }
         // Not even for the address that does have an account with a photo.
         assertThat(body).doesNotContain("photoUrl");
+    }
+
+    /**
+     * Invitations accumulate, so the list is a page — newest first, which is
+     * what an invitation list is read as, and not the id order the other lists
+     * use. The search widens across the address and the role.
+     */
+    @Test
+    void theInvitationListIsPagedNewestFirstAndSearchable() throws Exception {
+        String ownerToken = registerOrganization(signUp(OWNER_EMAIL));
+        for (String email : List.of("first@example.test", "second@example.test", "third@example.test")) {
+            mvc().perform(post("/api/organizations/" + SLUG + "/invitations")
+                            .header("Authorization", "Bearer " + ownerToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"email\":\"" + email + "\",\"role\":\"MEMBER\"}"))
+                    .andExpect(status().isCreated());
+        }
+
+        // Newest first: the last one invited is the first one read.
+        mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("page", "0").param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.totalElements").value(3))
+                .andExpect(jsonPath("$.content[0].email").value("third@example.test"));
+
+        mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("page", "1").param("size", "2"))
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].email").value("first@example.test"));
+
+        // By address, and by role without anybody typing MEMBER.
+        mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken).param("q", "second"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+        mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken).param("q", "memb"))
+                .andExpect(jsonPath("$.totalElements").value(3));
+
+        // Withdrawing one takes it out of the count, since the page is pending only.
+        String pending = mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andReturn().getResponse().getContentAsString();
+        long firstId = objectMapper.readTree(pending).get("content").get(0).get("id").asLong();
+        mvc().perform(delete("/api/organizations/" + SLUG + "/invitations/" + firstId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isNoContent());
+        mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        // And a wildcard is what somebody typed, not syntax.
+        mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken).param("q", "%"))
+                .andExpect(jsonPath("$.totalElements").value(0));
     }
 
     /**

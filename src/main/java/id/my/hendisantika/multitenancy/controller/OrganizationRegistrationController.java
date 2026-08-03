@@ -257,18 +257,28 @@ public class OrganizationRegistrationController {
      * that invites people steadily accumulates pending invitations, and reading
      * them one screen at a time is the same problem.
      *
-     * @param q    matched against the address and the role
-     * @param page zero based
-     * @param size clamped, so a client cannot ask for the lot in one go
+     * <b>Every state, unless asked otherwise.</b> This answered the pending
+     * ones and nothing else until it gained a status filter, which cannot live
+     * alongside that: narrowing PENDING by ACCEPTED is always empty, and a
+     * filter that can only return nothing is a filter that lies. Callers that
+     * want the pending ones ask for them, which is what the screen does.
+     *
+     * @param q      matched against the address and the role
+     * @param status narrows to these; repeat it and it means either, while
+     *               still narrowing whatever {@code q} asked for
+     * @param page   zero based
+     * @param size   clamped, so a client cannot ask for the lot in one go
      */
     @GetMapping("/{slug}/invitations")
     public PageResponse<InvitationSummary> invitations(
             @PathVariable String slug,
             @RequestParam(name = "q", required = false) String q,
+            @RequestParam(name = "status", required = false) List<String> status,
             @RequestParam(name = "page", required = false) Integer page,
             @RequestParam(name = "size", required = false) Integer size) {
         tenantSecurity.requireOwner(slug);
-        return PageResponse.of(invitationService.pendingFor(slug, q, page, size).map(this::summaryOf));
+        return PageResponse.of(
+                invitationService.invitationsOf(slug, q, status, page, size).map(this::summaryOf));
     }
 
     /**
@@ -349,6 +359,10 @@ public class OrganizationRegistrationController {
                 invitation.getEmail(),
                 invitation.getRole(),
                 invitation.getExpiresAt(),
+                invitation.getStatus().name(),
+                // Not a status, and the list can no longer be assumed pending:
+                // a row has to say for itself whether it still works.
+                invitation.isExpired(),
                 invitationService.accountExistsFor(invitation));
     }
 
@@ -417,7 +431,7 @@ public class OrganizationRegistrationController {
      *                      makes one
      */
     public record InvitationSummary(Long id, String email, TenantRole role, Instant expiresAt,
-                                    boolean accountExists) {
+                                    String status, boolean expired, boolean accountExists) {
     }
 
     /**

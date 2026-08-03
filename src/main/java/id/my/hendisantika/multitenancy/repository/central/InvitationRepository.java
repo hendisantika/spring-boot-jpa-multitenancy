@@ -33,22 +33,26 @@ public interface InvitationRepository extends JpaRepository<Invitation, Long> {
     List<Invitation> findAllByTenantSlug(String tenantSlug);
 
     /**
-     * A page of one tenant's invitations in a given state, narrowed to what
-     * somebody typed. A search widens, so the address and the role are an OR,
-     * and the roles arrive already resolved for the reason the membership
-     * search resolves its own: matching an enum as text in HQL means casting it.
+     * A page of one tenant's invitations, narrowed to what somebody typed and
+     * to the states they asked for. A search widens, so the address and the
+     * role are an OR; the status is a filter, so it is AND'd with them.
+     * <p>
+     * The roles and the statuses arrive already resolved, for the reason the
+     * membership search resolves its own: matching an enum as text in HQL means
+     * casting it.
      */
     @Query("""
             select i from Invitation i
             where i.tenantSlug = :tenantSlug
-              and i.status = :status
               and (lower(i.email) like :term escape '\\'
                 or i.role in :roles)
+              and (:anyStatus = true or i.status in :statusIn)
             """)
     Page<Invitation> search(@Param("tenantSlug") String tenantSlug,
-                            @Param("status") InvitationStatus status,
                             @Param("term") String term,
                             @Param("roles") Collection<TenantRole> roles,
+                            @Param("anyStatus") boolean anyStatus,
+                            @Param("statusIn") Collection<InvitationStatus> statusIn,
                             Pageable pageable);
 
     Optional<Invitation> findFirstByTenantSlugAndEmailIgnoreCaseAndStatus(

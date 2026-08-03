@@ -78,7 +78,12 @@ That screen reads `/reference-data` and picks its category out of the map rather
 because an absent dropdown is not an error — but a screen has to tell "this tenant keeps no such list" from "the list
 is empty", and only the map says which.
 
-Pending invitations search through `?inviteq=` and page through `?invites=`, again their own parameters. The card
+The invitations card is no longer headed **Pending**: the filter decides which states are on screen, and a heading
+that contradicts the filter is worse than a longer one. Each row carries its state, EXPIRED where a pending one is
+past its date, and Revoke appears only on the ones that can still be withdrawn.
+
+It searches through `?inviteq=`, filters through `?invitestatus=` and pages through `?invites=`, again its own
+parameters. The card
 stays on screen while a search is running even when it matches nothing — otherwise the box that emptied it would
 disappear with the rows, and there would be no way to clear it.
 

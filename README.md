@@ -460,6 +460,14 @@ membership was granted to, and an email change leaves that behind — so the lis
 screen showed another, for the same person. The list now shows what the account uses today, and the search matches
 what the list shows.
 
+**`?role=` filters it**, and the two behave the way they do everywhere else here: a search widens, a filter narrows,
+so they combine. `?q=budi&role=OWNER` means both, not either, and finds nobody if budi is a member. Repeat the
+parameter — `?role=OWNER&role=MEMBER` — and it means either of them while still narrowing whatever `q` asked for.
+
+A role nobody holds narrows to nothing rather than being ignored: `?role=ADMIRAL` answers an empty page, because a
+filter nobody can satisfy is still a filter. Asking for no role at all is no filtering, which is a different thing
+from asking for one that matches nothing.
+
 **The membership list is paged**, on the same terms as the tenant's own lists: `?page=` and `?size=`, zero based, size
 clamped to 200 with a default of 20. A membership list only grows — a hospital group is not a handful of people — and
 an endpoint that hands back all of it is one nobody can withdraw later.
@@ -564,7 +572,7 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `GET`  | `/api/organizations/{slug}` | member | One organization                              |
 | `PUT`  | `/api/organizations/{slug}` | **owner** | Edit the profile; identity stays put       |
 | `PUT`  | `/api/organizations/{slug}/photo` | **owner** | Just the photo; multipart, `removePhoto=true` drops it |
-| `GET`  | `/api/organizations/{slug}/users` | member | A **page** of its memberships, searchable with `?q=` |
+| `GET`  | `/api/organizations/{slug}/users` | member | A **page** of its memberships; `?q=` searches, `?role=` filters |
 | `GET`  | `/api/organizations/{slug}/users/{accountId}` | member | One membership, whole; **404** when that account is not a member here |
 | `POST` | `/api/organizations/{slug}/users` | **owner** | Add a person directly, setting their password |
 | `GET`  | `/api/organizations/{slug}/invitations` | **owner** | Pending invitations                |

@@ -180,16 +180,20 @@ public class OrganizationRegistrationController {
      *
      * @param q    matched against the address and the role, so "own" finds the
      *             owners without anybody typing OWNER
+     * @param role narrows to these; repeat it — {@code ?role=OWNER&role=MEMBER}
+     *             — and it means either of them, while still narrowing whatever
+     *             {@code q} asked for
      * @param page zero based
      * @param size clamped, so a client cannot ask for the lot in one go
      */
     @GetMapping("/{slug}/users")
     public PageResponse<MemberView> members(@PathVariable String slug,
                                             @RequestParam(name = "q", required = false) String q,
+                                            @RequestParam(name = "role", required = false) List<String> role,
                                             @RequestParam(name = "page", required = false) Integer page,
                                             @RequestParam(name = "size", required = false) Integer size) {
         tenantSecurity.requireMember(slug);
-        return PageResponse.of(membershipService.membersOf(slug, q, page, size).map(this::viewOf));
+        return PageResponse.of(membershipService.membersOf(slug, q, role, page, size).map(this::viewOf));
     }
 
     /**

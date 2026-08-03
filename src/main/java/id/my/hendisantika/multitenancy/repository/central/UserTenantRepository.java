@@ -45,6 +45,11 @@ public interface UserTenantRepository extends JpaRepository<UserTenant, Long> {
      * enum to text in HQL; the tenant lists resolve their codes in Java for the
      * same reason, and "own" has to find the owners either way — nobody types
      * OWNER.
+     * <p>
+     * {@code roles} and {@code roleIn} are different things. The first is part
+     * of the search and widens it; the second is the filter and narrows it, so
+     * it is AND'd with everything else. Asking for owners while searching for
+     * "budi" means both, not either.
      */
     @Query("""
             select m from UserTenant m
@@ -52,10 +57,13 @@ public interface UserTenantRepository extends JpaRepository<UserTenant, Long> {
               and (lower(coalesce(m.account.email, '')) like :term escape '\\'
                 or lower(coalesce(m.userName, '')) like :term escape '\\'
                 or m.role in :roles)
+              and (:anyRole = true or m.role in :roleIn)
             """)
     Page<UserTenant> search(@Param("tenantSlug") String tenantSlug,
                             @Param("term") String term,
                             @Param("roles") Collection<TenantRole> roles,
+                            @Param("anyRole") boolean anyRole,
+                            @Param("roleIn") Collection<TenantRole> roleIn,
                             Pageable pageable);
 
     /**

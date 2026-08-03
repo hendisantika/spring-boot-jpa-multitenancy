@@ -69,7 +69,11 @@ async function messageFrom(response: Response): Promise<string> {
         .map((e) => [e.field, e.defaultMessage].filter(Boolean).join(" "))
         .join(", ");
     }
-    return problem.detail ?? problem.title ?? response.statusText;
+    // statusText is often empty over HTTP/2, and an empty message renders as no
+    // message at all — which reads as the form having quietly done nothing.
+    return (
+      problem.detail ?? problem.title ?? (response.statusText || `Request failed with ${response.status}`)
+    );
   } catch {
     if (response.status === 401) return "Please sign in again.";
     if (response.status === 403) return "You are not allowed to do that.";

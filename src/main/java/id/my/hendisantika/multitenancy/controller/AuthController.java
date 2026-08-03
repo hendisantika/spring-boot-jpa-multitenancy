@@ -52,6 +52,15 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AuthController {
 
+    /**
+     * One rule for an account's phone number, so signing up and correcting it
+     * later cannot drift apart.
+     */
+    private static final String PHONE_PATTERN = "^\\+?[0-9 ()-]{6,30}$";
+
+    private static final String PHONE_MESSAGE =
+            "must be digits, spaces, brackets or dashes, optionally starting with +";
+
     private final AuthService authService;
     private final TokenService tokenService;
     private final StorageService storageService;
@@ -151,6 +160,19 @@ public class AuthController {
     }
 
     /**
+     * The phone number, which signup asked for and nothing could correct.
+     * <p>
+     * No confirmation and no password, unlike the address: nothing signs in with
+     * this and nothing is sent to it, so there is nothing to prove first.
+     */
+    @PutMapping("/me/phone")
+    public AccountView updateMyPhoneNumber(@AuthenticationPrincipal Jwt jwt,
+                                           @Valid @RequestBody PhoneNumberRequest request) {
+        Account account = authService.accountOf(jwt.getSubject());
+        return viewOf(authService.updatePhoneNumber(account, request.phoneNumber()));
+    }
+
+    /**
      * Asks to move the account to a different address.
      * <p>
      * Nothing changes here: the address is only recorded, and the account keeps
@@ -215,8 +237,7 @@ public class AuthController {
 
     public record SignUpRequest(
             @NotBlank @Email @Size(max = 255) String email,
-            @NotBlank @Pattern(regexp = "^\\+?[0-9 ()-]{6,30}$", message = "must be a phone number")
-            String phoneNumber,
+            @NotBlank @Pattern(regexp = PHONE_PATTERN, message = PHONE_MESSAGE) String phoneNumber,
             @NotBlank @Size(min = 8, max = 100, message = "must be at least 8 characters") String password
     ) {
     }
@@ -236,6 +257,11 @@ public class AuthController {
      */
     public record AccountView(Long id, String email, String phoneNumber, String photoUrl, String status,
                               boolean emailVerified, String pendingEmail) {
+    }
+
+    public record PhoneNumberRequest(
+            @NotBlank @Pattern(regexp = PHONE_PATTERN, message = PHONE_MESSAGE) String phoneNumber
+    ) {
     }
 
     public record EmailChangeRequest(

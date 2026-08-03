@@ -14,8 +14,12 @@ import id.my.hendisantika.multitenancy.service.storage.StorageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.Locale;
+import java.util.stream.Collectors;
 
 /**
  * Turns the domain failures into status codes a client can act on, instead of a
@@ -31,6 +35,34 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  */
 @RestControllerAdvice
 public class ApiExceptionHandler {
+
+    /**
+     * A request that failed its own validation.
+     * <p>
+     * Without this the answer was the container's default body, which carries no
+     * {@code detail} at all, so a client had nothing to show and a rejected form
+     * looked like a form that had quietly done nothing. Naming the fields is
+     * safe here: these are constraints the client already knows about, since it
+     * had to satisfy them to succeed.
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ProblemDetail onInvalidRequest(MethodArgumentNotValidException e) {
+        String detail = e.getBindingResult().getFieldErrors().stream()
+                .map(error -> readable(error.getField()) + " " + error.getDefaultMessage())
+                .collect(Collectors.joining(", "));
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+                detail.isEmpty() ? "That request is not valid" : detail);
+    }
+
+    /**
+     * {@code phoneNumber} to "Phone number". The field name goes in front of the
+     * message, and this is read by whoever typed the value, not by the developer
+     * who named the field.
+     */
+    private static String readable(String field) {
+        String spaced = field.replaceAll("(?<=[a-z0-9])(?=[A-Z])", " ").toLowerCase(Locale.ROOT);
+        return spaced.isEmpty() ? spaced : Character.toUpperCase(spaced.charAt(0)) + spaced.substring(1);
+    }
 
     /**
      * Deliberately vague: it never says whether it was the email or the password.

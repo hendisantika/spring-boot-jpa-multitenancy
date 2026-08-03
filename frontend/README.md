@@ -28,7 +28,7 @@ bun run lint
 | `/signup`               | Email, phone, password and an optional photo. Signs you in straight after |
 | `/login`                | The parent login: one account, every organization it belongs to           |
 | `/dashboard`            | Only the organizations you are a member of                                |
-| `/account`              | Your own account: the photo, and the address you sign in with            |
+| `/account`              | Your own account: the photo, the phone number, and the address you sign in with |
 | `/organizations/new`    | The registration form; creates the database and the subdomain             |
 | `/organizations/[slug]` | Profile, the people in it, and inviting people when you are the `OWNER`   |
 | `/organizations/[slug]/edit` | Edit the profile; owner only                                        |
@@ -53,6 +53,10 @@ mistake costs a full upload before anybody hears about it.
 
 The header avatar links to `/account`, where the photo can be changed or removed — signup could set one and nothing
 could afterwards. Saving revalidates the whole layout rather than the route, because the header on every page shows it.
+
+The phone number sits beside them and goes straight through — nothing signs in with it and nothing is sent to it, so
+there is nothing to confirm. A refused number stays in the field rather than reverting to the stored one, so the
+correction is not lost along with the mistake.
 
 **The email is on the same page, and the screen says up front that nothing changes until the link is confirmed.** That
 is the one thing worth knowing before typing: the address is the credential, so the change waits on a link sent to the

@@ -62,6 +62,7 @@ public class MembershipService {
         membership.setUserName(account.getEmail());
         membership.setTenantSlug(tenant.getSlug());
         membership.setRole(role == null ? TenantRole.MEMBER : role);
+        membership.setCreatedAt(Instant.now());
         UserTenant saved = userTenantRepository.save(membership);
         log.info("Added {} to tenant {} as {}", account.getEmail(), tenant.getSlug(), saved.getRole());
         return saved;

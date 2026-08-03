@@ -36,6 +36,7 @@ bun run lint
 | `/organizations/[slug]/people/[id]` | One person, whole, with the photo at a size worth looking at |
 | `/organizations/[slug]/units` | The tenant's business units with their photos, searched and paged the same way |
 | `/organizations/[slug]/units/[id]` | One unit, whole, on the same shape as the person screen   |
+| `/organizations/[slug]/members/[id]` | One membership: the account behind a row on the organization page |
 | `/invitations/[token]`  | Open: accept an invitation, choosing your own password                   |
 | `/forgot-password`      | Ask for a reset link                                                     |
 | `/reset-password/[token]` | Open: choose a new password                                            |
@@ -53,6 +54,10 @@ The organization page carries a Photo card of its own for the owner, on the same
 to the photo-only endpoint rather than through the profile form: changing a picture should not mean re-submitting
 eight fields that were fine as they were, and re-submitting them is how they get overwritten. The card says so, since
 the form behind **Edit** also has a photo field and two ways to do one thing needs explaining.
+
+The membership rows link to `/organizations/[slug]/members/[id]` — the account behind the row, with the phone number
+somebody would actually ring and since when they have had access. Rows with no account yet (an invitation that has
+not been accepted) are not links, because there is nothing to open.
 
 **The organization page shows the tenant's own data, not just links to it.** Two cards below the profile carry the
 first five people and units, each row linking to its detail screen, with the count and a "See all". They replace the

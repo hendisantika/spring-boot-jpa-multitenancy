@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { removeMember } from "@/app/actions/organizations";
 import { Avatar } from "@/components/Avatar";
 import { Badge } from "@/components/ui";
@@ -14,12 +16,25 @@ export function MemberRow({
 }) {
   return (
     <li className="flex items-center justify-between gap-3 py-3">
-      <div className="flex min-w-0 items-center gap-3">
-        {/* The same avatar as the header: these rows are accounts, not the
-            tenant's own person records, which have no photo. */}
-        <Avatar photoUrl={member.photoUrl} email={member.email} />
-        <p className="truncate text-sm text-ink">{member.email}</p>
-      </div>
+      {/* The row is the way in to the membership, except where there is no
+          account to open — an invitation that created the row but no account
+          yet leaves accountId null. */}
+      {member.accountId ? (
+        <Link
+          href={`/organizations/${slug}/members/${member.accountId}`}
+          className="flex min-w-0 items-center gap-3 transition hover:opacity-80"
+        >
+          {/* The same avatar as the header: these rows are accounts, not the
+              tenant's own person records. */}
+          <Avatar photoUrl={member.photoUrl} email={member.email} />
+          <p className="truncate text-sm text-ink hover:underline">{member.email}</p>
+        </Link>
+      ) : (
+        <div className="flex min-w-0 items-center gap-3">
+          <Avatar photoUrl={member.photoUrl} email={member.email} />
+          <p className="truncate text-sm text-ink">{member.email}</p>
+        </div>
+      )}
       <div className="flex shrink-0 items-center gap-2">
         <Badge tone={member.role === "OWNER" ? "brand" : "muted"}>{member.role}</Badge>
         {/* The backend refuses to remove the owner, so the control is not offered. */}

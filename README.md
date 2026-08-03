@@ -426,6 +426,17 @@ Without that it lands microseconds *after* the pair minted beside it, and the ve
 login landing in the same second as a reset had the same problem. The cost is that a session opened in the same second
 as the change survives it, which is as fine-grained as a second-precision claim can be.
 
+### One membership, whole
+
+`GET /api/organizations/{slug}/users/{accountId}` answers the list entry plus the phone number, whether the address is
+confirmed, and **when the membership was granted**. Readable by any member, not just the owner: these are colleagues
+in one organization and the list already shows everybody's address and face.
+
+`user_tenants.created_at` is what makes "since when" answerable — the row said that somebody is a member and with what
+role, never since when. Rows that predate the column stay null and the screen says "Before this was recorded" rather
+than a dash: backfilling from the account's own creation date would answer a different question, since an account can
+join an organization years after it was registered.
+
 ### Correcting the phone number
 
 `PUT /api/auth/me/phone` takes `{"phoneNumber": "+62 811 2233 4455"}` and applies it. No confirmation and no password,
@@ -512,6 +523,7 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `PUT`  | `/api/organizations/{slug}` | **owner** | Edit the profile; identity stays put       |
 | `PUT`  | `/api/organizations/{slug}/photo` | **owner** | Just the photo; multipart, `removePhoto=true` drops it |
 | `GET`  | `/api/organizations/{slug}/users` | member | Its membership list, each with the account's photo |
+| `GET`  | `/api/organizations/{slug}/users/{accountId}` | member | One membership, whole; **404** when that account is not a member here |
 | `POST` | `/api/organizations/{slug}/users` | **owner** | Add a person directly, setting their password |
 | `GET`  | `/api/organizations/{slug}/invitations` | **owner** | Pending invitations                |
 | `POST` | `/api/organizations/{slug}/invitations` | **owner** | Invite someone; returns the accept link |

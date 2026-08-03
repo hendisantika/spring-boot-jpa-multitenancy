@@ -63,6 +63,15 @@ export type Member = {
   photoUrl: string | null;
 };
 
+/** One membership, whole. */
+export type MemberDetail = Member & {
+  accountId: number;
+  phoneNumber: string | null;
+  emailVerified: boolean;
+  /** Null on memberships older than the column: unknown, not "no time". */
+  joinedAt: string | null;
+};
+
 /**
  * What a server action hands back to a form. `values` carries the submitted
  * fields back so a rejected form re-renders filled in rather than blank.

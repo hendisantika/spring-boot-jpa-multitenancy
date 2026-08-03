@@ -12,6 +12,8 @@ import jakarta.persistence.Table;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.time.Instant;
+
 /**
  * Grants an account access to a tenant. Lives in the central database so that the
  * parent login can decide which tenants a user may reach before any tenant
@@ -50,4 +52,12 @@ public class UserTenant extends BaseEntity {
     @Column(name = "role", nullable = false)
     @Enumerated(EnumType.STRING)
     private TenantRole role = TenantRole.MEMBER;
+
+    /**
+     * When this membership was granted. Null on rows that predate the column:
+     * the account's own creation date answers a different question and would be
+     * inventing history if shown as a joining date.
+     */
+    @Column(name = "created_at", updatable = false)
+    private Instant createdAt;
 }

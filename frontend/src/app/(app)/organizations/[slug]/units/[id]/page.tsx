@@ -2,7 +2,13 @@ import Link from "next/link";
 
 import { ApiError, api } from "@/lib/api";
 import { getRole } from "@/lib/session";
-import { referenceLabel, type ReferenceLists, type TenantUnit } from "@/lib/types";
+import {
+  referenceLabel,
+  type Page as PageOf,
+  type ReferenceLists,
+  type TenantPerson,
+  type TenantUnit,
+} from "@/lib/types";
 import { Alert, Card, PageHeading } from "@/components/ui";
 
 export const metadata = { title: "Business unit" };
@@ -60,6 +66,13 @@ export default async function UnitPage({ params }: PageProps<"/organizations/[sl
   }
 
   const name = unit.name || "—";
+
+  // Only the count: the list itself is one click away, and asking for a page of
+  // people to say "3" would be fetching a screenful to render a number. Null
+  // when it could not be read, which is not the same as none.
+  const people = await api<PageOf<TenantPerson>>(`/person?unit=${unit.id}&size=1`, { tenant: slug })
+    .then((page) => page.totalElements)
+    .catch(() => null);
 
   return (
     <>
@@ -119,6 +132,19 @@ export default async function UnitPage({ params }: PageProps<"/organizations/[sl
           <Row label="Address" value={unit.address} />
           <Row label="Email" value={unit.email} />
         </dl>
+
+        {/* The mirror of the unit row on a person: from this place to the
+            people at it, arriving with the filter already applied. */}
+        <Link
+          href={`/organizations/${slug}/people?unit=${unit.id}`}
+          className="mt-4 inline-block border-t border-line pt-4 text-sm text-ink-muted transition hover:text-ink"
+        >
+          {people === null
+            ? "People at this unit →"
+            : people === 1
+              ? "1 person at this unit →"
+              : `${people} people at this unit →`}
+        </Link>
       </Card>
     </>
   );

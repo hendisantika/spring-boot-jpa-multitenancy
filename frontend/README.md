@@ -38,6 +38,7 @@ bun run lint
 | `/organizations/[slug]/units/[id]` | One unit, whole, on the same shape as the person screen   |
 | `/organizations/[slug]/members/[id]` | One membership: the account behind a row on the organization page |
 | `/organizations/[slug]/invitations/[id]` | One invitation, owner only, with Withdraw on it |
+| `/organizations/[slug]/reference-data` | Every value across the lists, filtered by list and by state |
 | `/organizations/[slug]/reference-data/[category]` | One of the tenant's own lists, whole   |
 | `/invitations/[token]`  | Open: accept an invitation, choosing your own password                   |
 | `/forgot-password`      | Ask for a reset link                                                     |
@@ -73,7 +74,12 @@ reading one meant querying the database. A card on the organization page lists t
 are in use, and each opens the list itself: label, the code a record actually stores, the order, whether it is
 switched off, and whether it came with the tenant or was added to it.
 
-That screen reads `/reference-data/{category}`, paged and searchable, and shows the count of what is in use **on this
+The card on the organization page now has its own **See all**, leading to the flat list: every value across every
+list, with the list and the in-use state as filters. The state is a radio — Either, In use, Switched off — because a
+value is one or the other and "both" is the absence of an answer rather than picking two, which is the one filter on
+this project that is not a set of checkboxes.
+
+The per-category screen reads `/reference-data/{category}`, paged and searchable, and shows the count of what is in use **on this
 page** rather than in the whole list — counting the list would mean fetching the list, which is what paging exists to
 avoid. A missing list is a 404 the screen words itself; a search matching nothing is an empty page of a list that
 exists, and the two say different things.

@@ -29,6 +29,7 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -268,6 +269,100 @@ class ReferenceDataTest {
     }
 
     /**
+     * The flat list is the shape the data actually has: one table with a
+     * category column. So the category is a filter, the state is a filter, and
+     * they narrow together while the search widens.
+     */
+    @Test
+    void everyValueCanBeListedFilteredByListAndByState() throws Exception {
+        // Everything this tenant keeps, in one page count.
+        String body = mockMvc.perform(get("/reference-values")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .param("size", "200"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        int everything = objectMapper.readTree(body).get("totalElements").asInt();
+        assertThat(everything).isGreaterThan(38);
+
+        // Ordered by list, then by each list's own order.
+        mockMvc.perform(get("/reference-values")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .param("size", "2"))
+                .andExpect(jsonPath("$.content[0].category").value("APPOINTMENT_STATUS"))
+                .andExpect(jsonPath("$.content[0].sortOrder").value(1))
+                .andExpect(jsonPath("$.content[1].sortOrder").value(2));
+
+        // One list, and two of them meaning either.
+        mockMvc.perform(get("/reference-values")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .param("category", "GENDER"))
+                .andExpect(jsonPath("$.totalElements").value(2));
+        mockMvc.perform(get("/reference-values")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .param("category", "GENDER").param("category", "BLOOD_TYPE"))
+                .andExpect(jsonPath("$.totalElements").value(10));
+
+        // A list nobody keeps narrows to nothing rather than being ignored.
+        mockMvc.perform(get("/reference-values")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .param("category", "NOT_A_CATEGORY"))
+                .andExpect(jsonPath("$.totalElements").value(0));
+
+        // Switch one off, and the two states split the list between them.
+        deactivate("GENDER", "FEMALE");
+        mockMvc.perform(get("/reference-values")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .param("category", "GENDER").param("active", "true"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].code").value("MALE"));
+        mockMvc.perform(get("/reference-values")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .param("category", "GENDER").param("active", "false"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].code").value("FEMALE"));
+
+        // Absent is both, which is not the same as either.
+        mockMvc.perform(get("/reference-values")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .param("category", "GENDER"))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        // The search widens across label, code and the list's own name, and the
+        // filter still narrows it.
+        mockMvc.perform(get("/reference-values")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .param("q", "blood_type"))
+                .andExpect(jsonPath("$.totalElements").value(8));
+        mockMvc.perform(get("/reference-values")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG)
+                        .param("q", "blood_type").param("category", "GENDER"))
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    /**
+     * The lists themselves, so a filter can offer them.
+     */
+    @Test
+    void theCategoriesAreListedForFiltering() throws Exception {
+        mockMvc.perform(get("/reference-categories")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSubdomainInterceptor.TENANT_HEADER, SLUG))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0]").value("APPOINTMENT_STATUS"))
+                .andExpect(jsonPath("$.length()").value(11));
+    }
+
+    /**
      * A list is handed over a page at a time, in the order a dropdown offers
      * it, and searched by either the label that is read or the code that is
      * stored — this is the one screen that shows both.
@@ -341,6 +436,22 @@ class ReferenceDataTest {
      * What a clinic would do through whatever administration screen eventually
      * exists: stop offering a value without deleting it.
      */
+    /** The same thing for any value, which the flat list needs to split by state. */
+    private void deactivate(String category, String code) {
+        TenantContext.setTenant(SLUG);
+        try {
+            ReferenceData value = referenceDataRepository
+                    .findByCategoryOrderBySortOrderAsc(category).stream()
+                    .filter(candidate -> candidate.getCode().equals(code))
+                    .findFirst()
+                    .orElseThrow();
+            value.setActive(false);
+            referenceDataRepository.save(value);
+        } finally {
+            TenantContext.clearTenant();
+        }
+    }
+
     private void retirePassport() {
         TenantContext.setTenant(SLUG);
         try {

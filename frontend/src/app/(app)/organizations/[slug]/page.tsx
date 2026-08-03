@@ -497,6 +497,13 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
               ))}
             </ul>
           )}
+
+          <Link
+            href={`/organizations/${slug}/reference-data`}
+            className="mt-4 self-end text-sm text-ink-muted transition hover:text-ink"
+          >
+            See all →
+          </Link>
         </Card>
       </div>
     </>

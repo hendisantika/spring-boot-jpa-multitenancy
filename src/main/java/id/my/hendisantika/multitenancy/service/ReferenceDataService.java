@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -80,6 +81,37 @@ public class ReferenceDataService {
                 normalise(category),
                 term == null ? TenantListing.MATCH_EVERYTHING : term,
                 TenantListing.pageRequest(page, size, Sort.by(Sort.Direction.ASC, "sortOrder")));
+    }
+
+    /**
+     * Every value across every list, narrowed to what somebody typed and to the
+     * categories and states asked for.
+     * <p>
+     * Ordered by category then by each list's own order, because a flat list of
+     * all of them read in insertion order is a jumble.
+     *
+     * @param categories narrows to these; empty means every list
+     * @param active     null means both, which is not the same as either
+     */
+    @Transactional(value = "tenantTransactionManager", readOnly = true)
+    public Page<ReferenceData> findAllPaged(String query, Collection<String> categories,
+                                            Boolean active, Integer page, Integer size) {
+        String term = TenantListing.searchTerm(query);
+        List<String> wanted = TenantListing.filterCodes(categories);
+        return referenceDataRepository.searchAll(
+                term == null ? TenantListing.MATCH_EVERYTHING : term,
+                wanted.isEmpty(),
+                TenantListing.orNothing(wanted),
+                active == null,
+                active != null && active,
+                TenantListing.pageRequest(page, size,
+                        Sort.by(Sort.Order.asc("category"), Sort.Order.asc("sortOrder"))));
+    }
+
+    /** The lists this tenant keeps, for offering them as a filter. */
+    @Transactional(value = "tenantTransactionManager", readOnly = true)
+    public List<String> categories() {
+        return referenceDataRepository.findCategories();
     }
 
     /**

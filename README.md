@@ -725,6 +725,15 @@ while a value was current still holds its code, and a client that never saw the 
 back. Offering is the client's job; refusing a retired code is the server's. They are seeded **into each tenant database** rather than kept centrally so a clinic
 can add its own visit type later; `systemDefined` is what tells the two apart.
 
+**`GET /reference-values` is the flat list**: every value this tenant keeps, across the lists, paged and searchable
+by label, code or list name. `?category=` narrows to one or several lists and `?active=true|false` to one state —
+**absent means both**, which is not the same as either, so the screen offers it as a radio rather than as two
+checkboxes somebody could tick together and mean nothing by.
+
+That shape is not an invention: `reference_data` is one table with a category column, so a category is a filter like
+any other and the per-category endpoint is this list with the category fixed by the path. `GET /reference-categories`
+lists the categories so a filter can offer them.
+
 **`GET /reference-data/{category}` is paged and searchable**: `?page=`, `?size=` clamped to 200, and `?q=` matching
 the label *or* the code. Matching the code is the exception here — everywhere else a code is storage and never shown,
 so searching it would answer questions nobody asked; on this screen the code is a column, and what is on screen is

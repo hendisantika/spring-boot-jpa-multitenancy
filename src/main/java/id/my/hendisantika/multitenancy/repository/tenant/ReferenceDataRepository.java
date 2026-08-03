@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -51,4 +52,36 @@ public interface ReferenceDataRepository extends JpaRepository<ReferenceData, Lo
     Page<ReferenceData> search(@Param("category") String category,
                                @Param("term") String term,
                                Pageable pageable);
+
+    /**
+     * Every value this tenant keeps, across the lists, narrowed to what
+     * somebody typed and to the categories and states they asked for.
+     * <p>
+     * One table is what this always was: a category is a column, not a
+     * separate list, so filtering by it is a filter like any other. The
+     * per-category query above is the same thing with the category fixed by
+     * the path.
+     * <p>
+     * The state is two flags rather than a nullable Boolean: binding null to a
+     * parameter that is also compared makes Hibernate guess at its type, and
+     * it guesses wrong.
+     */
+    @Query("""
+            select r from ReferenceData r
+            where (lower(r.label) like :term escape '\\'
+                or lower(r.code) like :term escape '\\'
+                or lower(r.category) like :term escape '\\')
+              and (:anyCategory = true or r.category in :categoryIn)
+              and (:anyState = true or r.active = :active)
+            """)
+    Page<ReferenceData> searchAll(@Param("term") String term,
+                                  @Param("anyCategory") boolean anyCategory,
+                                  @Param("categoryIn") Collection<String> categoryIn,
+                                  @Param("anyState") boolean anyState,
+                                  @Param("active") boolean active,
+                                  Pageable pageable);
+
+    /** The categories this tenant keeps, for offering them as a filter. */
+    @Query("select distinct r.category from ReferenceData r order by r.category")
+    List<String> findCategories();
 }

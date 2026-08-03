@@ -45,6 +45,37 @@ public class ReferenceDataController {
     }
 
     /**
+     * Every value this tenant keeps, flat, across the lists.
+     * <p>
+     * One table is what this always was — a category is a column — so the
+     * category is a filter here rather than a path, and the per-category
+     * endpoint below is the same list with it fixed.
+     *
+     * @param q        matched against the label, the code and the category
+     * @param category narrows to these; repeat it and it means either
+     * @param active   {@code true} for the ones in use, {@code false} for the
+     *                 ones switched off, absent for both — which is not the
+     *                 same as either
+     */
+    @GetMapping("/reference-values")
+    @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
+    public PageResponse<ReferenceData> listValues(
+            @RequestParam(name = "q", required = false) String q,
+            @RequestParam(name = "category", required = false) List<String> category,
+            @RequestParam(name = "active", required = false) Boolean active,
+            @RequestParam(name = "page", required = false) Integer page,
+            @RequestParam(name = "size", required = false) Integer size) {
+        return PageResponse.of(referenceDataService.findAllPaged(q, category, active, page, size));
+    }
+
+    /** The lists this tenant keeps, so a filter can offer them. */
+    @GetMapping("/reference-categories")
+    @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
+    public List<String> listCategories() {
+        return referenceDataService.categories();
+    }
+
+    /**
      * One list, a page at a time, searchable by label or code.
      * <p>
      * <b>404 when this tenant keeps no such list</b>, which the whole map at

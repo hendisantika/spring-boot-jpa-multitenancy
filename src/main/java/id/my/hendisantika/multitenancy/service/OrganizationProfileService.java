@@ -38,6 +38,19 @@ public class OrganizationProfileService {
      */
     @Transactional("centralTransactionManager")
     public TenantRegistration update(String slug, OrganizationProfile profile, String newPhotoKey) {
+        return update(slug, profile, newPhotoKey, false);
+    }
+
+    /**
+     * @param removePhoto drops the current photo, for whoever wants none rather
+     *                    than a different one. A supplied photo wins over it.
+     */
+    // Annotated as well as the overload above: a caller reaching this one
+    // directly — which the controller now does — would otherwise run with no
+    // transaction and see its changes quietly dropped.
+    @Transactional("centralTransactionManager")
+    public TenantRegistration update(String slug, OrganizationProfile profile, String newPhotoKey,
+                                     boolean removePhoto) {
         TenantRegistration tenant = tenantRegistrationRepository.findBySlug(slug)
                 .orElseThrow(() -> new TenantProvisioningException("'" + slug + "' is not registered"));
 
@@ -50,14 +63,17 @@ public class OrganizationProfileService {
         tenant.setOrgStructure(profile.orgStructure());
         tenant.setPracticeSpeciality(profile.practiceSpeciality());
 
+        String previous = tenant.getPhotoKey();
         if (StringUtils.hasText(newPhotoKey)) {
-            String previous = tenant.getPhotoKey();
             tenant.setPhotoKey(newPhotoKey);
             // Otherwise every edit leaves an orphan in the bucket that nothing
             // will ever point at again.
             if (StringUtils.hasText(previous) && !previous.equals(newPhotoKey)) {
                 storageService.delete(previous);
             }
+        } else if (removePhoto && StringUtils.hasText(previous)) {
+            tenant.setPhotoKey(null);
+            storageService.delete(previous);
         }
 
         log.info("Updated the profile of tenant {}", slug);

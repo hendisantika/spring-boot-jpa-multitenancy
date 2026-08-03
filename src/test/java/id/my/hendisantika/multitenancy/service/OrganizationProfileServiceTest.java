@@ -21,7 +21,9 @@ import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 /**
@@ -97,6 +99,51 @@ class OrganizationProfileServiceTest {
                 "Renamed Clinic", "after@example.test", null,
                 "After", "Person", "Practice Manager", "+62 811 0000 0002",
                 OrgStructure.MULTI_LOCATION_HOSPITAL, PracticeSpeciality.DENTAL);
+    }
+
+    /**
+     * Replacing a photo was possible; having none again was not.
+     */
+    @Test
+    void aPhotoCanBeRemoved() {
+        organizationProfileService.update(SLUG, changed(), "organizations/first.png");
+        assertThat(tenantRegistrationRepository.findBySlug(SLUG).orElseThrow().getPhotoKey())
+                .isEqualTo("organizations/first.png");
+
+        organizationProfileService.update(SLUG, changed(), null, true);
+
+        assertThat(tenantRegistrationRepository.findBySlug(SLUG).orElseThrow().getPhotoKey()).isNull();
+        verify(storageService).delete("organizations/first.png");
+    }
+
+    /**
+     * Asking to remove one while uploading another is a contradiction, and the
+     * upload wins rather than leaving the tenant with neither.
+     */
+    @Test
+    void anUploadWinsOverTheRemovalFlag() {
+        organizationProfileService.update(SLUG, changed(), "organizations/first.png");
+
+        organizationProfileService.update(SLUG, changed(), "organizations/second.png", true);
+
+        assertThat(tenantRegistrationRepository.findBySlug(SLUG).orElseThrow().getPhotoKey())
+                .isEqualTo("organizations/second.png");
+    }
+
+    /**
+     * The flag on a tenant that has no photo is not an error, it is nothing —
+     * and in particular it does not ask the bucket to delete null.
+     */
+    @Test
+    void removingWhenThereIsNoPhotoDoesNothing() {
+        organizationProfileService.update(SLUG, changed(), null, true);
+        assertThat(tenantRegistrationRepository.findBySlug(SLUG).orElseThrow().getPhotoKey()).isNull();
+
+        organizationProfileService.update(SLUG, changed(), null, true);
+
+        assertThat(tenantRegistrationRepository.findBySlug(SLUG).orElseThrow().getPhotoKey()).isNull();
+        // Once for the photo the fixture started with, and not again.
+        verify(storageService, times(1)).delete(any());
     }
 
     @Test

@@ -557,6 +557,11 @@ Omitting the photo part on an edit keeps the current one; sending one replaces i
 edit does not leave an orphan in the bucket. Deleting a person deletes its photo too — the row was the only thing
 pointing at it.
 
+`removePhoto=true` drops the photo without supplying another, which was otherwise impossible: you could replace one
+forever but never get back to none. It applies to `PUT /api/organizations/{slug}` as well. Sending a photo **and** the
+flag is a contradiction and the upload wins — choosing a file says more than ticking a box — though the screens do not
+let the two happen together.
+
 The response is a `PersonView`, not the entity: it carries a signed `photoUrl` and never `photoKey`, which is storage
 rather than something a client should hold.
 

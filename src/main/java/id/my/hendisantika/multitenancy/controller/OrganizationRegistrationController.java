@@ -2,6 +2,7 @@ package id.my.hendisantika.multitenancy.controller;
 
 import id.my.hendisantika.multitenancy.config.TenantSecurity;
 import id.my.hendisantika.multitenancy.entity.central.Account;
+import id.my.hendisantika.multitenancy.entity.central.Invitation;
 import id.my.hendisantika.multitenancy.entity.central.OrgStructure;
 import id.my.hendisantika.multitenancy.entity.central.PracticeSpeciality;
 import id.my.hendisantika.multitenancy.entity.central.TenantRegistration;
@@ -179,6 +180,31 @@ public class OrganizationRegistrationController {
     }
 
     /**
+     * One invitation, for the screen that shows the whole of it. Owner only,
+     * like the list it comes from.
+     * <p>
+     * Whatever became of it, not only pending ones: a page opened while it was
+     * still pending should say it has since been withdrawn or accepted rather
+     * than turning into "does not exist".
+     */
+    @GetMapping("/{slug}/invitations/{invitationId}")
+    public InvitationDetailView invitation(@PathVariable String slug, @PathVariable Long invitationId) {
+        tenantSecurity.requireOwner(slug);
+        Invitation invitation = invitationService.oneOf(slug, invitationId);
+        return new InvitationDetailView(
+                invitation.getId(),
+                invitation.getEmail(),
+                invitation.getRole(),
+                invitation.getStatus().name(),
+                invitation.isExpired(),
+                invitation.getInvitedBy() == null ? null : invitation.getInvitedBy().getEmail(),
+                invitation.getCreatedAt(),
+                invitation.getExpiresAt(),
+                invitation.getAcceptedAt(),
+                invitationService.accountExistsFor(invitation));
+    }
+
+    /**
      * One membership, for the screen that shows the whole of it.
      * <p>
      * Any member may read it: these are colleagues in one organization, and the
@@ -346,6 +372,21 @@ public class OrganizationRegistrationController {
     }
 
     public record InvitationSummary(Long id, String email, TenantRole role, Instant expiresAt) {
+    }
+
+    /**
+     * No accept link: the token is stored as a hash and cannot be read back, so
+     * it exists in the recipient's mailbox and nowhere else.
+     *
+     * @param expired       PENDING but past its date, which the status alone
+     *                      does not say — nothing sweeps them
+     * @param accountExists whether accepting grants an account that is already
+     *                      registered or makes a new one
+     */
+    public record InvitationDetailView(
+            Long id, String email, TenantRole role, String status, boolean expired,
+            String invitedBy, Instant createdAt, Instant expiresAt, Instant acceptedAt,
+            boolean accountExists) {
     }
 
     /**

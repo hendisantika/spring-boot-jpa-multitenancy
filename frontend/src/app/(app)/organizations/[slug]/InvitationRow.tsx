@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { revokeInvitation } from "@/app/actions/invitations";
 import { Badge } from "@/components/ui";
 import type { Invitation } from "@/lib/types";
@@ -7,12 +9,16 @@ export function InvitationRow({ invitation, slug }: { invitation: Invitation; sl
 
   return (
     <li className="flex items-center justify-between gap-3 py-3">
-      <div className="min-w-0">
-        <p className="truncate text-sm text-ink">{invitation.email}</p>
+      {/* The address is the way in to the whole invitation. */}
+      <Link
+        href={`/organizations/${slug}/invitations/${invitation.id}`}
+        className="min-w-0 transition hover:opacity-80"
+      >
+        <p className="truncate text-sm text-ink hover:underline">{invitation.email}</p>
         <p className="text-xs text-ink-muted">
           Expires {expires.toLocaleDateString()} at {expires.toLocaleTimeString()}
         </p>
-      </div>
+      </Link>
       <div className="flex shrink-0 items-center gap-2">
         <Badge tone={invitation.role === "OWNER" ? "brand" : "muted"}>{invitation.role}</Badge>
         <form action={revokeInvitation}>

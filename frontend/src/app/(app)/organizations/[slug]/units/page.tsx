@@ -123,7 +123,13 @@ export default async function UnitsPage({ params, searchParams }: PageProps<"/or
                   {/* Square rather than round: this is a place, not a face. */}
                   <Avatar photoUrl={unit.photoUrl} email={unit.name} rounded="lg" />
                   <div className="min-w-0">
-                    <p className="truncate text-sm text-ink">{unit.name || "—"}</p>
+                    {/* The name is the way in to the whole record. */}
+                    <Link
+                      href={`${base}/${unit.id}`}
+                      className="block truncate text-sm text-ink hover:underline"
+                    >
+                      {unit.name || "—"}
+                    </Link>
                     <p className="truncate text-xs text-ink-muted">
                       {[unit.address, unit.email].filter(Boolean).join(" · ") || "No details"}
                     </p>

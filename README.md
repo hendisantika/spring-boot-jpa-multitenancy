@@ -525,6 +525,7 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `GET`  | `/person`            | bearer + membership | A **page** of people; see below                |
 | `POST`/`PUT` | `/person` | bearer + membership | JSON, or multipart to attach a photo          |
 | `POST`/`PUT` | `/organization` | bearer + **owner** | JSON, or multipart to attach a photo    |
+| `GET`  | `/organization/{id}` | bearer + membership | One unit, whole; **404** when there is none     |
 | `GET`  | `/organization`      | bearer + membership | A **page** of business units; see below        |
 
 ### Paged lists

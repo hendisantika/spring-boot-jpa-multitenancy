@@ -115,6 +115,13 @@ services:
       APPLICATION_DATABASE_PASSWORD: root
       APPLICATION_STORAGE_ACCESS_KEY: minioadmin
       APPLICATION_STORAGE_SECRET_KEY: minioadmin
+      # Compose reads .env for substitution here, but nothing reads it into the
+      # container by itself — without these three the key never arrives and
+      # invitations fall back to returning the link instead of mailing it. The
+      # defaults keep a clone with no .env starting exactly as it does now.
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      BREVO_SENDER_EMAIL: ${BREVO_SENDER_EMAIL:-no-reply@jvm.my.id}
+      BREVO_SENDER_NAME: ${BREVO_SENDER_NAME:-Multitenancy}
     ports:
       - "8080:8080"
     restart: unless-stopped

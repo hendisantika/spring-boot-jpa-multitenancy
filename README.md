@@ -174,6 +174,16 @@ application.brevo.sender-email=${BREVO_SENDER_EMAIL:no-reply@jvm.my.id}
 application.brevo.sender-name=${BREVO_SENDER_NAME:Multitenancy}
 ```
 
+These are read from the **environment**, and `.env` is not part of it. Docker Compose reads that file, so
+`docker compose --profile app up` passes the three through; Spring Boot does not, so a run started from an IDE or a
+plain `./mvnw spring-boot:run` sees nothing and logs `No Brevo api key configured` at startup — that line is the thing
+to check first when a message did not go out. Put the variables in the run configuration, or export them into the
+shell before starting.
+
+Brevo also refuses a key used from an unrecognised address when authorised IPs are switched on for the account. That
+failure looks different: the sender is picked up, the send is attempted, and it comes back `401 unauthorized` naming
+the address to allow.
+
 The sender must be an address Brevo has verified for the account, or it refuses the message. A delivery failure is
 reported, never thrown: the invitation is already created, and losing it would be worse than an undelivered mail, so
 the response falls back to carrying the link.

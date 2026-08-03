@@ -133,6 +133,10 @@ the other two use: the same 112px square, and the same fallback to an initial. I
 either of them, and with no photo at all it rendered nothing, so the heading simply slid left and the page looked like
 one that had never had a photo.
 
+On the detail screen the unit is the one row that leads somewhere: it opens the people list already narrowed to that
+unit, which is the question a unit answers — who else is here. It carries the id rather than the name, because that is
+what the filter takes, and somebody with no unit is a dash rather than a link to nothing.
+
 **People can be narrowed to a unit.** The units are not a reference list, but the checkbox control only ever wanted
 options with a code and a label, and a unit is exactly that with its id as the code — so they are passed in under a
 key no migration uses, and the filter machinery is reused unchanged. Each row and the detail screen now name the unit

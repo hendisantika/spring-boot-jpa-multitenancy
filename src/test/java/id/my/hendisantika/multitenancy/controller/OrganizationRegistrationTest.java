@@ -635,6 +635,65 @@ class OrganizationRegistrationTest {
     }
 
     /**
+     * Two filters at once are both, not either: an owner still pending is the
+     * intersection, and asking for a member still pending finds nobody when the
+     * only pending one is an owner.
+     */
+    @Test
+    void theInvitationListCanBeFilteredByRoleAndState() throws Exception {
+        String ownerToken = registerOrganization(signUp(OWNER_EMAIL));
+        mvc().perform(post("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"first@example.test\",\"role\":\"OWNER\"}"))
+                .andExpect(status().isCreated());
+        mvc().perform(post("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"second@example.test\",\"role\":\"MEMBER\"}"))
+                .andExpect(status().isCreated());
+
+        mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken).param("role", "OWNER"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].email").value("first@example.test"));
+
+        mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("role", "OWNER").param("role", "MEMBER"))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        // Both filters at once.
+        mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("role", "OWNER").param("status", "PENDING"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        // Withdraw the owner one, and "owners still pending" is nobody, while
+        // "owners" alone still finds it.
+        String body = mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken).param("role", "OWNER"))
+                .andReturn().getResponse().getContentAsString();
+        long ownerInvite = objectMapper.readTree(body).get("content").get(0).get("id").asLong();
+        mvc().perform(delete("/api/organizations/" + SLUG + "/invitations/" + ownerInvite)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isNoContent());
+
+        mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("role", "OWNER").param("status", "PENDING"))
+                .andExpect(jsonPath("$.totalElements").value(0));
+        mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken).param("role", "OWNER"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        // A role nobody was invited as narrows to nothing.
+        mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken).param("role", "ADMIRAL"))
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    /**
      * A colleague's membership, readable by any member: the list already shows
      * everybody's address and face, and what this adds is the phone number
      * somebody would actually ring.

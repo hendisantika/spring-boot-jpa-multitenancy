@@ -47,6 +47,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
     invites: invitesPage,
     inviteq,
     invitestatus,
+    inviterole,
   } = await searchParams;
   // Their own parameters, because this page carries more than one list and they
   // move independently.
@@ -61,6 +62,9 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
   const inviteQuery = (firstValue(inviteq) ?? "").trim();
   const inviteStates = (
     Array.isArray(invitestatus) ? invitestatus : invitestatus ? [invitestatus] : []
+  ).filter((value): value is string => typeof value === "string" && value.length > 0);
+  const inviteRoles = (
+    Array.isArray(inviterole) ? inviterole : inviterole ? [inviterole] : []
   ).filter((value): value is string => typeof value === "string" && value.length > 0);
 
   const role = await getRole(slug);
@@ -97,7 +101,8 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
       invitations = await api<PageOf<Invitation>>(
         `/api/organizations/${slug}/invitations?page=${invitePage}&size=${INVITES_PER_PAGE}` +
           (inviteQuery ? `&q=${encodeURIComponent(inviteQuery)}` : "") +
-          inviteStates.map((value) => `&status=${encodeURIComponent(value)}`).join(""),
+          inviteStates.map((value) => `&status=${encodeURIComponent(value)}`).join("") +
+          inviteRoles.map((value) => `&role=${encodeURIComponent(value)}`).join(""),
       );
     }
   } catch (e) {
@@ -304,7 +309,11 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
 
           {/* Shown while a search is on even when it matches nothing, or there
               would be no way to clear the box that emptied the card. */}
-          {role === "OWNER" && (invitations.totalElements > 0 || inviteQuery || inviteStates.length > 0) ? (
+          {role === "OWNER" &&
+          (invitations.totalElements > 0 ||
+            inviteQuery ||
+            inviteStates.length > 0 ||
+            inviteRoles.length > 0) ? (
             <Card className="p-6">
               <div className="mb-4 flex items-center justify-between">
                 {/* Not "Pending" any more: the filter decides which states are
@@ -355,6 +364,25 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                 ))}
               </fieldset>
 
+              {/* A second filter, AND'd with the first: owners still pending
+                  means both, which is what two filters always mean here. */}
+              <fieldset className="mb-4 flex items-center gap-4">
+                <legend className="sr-only">Filter by role</legend>
+                {(["OWNER", "MEMBER"] as const).map((value) => (
+                  <label key={value} className="flex items-center gap-2 text-sm text-ink-muted">
+                    <input
+                      type="checkbox"
+                      name="inviterole"
+                      value={value}
+                      form="invite-search"
+                      defaultChecked={inviteRoles.includes(value)}
+                      className="size-4 rounded border-line"
+                    />
+                    {value === "OWNER" ? "Owner" : "Member"}
+                  </label>
+                ))}
+              </fieldset>
+
               <ul className="divide-y divide-line">
                 {invitations.content.map((invitation) => (
                   <InvitationRow key={invitation.id} invitation={invitation} slug={slug} />
@@ -368,7 +396,8 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                 href={(next) =>
                   `/organizations/${slug}?invites=${next}` +
                   (inviteQuery ? `&inviteq=${encodeURIComponent(inviteQuery)}` : "") +
-                  inviteStates.map((value) => `&invitestatus=${encodeURIComponent(value)}`).join("")
+                  inviteStates.map((value) => `&invitestatus=${encodeURIComponent(value)}`).join("") +
+                  inviteRoles.map((value) => `&inviterole=${encodeURIComponent(value)}`).join("")
                 }
                 page={invitations.page}
                 size={invitations.size}

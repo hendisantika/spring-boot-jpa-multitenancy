@@ -35,6 +35,7 @@ bun run lint
 | `/organizations/[slug]/people` | The tenant's own people, searched and paged from `?q=` and `?page=` |
 | `/organizations/[slug]/people/[id]` | One person, whole, with the photo at a size worth looking at |
 | `/organizations/[slug]/units` | The tenant's business units with their photos, searched and paged the same way |
+| `/organizations/[slug]/units/[id]` | One unit, whole, on the same shape as the person screen   |
 | `/invitations/[token]`  | Open: accept an invitation, choosing your own password                   |
 | `/forgot-password`      | Ask for a reset link                                                     |
 | `/reset-password/[token]` | Open: choose a new password                                            |
@@ -57,6 +58,11 @@ the form behind **Edit** also has a photo field and two ways to do one thing nee
 neither is a place to simply read a record, and the photo in particular was a 32px thumbnail. The name in the list is
 the way in, Edit goes back to the list where the form already lives, and a missing id says so rather than showing an
 empty page — the API answers 404 for that now.
+
+A unit has the same detail screen, on the same shape — name in the list is the way in, Edit back to the list, 404 says
+so. One difference: it rewords a missing record itself. The API calls these organizations, which is exactly the word
+this UI avoids because it means the tenant everywhere else, so "No organization with id 12" on a screen headed
+**Business unit** would be the backend's vocabulary leaking through.
 
 Units carry a photo of their own, on the same form and the same `PhotoField` as everything else. In the list it is a
 square tile rather than a round one, and falls back to the first letter of the name: a unit is a place, not a face, so

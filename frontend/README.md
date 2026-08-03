@@ -78,6 +78,10 @@ That screen reads `/reference-data` and picks its category out of the map rather
 because an absent dropdown is not an error — but a screen has to tell "this tenant keeps no such list" from "the list
 is empty", and only the map says which.
 
+Invitation rows carry a face too, but only when that address is already registered — most invitations go to an
+address nobody has, and those fall back to an initial. It is the one photo in the app that belongs to somebody who is
+not a member: see the note in the root README about what that gives an owner.
+
 Invitation rows link the same way, to a screen that adds who sent it, whether the address is already registered, and
 — for one past its date — an EXPIRED badge the row cannot show, since the database still calls it PENDING. Withdraw
 sits on that screen too, which is why `revokeInvitation` revalidates the detail path as well as the organization:

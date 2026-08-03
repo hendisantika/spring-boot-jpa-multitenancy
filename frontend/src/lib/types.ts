@@ -96,6 +96,12 @@ export type Invitation = {
   email: string;
   role: TenantRole;
   expiresAt: string;
+  /**
+   * The photo of the account that address already belongs to, or null when
+   * nobody has registered it — which is the ordinary case for an invitation.
+   */
+  photoUrl: string | null;
+  accountExists: boolean;
 };
 
 export type CreatedInvitation = Invitation & { emailed: boolean; acceptUrl: string | null };
@@ -111,7 +117,6 @@ export type InvitationDetail = Invitation & {
   invitedBy: string | null;
   createdAt: string;
   acceptedAt: string | null;
-  accountExists: boolean;
 };
 
 export type InvitationPreview = {

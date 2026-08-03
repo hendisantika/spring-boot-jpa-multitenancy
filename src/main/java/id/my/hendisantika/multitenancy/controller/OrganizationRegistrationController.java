@@ -191,6 +191,7 @@ public class OrganizationRegistrationController {
     public InvitationDetailView invitation(@PathVariable String slug, @PathVariable Long invitationId) {
         tenantSecurity.requireOwner(slug);
         Invitation invitation = invitationService.oneOf(slug, invitationId);
+        Account account = invitationService.accountFor(invitation).orElse(null);
         return new InvitationDetailView(
                 invitation.getId(),
                 invitation.getEmail(),
@@ -201,7 +202,8 @@ public class OrganizationRegistrationController {
                 invitation.getCreatedAt(),
                 invitation.getExpiresAt(),
                 invitation.getAcceptedAt(),
-                invitationService.accountExistsFor(invitation));
+                account != null,
+                account == null ? null : storageService.urlOf(account.getPhotoKey()));
     }
 
     /**
@@ -239,11 +241,7 @@ public class OrganizationRegistrationController {
     public List<InvitationSummary> invitations(@PathVariable String slug) {
         tenantSecurity.requireOwner(slug);
         return invitationService.pendingFor(slug).stream()
-                .map(invitation -> new InvitationSummary(
-                        invitation.getId(),
-                        invitation.getEmail(),
-                        invitation.getRole(),
-                        invitation.getExpiresAt()))
+                .map(this::summaryOf)
                 .toList();
     }
 
@@ -315,6 +313,22 @@ public class OrganizationRegistrationController {
                 account == null ? null : storageService.urlOf(account.getPhotoKey()));
     }
 
+    /**
+     * The photo belongs to the account that address is already registered to,
+     * when there is one — most invitations are to an address nobody has, and
+     * those carry none rather than a broken image.
+     */
+    private InvitationSummary summaryOf(Invitation invitation) {
+        Account account = invitationService.accountFor(invitation).orElse(null);
+        return new InvitationSummary(
+                invitation.getId(),
+                invitation.getEmail(),
+                invitation.getRole(),
+                invitation.getExpiresAt(),
+                account == null ? null : storageService.urlOf(account.getPhotoKey()),
+                account != null);
+    }
+
     private MemberDetailView detailOf(UserTenant membership) {
         Account account = membership.getAccount();
         return new MemberDetailView(
@@ -371,7 +385,15 @@ public class OrganizationRegistrationController {
             String phoneNumber, boolean emailVerified, Instant joinedAt) {
     }
 
-    public record InvitationSummary(Long id, String email, TenantRole role, Instant expiresAt) {
+    /**
+     * @param photoUrl      the photo of the account that address already
+     *                      belongs to, or null when nobody has registered it —
+     *                      which is the ordinary case for an invitation
+     * @param accountExists whether accepting grants an existing account or
+     *                      makes one
+     */
+    public record InvitationSummary(Long id, String email, TenantRole role, Instant expiresAt,
+                                    String photoUrl, boolean accountExists) {
     }
 
     /**
@@ -386,7 +408,7 @@ public class OrganizationRegistrationController {
     public record InvitationDetailView(
             Long id, String email, TenantRole role, String status, boolean expired,
             String invitedBy, Instant createdAt, Instant expiresAt, Instant acceptedAt,
-            boolean accountExists) {
+            boolean accountExists, String photoUrl) {
     }
 
     /**

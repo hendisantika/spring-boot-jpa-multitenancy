@@ -6,6 +6,7 @@ import id.my.hendisantika.multitenancy.entity.central.PracticeSpeciality;
 import id.my.hendisantika.multitenancy.entity.central.TenantRegistration;
 import id.my.hendisantika.multitenancy.entity.central.TenantRole;
 import id.my.hendisantika.multitenancy.repository.central.AccountRepository;
+import id.my.hendisantika.multitenancy.repository.central.InvitationRepository;
 import id.my.hendisantika.multitenancy.repository.central.TenantRegistrationRepository;
 import id.my.hendisantika.multitenancy.repository.central.UserTenantRepository;
 import id.my.hendisantika.multitenancy.service.TenantProvisioningService;
@@ -74,6 +75,9 @@ class OrganizationRegistrationTest {
     private TenantRegistrationRepository tenantRegistrationRepository;
 
     @Autowired
+    private InvitationRepository invitationRepository;
+
+    @Autowired
     private TenantProvisioningService tenantProvisioningService;
 
     @MockitoBean
@@ -90,9 +94,13 @@ class OrganizationRegistrationTest {
 
     @AfterEach
     void cleanUp() {
+        // Before the accounts: an invitation points at whoever sent it, so a
+        // leftover row keeps that account alive and every later signup then
+        // fails with 409 rather than saying what actually went wrong.
+        invitationRepository.deleteAll(invitationRepository.findAllByTenantSlug(SLUG));
         tenantRegistrationRepository.findBySlug(SLUG)
                 .ifPresent(tenant -> tenantProvisioningService.deprovision(SLUG));
-        List.of(OWNER_EMAIL, MEMBER_EMAIL).forEach(email ->
+        List.of(OWNER_EMAIL, MEMBER_EMAIL, "nobody.here@example.test").forEach(email ->
                 accountRepository.findByEmailIgnoreCase(email).ifPresent(account -> {
                     userTenantRepository.deleteAll(userTenantRepository.findAllByAccountId(account.getId()));
                     accountRepository.delete(account);
@@ -272,6 +280,45 @@ class OrganizationRegistrationTest {
                                         "someone.else@example.test", "+62 813 0000 2222", PASSWORD,
                                         TenantRole.MEMBER))))
                 .andExpect(status().isForbidden());
+    }
+
+    /**
+     * An invitation carries the face of the account that address already
+     * belongs to, and nothing when nobody has registered it — which is the
+     * ordinary case and must not become a broken image.
+     */
+    @Test
+    void anInvitationCarriesThePhotoOfAnAddressThatIsAlreadyRegistered() throws Exception {
+        String ownerToken = registerOrganization(signUpWithPhoto(OWNER_EMAIL));
+
+        // Nobody has this address, so there is no account and no face.
+        mvc().perform(post("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"nobody.here@example.test\",\"role\":\"MEMBER\"}"))
+                .andExpect(status().isCreated());
+
+        // This one is registered, with a photo of its own.
+        signUpWithPhoto(MEMBER_EMAIL);
+        mvc().perform(post("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + MEMBER_EMAIL + "\",\"role\":\"MEMBER\"}"))
+                .andExpect(status().isCreated());
+
+        String body = mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        for (var invitation : objectMapper.readTree(body)) {
+            boolean registered = MEMBER_EMAIL.equals(invitation.get("email").asString());
+            assertThat(invitation.get("accountExists").asBoolean())
+                    .as("accountExists for %s", invitation.get("email").asString())
+                    .isEqualTo(registered);
+            // Null, not a broken image, for an address nobody has registered.
+            assertThat(invitation.get("photoUrl").isNull()).isNotEqualTo(registered);
+        }
     }
 
     /**

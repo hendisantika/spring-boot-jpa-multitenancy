@@ -436,6 +436,13 @@ existing account or creates one.
 that it has since been withdrawn or accepted rather than turning into "does not exist" and leaving the owner
 wondering. An id belonging to another tenant is 404 either way.
 
+**The list and the detail carry `photoUrl`**: the photo of the account that address is already registered to, and
+null when nobody has registered it, which is the ordinary case for an invitation. Worth being deliberate about — it
+means an owner who types an address learns whether it is registered *and what its owner looks like*, before that
+person has agreed to anything. The list is owner only and the address was theirs to type, so this is a small step
+beyond the `accountExists` boolean rather than a new capability, but it is a step. Drop `photoUrl` from
+`InvitationSummary` and `InvitationDetailView` if that trade is not wanted.
+
 **There is no accept link in the answer and there cannot be**: only a hash of the token is stored, so it exists in
 the recipient's mailbox and nowhere else. The screen says so, because that is the first thing an owner looks for.
 

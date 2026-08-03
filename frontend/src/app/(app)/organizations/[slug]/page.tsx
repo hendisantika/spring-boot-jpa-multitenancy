@@ -36,10 +36,11 @@ const MEMBERS_PER_PAGE = 8;
 
 export default async function OrganizationPage({ params, searchParams }: PageProps<"/organizations/[slug]">) {
   const { slug } = await params;
-  const { fresh, members: membersPage } = await searchParams;
-  // Its own parameter, because this page carries more than one list and they
-  // page independently.
+  const { fresh, members: membersPage, memberq } = await searchParams;
+  // Their own parameters, because this page carries more than one list and they
+  // move independently.
   const page = Math.max(0, Number(firstValue(membersPage)) || 0);
+  const query = (firstValue(memberq) ?? "").trim();
 
   const role = await getRole(slug);
 
@@ -62,7 +63,10 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
   try {
     [organization, members] = await Promise.all([
       api<Organization>(`/api/organizations/${slug}`),
-      api<PageOf<Member>>(`/api/organizations/${slug}/users?page=${page}&size=${MEMBERS_PER_PAGE}`),
+      api<PageOf<Member>>(
+        `/api/organizations/${slug}/users?page=${page}&size=${MEMBERS_PER_PAGE}` +
+          (query ? `&q=${encodeURIComponent(query)}` : ""),
+      ),
     ]);
     // Owner only, so a member's page does not 403 on a panel they never see.
     if (role === "OWNER") {
@@ -186,6 +190,27 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
               )}
             </div>
 
+            {/* A plain GET form: the search is in the address, so a result is
+                somewhere you can come back to. Paging resets to the first page,
+                because page four of the old search is not page four of this
+                one. */}
+            <form action={`/organizations/${slug}`} className="mb-4 flex gap-2">
+              <input
+                type="search"
+                name="memberq"
+                defaultValue={query}
+                placeholder="Search address or role"
+                aria-label="Search members"
+                className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none transition placeholder:text-ink-muted/70 focus:border-brand"
+              />
+              <button
+                type="submit"
+                className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition hover:bg-surface-muted"
+              >
+                Apply
+              </button>
+            </form>
+
             <ul className="divide-y divide-line">
               {members.content.map((member) => (
                 <MemberRow
@@ -196,14 +221,19 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                 />
               ))}
               {members.totalElements === 0 ? (
-                <li className="py-3 text-sm text-ink-muted">No one yet.</li>
+                <li className="py-3 text-sm text-ink-muted">
+                  {query ? `Nobody here matches "${query}".` : "No one yet."}
+                </li>
               ) : null}
             </ul>
 
             {/* Only its own parameter moves, so the tenant cards below stay
                 where they are while somebody walks the membership list. */}
             <Pager
-              href={(next) => `/organizations/${slug}?members=${next}`}
+              href={(next) =>
+                `/organizations/${slug}?members=${next}` +
+                (query ? `&memberq=${encodeURIComponent(query)}` : "")
+              }
               page={members.page}
               size={members.size}
               totalElements={members.totalElements}

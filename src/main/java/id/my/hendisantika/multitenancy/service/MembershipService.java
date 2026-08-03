@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -75,13 +76,35 @@ public class MembershipService {
      * handful of people — and an endpoint that returns all of it is one nobody
      * can withdraw later, which is why the tenant's own lists are paged too.
      *
-     * @param page zero based
-     * @param size clamped, so a client cannot ask for the lot in one go
+     * @param query matched against the address and the role; null or blank
+     *              means everybody
+     * @param page  zero based
+     * @param size  clamped, so a client cannot ask for the lot in one go
      */
     @Transactional(value = "centralTransactionManager", readOnly = true)
-    public Page<UserTenant> membersOf(String tenantSlug, Integer page, Integer size) {
-        return userTenantRepository.findAllByTenantSlug(
-                tenantSlug, TenantListing.pageRequest(page, size));
+    public Page<UserTenant> membersOf(String tenantSlug, String query, Integer page, Integer size) {
+        String term = TenantListing.searchTerm(query);
+        return userTenantRepository.search(
+                tenantSlug,
+                // Blank means everybody, not nobody.
+                term == null ? TenantListing.MATCH_EVERYTHING : term,
+                rolesMatching(query),
+                TenantListing.pageRequest(page, size));
+    }
+
+    /**
+     * The roles somebody searching would have meant. Resolved here rather than
+     * in the query, which would mean casting an enum to text, and matched on
+     * the name because that is what a role is called on screen.
+     */
+    private static List<TenantRole> rolesMatching(String query) {
+        if (query == null || query.isBlank()) {
+            return List.of();
+        }
+        String needle = query.strip().toLowerCase(Locale.ROOT);
+        return Arrays.stream(TenantRole.values())
+                .filter(role -> role.name().toLowerCase(Locale.ROOT).contains(needle))
+                .toList();
     }
 
     /**

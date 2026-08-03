@@ -86,6 +86,11 @@ Invitation rows link the same way, to a screen that adds who sent it, whether th
 sits on that screen too, which is why `revokeInvitation` revalidates the detail path as well as the organization:
 withdrawing from a page that then still reads PENDING is worse than not offering the button.
 
+The People card pages through `?members=`, its own parameter, because the organization page carries several lists and
+they have to move independently — walking the memberships must not reset the tenant cards below. The dashboard now
+asks for only the five faces it draws and takes the count from `totalElements`; it used to fetch every member of every
+organization to show five of them.
+
 The membership rows link to `/organizations/[slug]/members/[id]` — the account behind the row, with the phone number
 somebody would actually ring and since when they have had access. Rows with no account yet (an invitation that has
 not been accepted) are not links, because there is nothing to open.

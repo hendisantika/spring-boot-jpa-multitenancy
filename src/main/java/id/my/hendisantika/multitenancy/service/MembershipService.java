@@ -11,12 +11,14 @@ import id.my.hendisantika.multitenancy.repository.central.UserTenantRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * The owner adding people to their organization.
@@ -68,9 +70,26 @@ public class MembershipService {
         return saved;
     }
 
+    /**
+     * A page of them. A membership list only grows — a hospital group is not a
+     * handful of people — and an endpoint that returns all of it is one nobody
+     * can withdraw later, which is why the tenant's own lists are paged too.
+     *
+     * @param page zero based
+     * @param size clamped, so a client cannot ask for the lot in one go
+     */
     @Transactional(value = "centralTransactionManager", readOnly = true)
-    public List<UserTenant> membersOf(String tenantSlug) {
-        return userTenantRepository.findAllByTenantSlug(tenantSlug);
+    public Page<UserTenant> membersOf(String tenantSlug, Integer page, Integer size) {
+        return userTenantRepository.findAllByTenantSlug(
+                tenantSlug, TenantListing.pageRequest(page, size));
+    }
+
+    /**
+     * One membership, by the pair that identifies it.
+     */
+    @Transactional(value = "centralTransactionManager", readOnly = true)
+    public Optional<UserTenant> memberOf(String tenantSlug, Long accountId) {
+        return userTenantRepository.findByTenantSlugAndAccountId(tenantSlug, accountId);
     }
 
     /**

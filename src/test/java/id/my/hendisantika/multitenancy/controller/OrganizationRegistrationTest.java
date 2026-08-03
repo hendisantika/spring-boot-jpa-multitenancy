@@ -100,7 +100,9 @@ class OrganizationRegistrationTest {
         invitationRepository.deleteAll(invitationRepository.findAllByTenantSlug(SLUG));
         tenantRegistrationRepository.findBySlug(SLUG)
                 .ifPresent(tenant -> tenantProvisioningService.deprovision(SLUG));
-        List.of(OWNER_EMAIL, MEMBER_EMAIL, "nobody.here@example.test").forEach(email ->
+        List.of(OWNER_EMAIL, MEMBER_EMAIL, "nobody.here@example.test",
+                        "org.paged1@example.test", "org.paged2@example.test", "org.paged3@example.test")
+                .forEach(email ->
                 accountRepository.findByEmailIgnoreCase(email).ifPresent(account -> {
                     userTenantRepository.deleteAll(userTenantRepository.findAllByAccountId(account.getId()));
                     accountRepository.delete(account);
@@ -254,10 +256,85 @@ class OrganizationRegistrationTest {
         mvc().perform(get("/api/organizations/" + SLUG + "/users")
                         .header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.email == '" + OWNER_EMAIL + "')].photoUrl")
+                .andExpect(jsonPath("$.content[?(@.email == '" + OWNER_EMAIL + "')].photoUrl")
                         .value("https://cdn.example.test/accounts/probe.png"))
-                .andExpect(jsonPath("$[?(@.email == '" + MEMBER_EMAIL + "')].photoUrl")
+                .andExpect(jsonPath("$.content[?(@.email == '" + MEMBER_EMAIL + "')].photoUrl")
                         .value(org.hamcrest.Matchers.contains(org.hamcrest.Matchers.nullValue())));
+    }
+
+    /**
+     * A membership list only grows, so it is handed over a page at a time like
+     * the tenant's own lists. The count is the whole of it, not the slice.
+     */
+    @Test
+    void theMembershipListIsPagedAndClamped() throws Exception {
+        String ownerToken = registerOrganization(signUp(OWNER_EMAIL));
+        for (int i = 1; i <= 3; i++) {
+            mvc().perform(post("/api/organizations/" + SLUG + "/users")
+                            .header("Authorization", "Bearer " + ownerToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new OrganizationRegistrationController.AddMemberRequest(
+                                            "org.paged" + i + "@example.test", "+62 813 0000 111" + i,
+                                            PASSWORD, TenantRole.MEMBER))))
+                    .andExpect(status().isCreated());
+        }
+
+        // Four in all: the owner plus the three just added.
+        mvc().perform(get("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("page", "0").param("size", "3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(3))
+                .andExpect(jsonPath("$.totalElements").value(4))
+                .andExpect(jsonPath("$.totalPages").value(2));
+
+        mvc().perform(get("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("page", "1").param("size", "3"))
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.page").value(1));
+
+        // The same clamping the tenant lists use, so nobody can ask for the lot.
+        mvc().perform(get("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("size", "100000"))
+                .andExpect(jsonPath("$.size").value(200));
+        mvc().perform(get("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("size", "0").param("page", "-3"))
+                .andExpect(jsonPath("$.size").value(1))
+                .andExpect(jsonPath("$.page").value(0));
+    }
+
+    /**
+     * Reading one membership must not be limited to whoever landed on the first
+     * page, which is what filtering the list used to do.
+     */
+    @Test
+    void aMembershipIsFoundEvenWhenItIsNotOnTheFirstPage() throws Exception {
+        String ownerToken = registerOrganization(signUp(OWNER_EMAIL));
+        String body = mvc().perform(post("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new OrganizationRegistrationController.AddMemberRequest(
+                                        MEMBER_EMAIL, "+62 813 0000 1111", PASSWORD, TenantRole.MEMBER))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        long lastAccountId = objectMapper.readTree(body).get("accountId").asLong();
+
+        // It is the second of two, so a one-per-page list would not reach it.
+        mvc().perform(get("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("size", "1"))
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].email").value(OWNER_EMAIL));
+
+        mvc().perform(get("/api/organizations/" + SLUG + "/users/" + lastAccountId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(MEMBER_EMAIL));
     }
 
     @Test

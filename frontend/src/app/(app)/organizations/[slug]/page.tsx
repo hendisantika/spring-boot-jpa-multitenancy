@@ -22,13 +22,24 @@ import {
 } from "@/lib/types";
 import { Alert, Badge, Card, PageHeading } from "@/components/ui";
 import { Avatar } from "@/components/Avatar";
+import { Pager } from "@/components/Pager";
+import { firstValue } from "@/lib/listing";
 
 /** Enough to recognise the tenant's data without becoming a second list. */
 const PREVIEW = 5;
 
+/**
+ * Smaller than the tenant lists: this card shares a column with the photo and
+ * invite panels, and a page of twenty would push them off the screen.
+ */
+const MEMBERS_PER_PAGE = 8;
+
 export default async function OrganizationPage({ params, searchParams }: PageProps<"/organizations/[slug]">) {
   const { slug } = await params;
-  const { fresh } = await searchParams;
+  const { fresh, members: membersPage } = await searchParams;
+  // Its own parameter, because this page carries more than one list and they
+  // page independently.
+  const page = Math.max(0, Number(firstValue(membersPage)) || 0);
 
   const role = await getRole(slug);
 
@@ -44,14 +55,14 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
   }
 
   let organization: Organization | null = null;
-  let members: Member[] = [];
+  let members: PageOf<Member> = { content: [], page: 0, size: MEMBERS_PER_PAGE, totalElements: 0, totalPages: 0 };
   let invitations: Invitation[] = [];
   let error: string | null = null;
 
   try {
     [organization, members] = await Promise.all([
       api<Organization>(`/api/organizations/${slug}`),
-      api<Member[]>(`/api/organizations/${slug}/users`),
+      api<PageOf<Member>>(`/api/organizations/${slug}/users?page=${page}&size=${MEMBERS_PER_PAGE}`),
     ]);
     // Owner only, so a member's page does not 403 on a panel they never see.
     if (role === "OWNER") {
@@ -163,7 +174,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
             <div className="mb-4">
               <div className="flex items-center justify-between">
                 <h2 className="font-semibold text-ink">People</h2>
-                <span className="text-sm text-ink-muted">{members.length}</span>
+                <span className="text-sm text-ink-muted">{members.totalElements}</span>
               </div>
               {/* Only for a member, and where the missing buttons would have
                   been rather than in a card of its own: a restriction is worth
@@ -176,7 +187,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
             </div>
 
             <ul className="divide-y divide-line">
-              {members.map((member) => (
+              {members.content.map((member) => (
                 <MemberRow
                   key={`${member.accountId}-${member.email}`}
                   member={member}
@@ -184,10 +195,20 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                   canRemove={role === "OWNER"}
                 />
               ))}
-              {members.length === 0 ? (
+              {members.totalElements === 0 ? (
                 <li className="py-3 text-sm text-ink-muted">No one yet.</li>
               ) : null}
             </ul>
+
+            {/* Only its own parameter moves, so the tenant cards below stay
+                where they are while somebody walks the membership list. */}
+            <Pager
+              href={(next) => `/organizations/${slug}?members=${next}`}
+              page={members.page}
+              size={members.size}
+              totalElements={members.totalElements}
+              totalPages={members.totalPages}
+            />
           </Card>
 
           {role === "OWNER" ? (

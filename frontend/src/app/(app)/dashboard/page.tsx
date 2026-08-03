@@ -8,6 +8,7 @@ import {
   PRACTICE_SPECIALITIES,
   labelOf,
   type Account,
+  type Member,
   type Organization,
 } from "@/lib/types";
 import { VerifyEmailBanner } from "./VerifyEmailBanner";
@@ -32,6 +33,19 @@ export default async function DashboardPage() {
     error = e instanceof ApiError ? e.message : "Cannot reach the API.";
   }
   const memberships = await getMemberships();
+
+  // One call per organization. A dashboard lists the handful somebody belongs
+  // to, not a directory, and they go out together — but each catches its own
+  // failure, so one unreachable membership list costs that card its faces
+  // rather than emptying the page.
+  const membersByOrganization = Object.fromEntries(
+    await Promise.all(
+      organizations.map(async (organization) => [
+        organization.slug,
+        await api<Member[]>(`/api/organizations/${organization.slug}/users`).catch(() => null),
+      ] as const),
+    ),
+  );
 
   return (
     <>
@@ -114,10 +128,41 @@ export default async function DashboardPage() {
                   <dd className="truncate font-mono text-xs text-ink">{organization.databaseName}</dd>
                 </div>
               </dl>
+
+              <People members={membersByOrganization[organization.slug]} />
             </Card>
           </Link>
         ))}
       </div>
     </>
+  );
+}
+
+/** How many faces fit on a card before the row starts running the width. */
+const FACES = 5;
+
+/**
+ * @param members null when that organization's membership list could not be
+ *                read, which says nothing about how many people are in it and
+ *                so shows nothing rather than "0 people"
+ */
+function People({ members }: { members: Member[] | null }) {
+  if (!members) return null;
+
+  return (
+    <div className="mt-4 flex items-center gap-3 border-t border-line pt-3">
+      {/* Overlapped, because these are faces rather than a list: the point is
+          who is in there at a glance, and the names are one click away. */}
+      <div className="flex -space-x-2">
+        {members.slice(0, FACES).map((member) => (
+          <span key={`${member.accountId}-${member.email}`} className="ring-2 ring-surface rounded-full">
+            <Avatar photoUrl={member.photoUrl} email={member.email} />
+          </span>
+        ))}
+      </div>
+      <span className="text-xs text-ink-muted">
+        {members.length === 1 ? "1 person" : `${members.length} people`}
+      </span>
+    </div>
   );
 }

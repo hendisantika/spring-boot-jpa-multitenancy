@@ -57,6 +57,12 @@ to the photo-only endpoint rather than through the profile form: changing a pict
 eight fields that were fine as they were, and re-submitting them is how they get overwritten. The card says so, since
 the form behind **Edit** also has a photo field and two ways to do one thing needs explaining.
 
+Each card also carries the faces of the people in that organization — up to five, overlapped, with the count beside
+them. That is one call per organization, which is affordable because a dashboard lists the handful somebody belongs
+to rather than a directory; they go out together and each catches its own failure, so one unreachable membership list
+costs that card its faces instead of emptying the page. A card whose list could not be read shows nothing rather than
+"0 people", which would be a claim.
+
 The dashboard cards already opened `/organizations/[slug]`, which is the organization's detail screen, so what was
 missing there was not a screen but the logo: it was the one listing in the app that showed no photo, on the first page
 after signing in. Square and falling back to an initial, like everywhere else — a card with a gap where a logo goes

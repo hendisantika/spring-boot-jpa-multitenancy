@@ -54,6 +54,16 @@ to the photo-only endpoint rather than through the profile form: changing a pict
 eight fields that were fine as they were, and re-submitting them is how they get overwritten. The card says so, since
 the form behind **Edit** also has a photo field and two ways to do one thing needs explaining.
 
+**What a member sees is the same screen with the controls gone**, not a different one: no Edit, no photo card, no
+invite form, no Remove beside a name. That was already true, and what was wrong was how the missing controls were
+explained — a bordered card containing one grey sentence about what you cannot do, sitting in a column of its own. On
+the units screen it left a tall empty box beside a list squeezed into 1.2 columns.
+
+A restriction is worth a line, not a panel. The sentence now sits under the People heading, where the buttons would
+have been, and only for a member: an owner has the invite form below and needs no telling. The units screen drops it
+entirely — the page description already says only the owner can change them — and goes to one column, so the list
+uses the width the form was occupying.
+
 `/organizations/[slug]` is already the detail screen for an organization, so it gained no new route — only the tile
 the other two use: the same 112px square, and the same fallback to an initial. It was showing its photo smaller than
 either of them, and with no photo at all it rendered nothing, so the heading simply slid left and the page looked like

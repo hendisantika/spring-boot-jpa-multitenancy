@@ -157,9 +157,21 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
 
         <div className="space-y-6">
           <Card className="p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-semibold text-ink">People</h2>
-              <span className="text-sm text-ink-muted">{members.length}</span>
+            {/* Heading and note together, so the gap before the list is the
+                same whether or not the note is there. */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold text-ink">People</h2>
+                <span className="text-sm text-ink-muted">{members.length}</span>
+              </div>
+              {/* Only for a member, and where the missing buttons would have
+                  been rather than in a card of its own: a restriction is worth
+                  a line, not a panel. An owner has the invite form below. */}
+              {role === "OWNER" ? null : (
+                <p className="mt-1 text-sm text-ink-muted">
+                  Only the owner of this organization can add or remove people.
+                </p>
+              )}
             </div>
 
             <ul className="divide-y divide-line">
@@ -212,13 +224,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
               </p>
               <InviteForm slug={slug} />
             </Card>
-          ) : (
-            <Card className="p-6">
-              <p className="text-sm text-ink-muted">
-                Only the owner of this organization can add or remove people.
-              </p>
-            </Card>
-          )}
+          ) : null}
         </div>
       </div>
     </>

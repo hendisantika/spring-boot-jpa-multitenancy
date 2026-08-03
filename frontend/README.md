@@ -28,7 +28,7 @@ bun run lint
 | `/signup`               | Email, phone, password and an optional photo. Signs you in straight after |
 | `/login`                | The parent login: one account, every organization it belongs to           |
 | `/dashboard`            | Only the organizations you are a member of                                |
-| `/account`              | Your own account: the photo, the phone number, and the address you sign in with |
+| `/account`              | Your own account: the photo, the phone number, the password, and the address you sign in with |
 | `/organizations/new`    | The registration form; creates the database and the subdomain             |
 | `/organizations/[slug]` | Profile, the people in it, and inviting people when you are the `OWNER`   |
 | `/organizations/[slug]/edit` | Edit the profile; owner only                                        |
@@ -53,6 +53,12 @@ mistake costs a full upload before anybody hears about it.
 
 The header avatar links to `/account`, where the photo can be changed or removed — signup could set one and nothing
 could afterwards. Saving revalidates the whole layout rather than the route, because the header on every page shows it.
+
+**Changing the password saves the token pair it answers with.** The change disowns every refresh token issued before
+it, this session's included, so an action that ignored the response would sign you out for tidying up your own
+password. The card says so before the form: other sessions go, this one stays. The three fields are cleared through a
+ref once the save succeeds rather than by re-keying the form, since there is nothing stored to key on and passwords
+should not sit in the page afterwards.
 
 The phone number sits beside them and goes straight through — nothing signs in with it and nothing is sent to it, so
 there is nothing to confirm. A refused number stays in the field rather than reverting to the stored one, so the

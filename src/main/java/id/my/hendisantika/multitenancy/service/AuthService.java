@@ -18,6 +18,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 
@@ -115,6 +116,42 @@ public class AuthService {
                 .orElseThrow(() -> new AuthenticationFailedException("The account no longer exists"));
         managed.setPhoneNumber(phoneNumber.trim());
         return managed;
+    }
+
+    /**
+     * Changes the password from inside a session, which the reset link could
+     * only do from outside one.
+     * <p>
+     * Stamping {@code passwordChangedAt} disowns every refresh token handed out
+     * before now, which is the point — a password is changed because somebody
+     * else may hold one. That includes the session doing the changing, so the
+     * caller is handed a fresh pair rather than being signed out for tidying up.
+     */
+    @Transactional("centralTransactionManager")
+    public Account changePassword(Account account, String currentPassword, String newPassword) {
+        Account managed = accountRepository.findById(account.getId())
+                .orElseThrow(() -> new AuthenticationFailedException("The account no longer exists"));
+        if (!passwordEncoder.matches(currentPassword, managed.getPassword())) {
+            throw new PasswordChangeException("That is not the current password");
+        }
+        if (passwordEncoder.matches(newPassword, managed.getPassword())) {
+            throw new PasswordChangeException("That is already the password on this account");
+        }
+        managed.setPassword(passwordEncoder.encode(newPassword));
+        managed.setPasswordChangedAt(passwordChangeInstant());
+        log.info("Password changed for account {}", managed.getId());
+        return managed;
+    }
+
+    /**
+     * Truncated to the second, because a JWT carries {@code iat} in whole
+     * seconds. A finer stamp is later than the issue time of a token minted in
+     * the same second, so the pair handed back by a password change would be
+     * refused by the very check it just set — and a login landing in the same
+     * second as a reset would be too.
+     */
+    private static Instant passwordChangeInstant() {
+        return Instant.now().truncatedTo(ChronoUnit.SECONDS);
     }
 
     /**

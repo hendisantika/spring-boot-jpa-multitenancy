@@ -60,6 +60,21 @@ export async function getRole(slug: string): Promise<TenantRole | null> {
   return (await getMemberships())[slug] ?? null;
 }
 
+/**
+ * The email an access token was minted for. Neither refreshing nor changing a
+ * password carries one in its response, and the cookie may be a fortnight stale
+ * now that the address can change, so the token is the thing to read.
+ */
+export function emailFromAccessToken(accessToken: string): string {
+  try {
+    const payload = accessToken.split(".")[1];
+    const claims = JSON.parse(Buffer.from(payload, "base64url").toString()) as { email?: string };
+    return claims.email ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export async function isSignedIn(): Promise<boolean> {
   return (await getAccessToken()) !== null;
 }

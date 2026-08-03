@@ -173,6 +173,22 @@ public class AuthController {
     }
 
     /**
+     * Changes the password from inside a session, which the reset link could
+     * only do from outside one.
+     * <p>
+     * Answers with a fresh pair rather than nothing: stamping the change disowns
+     * every refresh token issued before it, which is the point, but that would
+     * otherwise include the session doing the changing.
+     */
+    @PutMapping("/me/password")
+    public TokenPair changeMyPassword(@AuthenticationPrincipal Jwt jwt,
+                                      @Valid @RequestBody PasswordChangeRequest request) {
+        Account account = authService.accountOf(jwt.getSubject());
+        return tokensFor(authService.changePassword(
+                account, request.currentPassword(), request.newPassword()));
+    }
+
+    /**
      * Asks to move the account to a different address.
      * <p>
      * Nothing changes here: the address is only recorded, and the account keeps
@@ -257,6 +273,12 @@ public class AuthController {
      */
     public record AccountView(Long id, String email, String phoneNumber, String photoUrl, String status,
                               boolean emailVerified, String pendingEmail) {
+    }
+
+    public record PasswordChangeRequest(
+            @NotBlank String currentPassword,
+            @NotBlank @Size(min = 8, max = 100, message = "must be at least 8 characters") String newPassword
+    ) {
     }
 
     public record PhoneNumberRequest(

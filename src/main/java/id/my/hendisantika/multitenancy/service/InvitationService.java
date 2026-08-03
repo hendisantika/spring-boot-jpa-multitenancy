@@ -137,23 +137,28 @@ public class InvitationService {
      *                 of them
      * @param statuses narrows to these, and several of them mean either — empty
      *                 means every state
+     * @param roles    narrows the same way, and is AND'd with the states: owners
+     *                 who are still pending means both
      * @param page  zero based
      * @param size  clamped, so a client cannot ask for the lot in one go
      */
     @Transactional(value = "centralTransactionManager", readOnly = true)
     public Page<Invitation> invitationsOf(String tenantSlug, String query, Collection<String> statuses,
-                                          Integer page, Integer size) {
+                                          Collection<String> roles, Integer page, Integer size) {
         String term = TenantListing.searchTerm(query);
-        // Nothing asked for is no filter; something asked for that maps to no
-        // status is a filter matching nothing, which is what asking for a state
-        // that does not exist should give you.
+        // Nothing asked for is no filter; something asked for that maps to
+        // nothing is a filter matching nothing, which is what asking for a
+        // state or a role that does not exist should give you.
         boolean anyStatus = statuses == null || statuses.isEmpty();
+        boolean anyRole = roles == null || roles.isEmpty();
         return invitationRepository.search(
                 tenantSlug,
                 term == null ? TenantListing.MATCH_EVERYTHING : term,
-                rolesMatching(query),
+                TenantRole.matching(query),
                 anyStatus,
                 anyStatus ? List.of() : parseStatuses(statuses),
+                anyRole,
+                anyRole ? List.of() : TenantRole.parseAll(roles),
                 TenantListing.pageRequest(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
     }
 
@@ -168,20 +173,6 @@ public class InvitationService {
                 .distinct()
                 .flatMap(value -> Arrays.stream(InvitationStatus.values())
                         .filter(status -> status.name().equals(value)))
-                .toList();
-    }
-
-    /**
-     * The roles somebody searching would have meant, matched on the name
-     * because that is what a role is called on screen.
-     */
-    private static List<TenantRole> rolesMatching(String query) {
-        if (query == null || query.isBlank()) {
-            return List.of();
-        }
-        String needle = query.strip().toLowerCase(Locale.ROOT);
-        return Arrays.stream(TenantRole.values())
-                .filter(role -> role.name().toLowerCase(Locale.ROOT).contains(needle))
                 .toList();
     }
 

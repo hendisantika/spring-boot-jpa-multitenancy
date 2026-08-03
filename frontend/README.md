@@ -82,8 +82,8 @@ The invitations card is no longer headed **Pending**: the filter decides which s
 that contradicts the filter is worse than a longer one. Each row carries its state, EXPIRED where a pending one is
 past its date, and Revoke appears only on the ones that can still be withdrawn.
 
-It searches through `?inviteq=`, filters through `?invitestatus=` and pages through `?invites=`, again its own
-parameters. The card
+It searches through `?inviteq=`, filters through `?invitestatus=` and `?inviterole=`, and pages through `?invites=`,
+again its own parameters. Both filter sets belong to the search form, so one Apply carries the lot. The card
 stays on screen while a search is running even when it matches nothing — otherwise the box that emptied it would
 disappear with the rows, and there would be no way to clear it.
 

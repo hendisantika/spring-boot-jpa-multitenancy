@@ -37,9 +37,9 @@ public interface InvitationRepository extends JpaRepository<Invitation, Long> {
      * to the states they asked for. A search widens, so the address and the
      * role are an OR; the status is a filter, so it is AND'd with them.
      * <p>
-     * The roles and the statuses arrive already resolved, for the reason the
-     * membership search resolves its own: matching an enum as text in HQL means
-     * casting it.
+     * {@code roles} and {@code roleIn} are different things: the first widens
+     * the search, the second narrows it as a filter. Both arrive resolved,
+     * because matching an enum as text in HQL means casting it.
      */
     @Query("""
             select i from Invitation i
@@ -47,12 +47,15 @@ public interface InvitationRepository extends JpaRepository<Invitation, Long> {
               and (lower(i.email) like :term escape '\\'
                 or i.role in :roles)
               and (:anyStatus = true or i.status in :statusIn)
+              and (:anyRole = true or i.role in :roleIn)
             """)
     Page<Invitation> search(@Param("tenantSlug") String tenantSlug,
                             @Param("term") String term,
                             @Param("roles") Collection<TenantRole> roles,
                             @Param("anyStatus") boolean anyStatus,
                             @Param("statusIn") Collection<InvitationStatus> statusIn,
+                            @Param("anyRole") boolean anyRole,
+                            @Param("roleIn") Collection<TenantRole> roleIn,
                             Pageable pageable);
 
     Optional<Invitation> findFirstByTenantSlugAndEmailIgnoreCaseAndStatus(

@@ -266,6 +266,8 @@ public class OrganizationRegistrationController {
      * @param q      matched against the address and the role
      * @param status narrows to these; repeat it and it means either, while
      *               still narrowing whatever {@code q} asked for
+     * @param role   narrows the same way, and is AND'd with the states: owners
+     *               still pending means both, not either
      * @param page   zero based
      * @param size   clamped, so a client cannot ask for the lot in one go
      */
@@ -274,11 +276,12 @@ public class OrganizationRegistrationController {
             @PathVariable String slug,
             @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "status", required = false) List<String> status,
+            @RequestParam(name = "role", required = false) List<String> role,
             @RequestParam(name = "page", required = false) Integer page,
             @RequestParam(name = "size", required = false) Integer size) {
         tenantSecurity.requireOwner(slug);
         return PageResponse.of(
-                invitationService.invitationsOf(slug, q, status, page, size).map(this::summaryOf));
+                invitationService.invitationsOf(slug, q, status, role, page, size).map(this::summaryOf));
     }
 
     /**

@@ -96,41 +96,12 @@ public class MembershipService {
                 tenantSlug,
                 // Blank means everybody, not nobody.
                 term == null ? TenantListing.MATCH_EVERYTHING : term,
-                rolesMatching(query),
+                TenantRole.matching(query),
                 anyRole,
-                anyRole ? List.of() : parseRoles(roles),
+                anyRole ? List.of() : TenantRole.parseAll(roles),
                 TenantListing.pageRequest(page, size));
     }
 
-    /**
-     * @return the roles among what was asked for, dropping anything that is not
-     * one. An unknown role narrows to nothing rather than being ignored: a
-     * filter nobody can satisfy is a filter, not an oversight.
-     */
-    private static List<TenantRole> parseRoles(Collection<String> roles) {
-        return roles.stream()
-                .filter(value -> value != null && !value.isBlank())
-                .map(value -> value.strip().toUpperCase(Locale.ROOT))
-                .distinct()
-                .flatMap(value -> Arrays.stream(TenantRole.values())
-                        .filter(role -> role.name().equals(value)))
-                .toList();
-    }
-
-    /**
-     * The roles somebody searching would have meant. Resolved here rather than
-     * in the query, which would mean casting an enum to text, and matched on
-     * the name because that is what a role is called on screen.
-     */
-    private static List<TenantRole> rolesMatching(String query) {
-        if (query == null || query.isBlank()) {
-            return List.of();
-        }
-        String needle = query.strip().toLowerCase(Locale.ROOT);
-        return Arrays.stream(TenantRole.values())
-                .filter(role -> role.name().toLowerCase(Locale.ROOT).contains(needle))
-                .toList();
-    }
 
     /**
      * One membership, by the pair that identifies it.

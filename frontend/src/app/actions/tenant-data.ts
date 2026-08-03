@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { ApiError, api } from "@/lib/api";
+import { ApiError, api, jsonPart } from "@/lib/api";
 import type { FormState } from "@/lib/types";
 
 /**
@@ -52,12 +52,23 @@ export async function savePerson(_prev: FormState, formData: FormData): Promise<
   const slug = String(formData.get("slug") ?? "");
   const id = String(formData.get("id") ?? "");
   const values = personFrom(formData);
+  const photo = formData.get("photo");
+
+  // Multipart so the photo arrives with the record rather than in a second
+  // call: there is then no window where the person exists without it, and
+  // nothing to unpick when only one of the two succeeds. Omitting the part on
+  // an edit keeps the current photo, which is what the API expects.
+  const payload = new FormData();
+  payload.append("person", jsonPart(values), "person.json");
+  if (photo instanceof File && photo.size > 0) {
+    payload.append("photo", photo, photo.name);
+  }
 
   try {
     if (id) {
-      await api(`/person/${id}`, { method: "PUT", json: values, tenant: slug });
+      await api(`/person/${id}`, { method: "PUT", body: payload, tenant: slug });
     } else {
-      await api("/person", { method: "POST", json: values, tenant: slug });
+      await api("/person", { method: "POST", body: payload, tenant: slug });
     }
   } catch (error) {
     return { error: messageOf(error), values: Object.fromEntries(

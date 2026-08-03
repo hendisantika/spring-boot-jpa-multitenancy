@@ -29,6 +29,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
@@ -120,26 +121,54 @@ public class InvitationService {
     }
 
     /**
-     * A page of the pending ones, narrowed to what somebody typed.
+     * A page of them, narrowed to what somebody typed and to the states asked
+     * for.
+     * <p>
+     * No state is assumed. This used to answer the pending ones and nothing
+     * else, which cannot survive a status filter: narrowing PENDING by
+     * ACCEPTED would always be empty, and a filter that can only ever return
+     * nothing is a filter that lies. The screen asks for what it wants to show.
      * <p>
      * Newest first, which is why it does not take the default order: an
      * invitation list is read from the top, and paging it by id would have
      * turned that into oldest first without anybody asking.
      *
-     * @param query matched against the address and the role; blank means all of
-     *              them
+     * @param query    matched against the address and the role; blank means all
+     *                 of them
+     * @param statuses narrows to these, and several of them mean either — empty
+     *                 means every state
      * @param page  zero based
      * @param size  clamped, so a client cannot ask for the lot in one go
      */
     @Transactional(value = "centralTransactionManager", readOnly = true)
-    public Page<Invitation> pendingFor(String tenantSlug, String query, Integer page, Integer size) {
+    public Page<Invitation> invitationsOf(String tenantSlug, String query, Collection<String> statuses,
+                                          Integer page, Integer size) {
         String term = TenantListing.searchTerm(query);
+        // Nothing asked for is no filter; something asked for that maps to no
+        // status is a filter matching nothing, which is what asking for a state
+        // that does not exist should give you.
+        boolean anyStatus = statuses == null || statuses.isEmpty();
         return invitationRepository.search(
                 tenantSlug,
-                InvitationStatus.PENDING,
                 term == null ? TenantListing.MATCH_EVERYTHING : term,
                 rolesMatching(query),
+                anyStatus,
+                anyStatus ? List.of() : parseStatuses(statuses),
                 TenantListing.pageRequest(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
+    }
+
+    /**
+     * @return the states among what was asked for, dropping anything that is
+     * not one. An unknown state narrows to nothing rather than being ignored.
+     */
+    private static List<InvitationStatus> parseStatuses(Collection<String> statuses) {
+        return statuses.stream()
+                .filter(value -> value != null && !value.isBlank())
+                .map(value -> value.strip().toUpperCase(Locale.ROOT))
+                .distinct()
+                .flatMap(value -> Arrays.stream(InvitationStatus.values())
+                        .filter(status -> status.name().equals(value)))
+                .toList();
     }
 
     /**

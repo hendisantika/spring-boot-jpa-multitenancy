@@ -23,6 +23,13 @@ export function InvitationRow({ invitation, slug }: { invitation: Invitation; sl
       </Link>
       <div className="flex shrink-0 items-center gap-2">
         <Badge tone={invitation.role === "OWNER" ? "brand" : "muted"}>{invitation.role}</Badge>
+        {/* The list is no longer pending-only, so a row has to say for itself.
+            Expired is not a status: nothing sweeps them, so one past its date
+            is still PENDING while being useless to whoever holds the link. */}
+        <Badge tone={invitation.status === "PENDING" && !invitation.expired ? "brand" : "muted"}>
+          {invitation.expired && invitation.status === "PENDING" ? "EXPIRED" : invitation.status}
+        </Badge>
+        {invitation.status === "PENDING" ? (
         <form action={revokeInvitation}>
           <input type="hidden" name="slug" value={slug} />
           <input type="hidden" name="invitationId" value={invitation.id} />
@@ -33,6 +40,7 @@ export function InvitationRow({ invitation, slug }: { invitation: Invitation; sl
             Revoke
           </button>
         </form>
+        ) : null}
       </div>
     </li>
   );

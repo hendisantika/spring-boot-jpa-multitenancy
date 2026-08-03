@@ -549,7 +549,8 @@ class OrganizationRegistrationTest {
                         .header("Authorization", "Bearer " + ownerToken).param("q", "memb"))
                 .andExpect(jsonPath("$.totalElements").value(3));
 
-        // Withdrawing one takes it out of the count, since the page is pending only.
+        // Withdrawing one leaves it in the list — every state is shown now —
+        // but takes it out of the pending ones.
         String pending = mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
                         .header("Authorization", "Bearer " + ownerToken))
                 .andReturn().getResponse().getContentAsString();
@@ -559,11 +560,77 @@ class OrganizationRegistrationTest {
                 .andExpect(status().isNoContent());
         mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
                         .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.totalElements").value(3));
+        mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken).param("status", "PENDING"))
                 .andExpect(jsonPath("$.totalElements").value(2));
 
         // And a wildcard is what somebody typed, not syntax.
         mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
                         .header("Authorization", "Bearer " + ownerToken).param("q", "%"))
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    /**
+     * The state is a filter, so it narrows what the search widened, and several
+     * states mean either of them. Nothing asked for is every state — which is
+     * the change this filter forced: the list answered the pending ones and
+     * nothing else, and narrowing that by ACCEPTED could only ever be empty.
+     */
+    @Test
+    void theInvitationListCanBeFilteredByState() throws Exception {
+        String ownerToken = registerOrganization(signUp(OWNER_EMAIL));
+        for (String email : List.of("first@example.test", "second@example.test")) {
+            mvc().perform(post("/api/organizations/" + SLUG + "/invitations")
+                            .header("Authorization", "Bearer " + ownerToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"email\":\"" + email + "\",\"role\":\"MEMBER\"}"))
+                    .andExpect(status().isCreated());
+        }
+        String body = mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andReturn().getResponse().getContentAsString();
+        // Newest first, so this is whichever was invited last — read rather
+        // than assumed, because assuming it was "first" is how this test failed
+        // against correct code the first time.
+        var newest = objectMapper.readTree(body).get("content").get(0);
+        long withdrawnId = newest.get("id").asLong();
+        String withdrawnEmail = newest.get("email").asString();
+        String stillPending = withdrawnEmail.equals("first@example.test")
+                ? "second@example.test" : "first@example.test";
+        mvc().perform(delete("/api/organizations/" + SLUG + "/invitations/" + withdrawnId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isNoContent());
+
+        // Every state by default, which is what makes the filter mean anything.
+        mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken).param("status", "REVOKED"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].status").value("REVOKED"));
+
+        mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("status", "PENDING").param("status", "REVOKED"))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        // Narrowing what the search widened: the one still pending is not
+        // among the withdrawn, however loudly the search matches it.
+        mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("q", stillPending).param("status", "REVOKED"))
+                .andExpect(jsonPath("$.totalElements").value(0));
+        mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("q", withdrawnEmail).param("status", "REVOKED"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        // A state nobody is in narrows to nothing rather than being ignored.
+        mvc().perform(get("/api/organizations/" + SLUG + "/invitations")
+                        .header("Authorization", "Bearer " + ownerToken).param("status", "LOST"))
                 .andExpect(jsonPath("$.totalElements").value(0));
     }
 

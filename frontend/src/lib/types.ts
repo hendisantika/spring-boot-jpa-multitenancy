@@ -91,11 +91,16 @@ export function labelOf(
   return options.find((option) => option.value === value)?.label ?? value;
 }
 
+export type InvitationState = "PENDING" | "ACCEPTED" | "REVOKED";
+
 export type Invitation = {
   id: number;
   email: string;
   role: TenantRole;
   expiresAt: string;
+  status: InvitationState;
+  /** PENDING but past its date. Nothing sweeps them, so the status alone lies. */
+  expired: boolean;
   /**
    * Whether accepting grants an account that already exists or makes one. No
    * photo goes with it: an invited address may belong to somebody who is not a
@@ -111,9 +116,6 @@ export type CreatedInvitation = Invitation & { emailed: boolean; acceptUrl: stri
  * exists in the recipient's mailbox and nowhere else.
  */
 export type InvitationDetail = Invitation & {
-  status: "PENDING" | "ACCEPTED" | "REVOKED";
-  /** PENDING but past its date. Nothing sweeps them, so the status alone lies. */
-  expired: boolean;
   invitedBy: string | null;
   createdAt: string;
   acceptedAt: string | null;

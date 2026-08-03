@@ -46,6 +46,7 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
     memberrole,
     invites: invitesPage,
     inviteq,
+    invitestatus,
   } = await searchParams;
   // Their own parameters, because this page carries more than one list and they
   // move independently.
@@ -58,6 +59,9 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
   );
   const invitePage = Math.max(0, Number(firstValue(invitesPage)) || 0);
   const inviteQuery = (firstValue(inviteq) ?? "").trim();
+  const inviteStates = (
+    Array.isArray(invitestatus) ? invitestatus : invitestatus ? [invitestatus] : []
+  ).filter((value): value is string => typeof value === "string" && value.length > 0);
 
   const role = await getRole(slug);
 
@@ -92,7 +96,8 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
     if (role === "OWNER") {
       invitations = await api<PageOf<Invitation>>(
         `/api/organizations/${slug}/invitations?page=${invitePage}&size=${INVITES_PER_PAGE}` +
-          (inviteQuery ? `&q=${encodeURIComponent(inviteQuery)}` : ""),
+          (inviteQuery ? `&q=${encodeURIComponent(inviteQuery)}` : "") +
+          inviteStates.map((value) => `&status=${encodeURIComponent(value)}`).join(""),
       );
     }
   } catch (e) {
@@ -299,14 +304,16 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
 
           {/* Shown while a search is on even when it matches nothing, or there
               would be no way to clear the box that emptied the card. */}
-          {role === "OWNER" && (invitations.totalElements > 0 || inviteQuery) ? (
+          {role === "OWNER" && (invitations.totalElements > 0 || inviteQuery || inviteStates.length > 0) ? (
             <Card className="p-6">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="font-semibold text-ink">Pending invitations</h2>
+                {/* Not "Pending" any more: the filter decides which states are
+                    on screen, and the heading must not contradict it. */}
+                <h2 className="font-semibold text-ink">Invitations</h2>
                 <span className="text-sm text-ink-muted">{invitations.totalElements}</span>
               </div>
 
-              <form action={`/organizations/${slug}`} className="mb-4 flex gap-2">
+              <form id="invite-search" action={`/organizations/${slug}`} className="mb-4 flex gap-2">
                 <input
                   type="search"
                   name="inviteq"
@@ -323,6 +330,31 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
                 </button>
               </form>
 
+              {/* Part of the search form, so one Apply carries both. Ticking
+                  none is every state, which is what the list shows by default. */}
+              <fieldset className="mb-4 flex flex-wrap items-center gap-4">
+                <legend className="sr-only">Filter by state</legend>
+                {(
+                  [
+                    ["PENDING", "Pending"],
+                    ["ACCEPTED", "Accepted"],
+                    ["REVOKED", "Withdrawn"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <label key={value} className="flex items-center gap-2 text-sm text-ink-muted">
+                    <input
+                      type="checkbox"
+                      name="invitestatus"
+                      value={value}
+                      form="invite-search"
+                      defaultChecked={inviteStates.includes(value)}
+                      className="size-4 rounded border-line"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </fieldset>
+
               <ul className="divide-y divide-line">
                 {invitations.content.map((invitation) => (
                   <InvitationRow key={invitation.id} invitation={invitation} slug={slug} />
@@ -335,7 +367,8 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
               <Pager
                 href={(next) =>
                   `/organizations/${slug}?invites=${next}` +
-                  (inviteQuery ? `&inviteq=${encodeURIComponent(inviteQuery)}` : "")
+                  (inviteQuery ? `&inviteq=${encodeURIComponent(inviteQuery)}` : "") +
+                  inviteStates.map((value) => `&invitestatus=${encodeURIComponent(value)}`).join("")
                 }
                 page={invitations.page}
                 size={invitations.size}

@@ -426,6 +426,18 @@ Without that it lands microseconds *after* the pair minted beside it, and the ve
 login landing in the same second as a reset had the same problem. The cost is that a session opened in the same second
 as the change survives it, which is as fine-grained as a second-precision claim can be.
 
+**It answers every state, not just the pending ones.** That is a change, and the status filter forced it: the
+endpoint used to return `PENDING` and nothing else, so narrowing it by `ACCEPTED` could only ever be empty — a filter
+that can only return nothing is a filter that lies. Callers wanting the pending ones ask for them with
+`?status=PENDING`, which is what the screen does when somebody ticks that box.
+
+`?status=` is repeatable and narrows like every other filter: `?status=PENDING&status=REVOKED` means either of them,
+AND'd with whatever `?q=` widened. A state nobody is in narrows to nothing rather than being ignored.
+
+`expired` is not among them, because it is not a status: nothing sweeps invitations, so one past its date is still
+`PENDING` in the database. Each row carries the flag so a screen can say so, and the badge reads EXPIRED while the
+filter still calls it pending.
+
 **The invitation list is paged and searchable** on the same terms as the membership list: `?page=`, `?size=` clamped
 to 200, and `?q=` matching the address or the role, so "own" finds the ones inviting somebody as OWNER.
 
@@ -582,7 +594,7 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `GET`  | `/api/organizations/{slug}/users` | member | A **page** of its memberships; `?q=` searches, `?role=` filters |
 | `GET`  | `/api/organizations/{slug}/users/{accountId}` | member | One membership, whole; **404** when that account is not a member here |
 | `POST` | `/api/organizations/{slug}/users` | **owner** | Add a person directly, setting their password |
-| `GET`  | `/api/organizations/{slug}/invitations` | **owner** | A **page** of pending invitations; `?q=` searches |
+| `GET`  | `/api/organizations/{slug}/invitations` | **owner** | A **page** of its invitations; `?q=` searches, `?status=` filters |
 | `GET`  | `/api/organizations/{slug}/invitations/{id}` | **owner** | One invitation, whatever became of it |
 | `POST` | `/api/organizations/{slug}/invitations` | **owner** | Invite someone; returns the accept link |
 | `DELETE` | `/api/organizations/{slug}/invitations/{id}` | **owner** | Withdraw an invitation      |

@@ -14,7 +14,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import id.my.hendisantika.multitenancy.service.storage.StorageService;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -29,6 +31,9 @@ import java.util.Map;
 
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -74,6 +79,18 @@ class PersonListingTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    /**
+     * Mocked rather than reaching MinIO: these tests are about how a photo is
+     * wired through the controller and the service, not about the bucket, and
+     * S3StorageIntegrationTest already covers the real thing.
+     * <p>
+     * They passed locally against a bucket left over from earlier work and
+     * failed in CI, which starts with none — a real dependency that had no
+     * business being here.
+     */
+    @MockitoBean
+    private StorageService storageService;
 
     private MockMvc mockMvc;
     private String token;
@@ -625,6 +642,9 @@ class PersonListingTest {
     }
 
     private MockMultipartFile photoPart(String bytes) {
+        given(storageService.store(any(), anyString())).willReturn("persons/probe.png");
+        given(storageService.urlOf("persons/probe.png"))
+                .willReturn("https://cdn.example.test/persons/probe.png?X-Amz-Signature=abc");
         return new MockMultipartFile("photo", "me.png", MediaType.IMAGE_PNG_VALUE, bytes.getBytes());
     }
 

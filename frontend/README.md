@@ -116,6 +116,10 @@ making somebody submit twice. The dashboard now
 asks for only the five faces it draws and takes the count from `totalElements`; it used to fetch every member of every
 organization to show five of them.
 
+A membership's screen steps between memberships the same way, with one difference the other two do not have: rows
+with no account behind them are left out of the walk rather than stepped onto. An invitation can create one before
+anybody has registered, and there would be no page to land on.
+
 The membership rows link to `/organizations/[slug]/members/[id]` — the account behind the row, with the phone number
 somebody would actually ring and since when they have had access. Rows with no account yet (an invitation that has
 not been accepted) are not links, because there is nothing to open.

@@ -2,10 +2,17 @@ import Link from "next/link";
 
 import { ApiError, api } from "@/lib/api";
 import { getRole } from "@/lib/session";
-import type { MemberDetail } from "@/lib/types";
+import type { Member, MemberDetail, Page as PageOf } from "@/lib/types";
 import { Alert, Badge, Card, PageHeading } from "@/components/ui";
 
 export const metadata = { title: "Member" };
+
+/**
+ * How many memberships are looked at to work out who sits either side, as on
+ * the person and unit screens. Past this the steps are not offered rather than
+ * offered wrongly.
+ */
+const NEIGHBOURS_WINDOW = 200;
 
 /**
  * One membership, whole. The card on the organization page has room for an
@@ -54,6 +61,18 @@ export default async function MemberPage({ params }: PageProps<"/organizations/[
     );
   }
 
+  // The neighbours, in the order the membership card lists them. Rows with no
+  // account are left out rather than stepped onto: an invitation can create one
+  // before anybody has registered, and there is no page to land on.
+  const siblings = await api<PageOf<Member>>(
+    `/api/organizations/${slug}/users?size=${NEIGHBOURS_WINDOW}`,
+  )
+    .then((page) => page.content.filter((candidate) => candidate.accountId))
+    .catch(() => []);
+  const here = siblings.findIndex((candidate) => candidate.accountId === member.accountId);
+  const previous = here > 0 ? siblings[here - 1] : null;
+  const next = here >= 0 && here + 1 < siblings.length ? siblings[here + 1] : null;
+
   return (
     <>
       <Link
@@ -99,6 +118,36 @@ export default async function MemberPage({ params }: PageProps<"/organizations/[
           <Row label="Email confirmed" value={member.emailVerified ? "Yes" : "Not yet"} />
           <Row label="Joined" value={formatJoined(member.joinedAt)} />
         </dl>
+
+        {previous || next ? (
+          <nav
+            aria-label="The other members"
+            className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-4 text-sm"
+          >
+            {previous ? (
+              <Link
+                href={`/organizations/${slug}/members/${previous.accountId}`}
+                rel="prev"
+                className="min-w-0 truncate text-ink-muted transition hover:text-ink"
+              >
+                ← {previous.email}
+              </Link>
+            ) : (
+              <span />
+            )}
+            {next ? (
+              <Link
+                href={`/organizations/${slug}/members/${next.accountId}`}
+                rel="next"
+                className="min-w-0 truncate text-right text-ink-muted transition hover:text-ink"
+              >
+                {next.email} →
+              </Link>
+            ) : (
+              <span />
+            )}
+          </nav>
+        ) : null}
       </Card>
     </>
   );

@@ -38,14 +38,24 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
      * Every filter takes several values at once, so each is switched off by its
      * own flag rather than by a null. Within one the values mean either; against
      * the other filters they still mean both.
+     * <p>
+     * The unit is a record rather than a code, so it filters by id — but it
+     * searches by name, because that is what somebody types. A person with no
+     * unit is matched by neither, which is what "the people at Braga" means.
+     * <p>
+     * The join is explicitly a LEFT one. Writing {@code p.organization.name}
+     * instead makes it an inner join, which silently drops everybody who has no
+     * unit from the whole list — not just from the unit filter.
      */
     @Query("""
             select p from Person p
+            left join p.organization u
             where (lower(coalesce(p.firstName, '')) like :term escape '\\'
                 or lower(coalesce(p.lastName, '')) like :term escape '\\'
                 or lower(concat(coalesce(p.firstName, ''), ' ', coalesce(p.lastName, ''))) like :term escape '\\'
                 or lower(coalesce(p.email, '')) like :term escape '\\'
                 or lower(coalesce(p.mobile, '')) like :term escape '\\'
+                or lower(coalesce(u.name, '')) like :term escape '\\'
                 or p.gender in :genders
                 or p.maritalStatus in :maritalStatuses
                 or p.bloodType in :bloodTypes
@@ -54,6 +64,7 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
               and (:anyMaritalStatus = true or p.maritalStatus in :maritalStatusIn)
               and (:anyBloodType = true or p.bloodType in :bloodTypeIn)
               and (:anyIdentityDocument = true or p.identityDocumentType in :identityDocumentIn)
+              and (:anyUnit = true or u.id in :unitIn)
             """)
     Page<Person> search(@Param("term") String term,
                         @Param("genders") Collection<String> genders,
@@ -68,5 +79,7 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
                         @Param("bloodTypeIn") Collection<String> bloodTypeIn,
                         @Param("anyIdentityDocument") boolean anyIdentityDocument,
                         @Param("identityDocumentIn") Collection<String> identityDocumentIn,
+                        @Param("anyUnit") boolean anyUnit,
+                        @Param("unitIn") Collection<Long> unitIn,
                         Pageable pageable);
 }

@@ -35,7 +35,14 @@ public record PersonView(
         String bloodType,
         String identityDocumentType,
         String identityNumber,
-        String photoUrl
+        String photoUrl,
+        /*
+         * The unit this person belongs to. The id is what a filter takes; the
+         * name is what anybody reads, and a list that can be narrowed by unit
+         * has to show which one, or the narrowing is invisible.
+         */
+        Long unitId,
+        String unitName
 ) {
 
     public static PersonView of(Person person, StorageService storageService) {
@@ -52,7 +59,9 @@ public record PersonView(
                 person.getBloodType(),
                 person.getIdentityDocumentType(),
                 person.getIdentityNumber(),
-                storageService.urlOf(person.getPhotoKey()));
+                storageService.urlOf(person.getPhotoKey()),
+                person.getOrganization() == null ? null : person.getOrganization().getId(),
+                person.getOrganization() == null ? null : person.getOrganization().getName());
     }
 
     /**

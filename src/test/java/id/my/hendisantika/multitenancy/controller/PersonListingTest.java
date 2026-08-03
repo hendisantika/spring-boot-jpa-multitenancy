@@ -651,6 +651,75 @@ class PersonListingTest {
     }
 
     /**
+     * A person belongs to a unit, and that was stored and never shown, so it
+     * could not be searched for or narrowed to. The filter takes the unit's id,
+     * because a unit is a record rather than a code; the search takes its name,
+     * because that is what somebody types.
+     */
+    @Test
+    void peopleCanBeFilteredByUnitAndFoundByItsName() throws Exception {
+        long braga = createUnit("Cabang Braga");
+        long pusat = createUnit("Cabang Pusat");
+        long atBraga = createPersonInUnit("Budi", braga);
+        createPersonInUnit("Siti", pusat);
+        createPerson("Tanpa", "Unit", "tanpa@probe.test", "0899");
+
+        mockMvc.perform(asOwner(get("/person")))
+                .andExpect(jsonPath("$.totalElements").value(3));
+
+        mockMvc.perform(asOwner(get("/person")).param("unit", String.valueOf(braga)))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].firstName").value("Budi"))
+                .andExpect(jsonPath("$.content[0].unitName").value("Cabang Braga"))
+                .andExpect(jsonPath("$.content[0].unitId").value(braga));
+
+        // Several units mean either of them; the one with no unit is in neither.
+        mockMvc.perform(asOwner(get("/person"))
+                        .param("unit", String.valueOf(braga)).param("unit", String.valueOf(pusat)))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        // The name is what somebody searches for.
+        mockMvc.perform(asOwner(get("/person")).param("q", "braga"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].firstName").value("Budi"));
+
+        // A filter narrows what a search widened.
+        mockMvc.perform(asOwner(get("/person"))
+                        .param("q", "budi").param("unit", String.valueOf(pusat)))
+                .andExpect(jsonPath("$.totalElements").value(0));
+
+        // A unit that is not a number narrows to nobody rather than widening to
+        // everybody, which is what an unknown code does too.
+        mockMvc.perform(asOwner(get("/person")).param("unit", "banana"))
+                .andExpect(jsonPath("$.totalElements").value(0));
+
+        // Somebody with no unit says so rather than pretending to have one.
+        String body = mockMvc.perform(asOwner(get("/person")).param("q", "Tanpa"))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(objectMapper.readTree(body).get("content").get(0).get("unitId").isNull()).isTrue();
+        assertThat(atBraga).isPositive();
+    }
+
+    private long createUnit(String name) throws Exception {
+        String body = mockMvc.perform(asOwner(post("/organization"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("name", name))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(body).get("id").asLong();
+    }
+
+    private long createPersonInUnit(String firstName, long unitId) throws Exception {
+        String body = mockMvc.perform(asOwner(post("/person"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"firstName\":\"" + firstName + "\",\"lastName\":\"Probe\","
+                                + "\"organization\":{\"id\":" + unitId + "}}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(body).get("id").asLong();
+    }
+
+    /**
      * A birthday is a calendar date, not a moment. It used to be handed out as
      * midnight in the server's zone serialised as an instant, so east of UTC
      * every client reading the date part showed the day before — and the edit

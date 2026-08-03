@@ -182,6 +182,9 @@ export type TenantPerson = {
   identityNumber: string | null;
   /** Signed and short-lived, or null when there is none. */
   photoUrl: string | null;
+  /** The unit this person belongs to: the id filters, the name is read. */
+  unitId: number | null;
+  unitName: string | null;
 };
 
 /** The label to show for a stored code, falling back to the code itself. */

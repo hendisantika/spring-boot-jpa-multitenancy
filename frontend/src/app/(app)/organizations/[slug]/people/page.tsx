@@ -7,7 +7,7 @@ import { ApiError, api } from "@/lib/api";
 import { PAGE_SIZE, apiQuery, firstValue, isNarrowed, listingUrl, readListing } from "@/lib/listing";
 import type { FilterField } from "@/components/ListingControls";
 import { getRole } from "@/lib/session";
-import type { Page, ReferenceLists, TenantPerson } from "@/lib/types";
+import type { Page, ReferenceLists, TenantPerson, TenantUnit } from "@/lib/types";
 import { referenceLabel } from "@/lib/types";
 import { ListingControls } from "@/components/ListingControls";
 import { Avatar } from "@/components/Avatar";
@@ -18,7 +18,16 @@ export const metadata = { title: "People" };
 
 const EMPTY: Page<TenantPerson> = { content: [], page: 0, size: PAGE_SIZE, totalElements: 0, totalPages: 0 };
 
+/**
+ * The units are not a reference list, but the checkbox control only ever wanted
+ * options with a code and a label — and a unit is exactly that, with its id as
+ * the code, because that is what the filter takes. Held under a key no
+ * migration uses, so it cannot collide with a real category.
+ */
+const UNITS = "TENANT_UNITS";
+
 const FILTERS: FilterField[] = [
+  { name: "unit", label: "Unit", category: UNITS },
   { name: "gender", label: "Gender", category: "GENDER" },
   { name: "bloodType", label: "Blood type", category: "BLOOD_TYPE" },
   { name: "maritalStatus", label: "Marital status", category: "MARITAL_STATUS" },
@@ -28,6 +37,9 @@ const FILTERS: FilterField[] = [
 /** The reference fields worth seeing without opening the row, as labels. */
 function describe(person: TenantPerson, lists: ReferenceLists): string {
   return [
+    // First, because it is the one that can now be filtered on and a filter
+    // whose effect is invisible is a guess.
+    person.unitName,
     referenceLabel(lists.GENDER, person.gender),
     referenceLabel(lists.BLOOD_TYPE, person.bloodType),
     referenceLabel(lists.IDENTITY_DOCUMENT, person.identityDocumentType),
@@ -64,10 +76,26 @@ export default async function PeoplePage({ params, searchParams }: PageProps<"/o
   try {
     // Both at once: the form and the filters need the lists whether or not the
     // form is editing, and waiting for the people first would only be slower.
-    [people, lists] = await Promise.all([
+    const [page, referenceLists, units] = await Promise.all([
       api<Page<TenantPerson>>(`/person?${apiQuery(listing)}`, { tenant: slug }),
       api<ReferenceLists>("/reference-data", { tenant: slug }),
+      // Every unit, because a filter that only offers the first page of them
+      // silently hides the rest.
+      api<Page<TenantUnit>>(`/organization?size=200`, { tenant: slug }),
     ]);
+    people = page;
+    lists = {
+      ...referenceLists,
+      [UNITS]: units.content.map((unit, index) => ({
+        id: unit.id,
+        category: UNITS,
+        code: String(unit.id),
+        label: unit.name ?? `Unit ${unit.id}`,
+        sortOrder: index,
+        active: true,
+        systemDefined: false,
+      })),
+    };
   } catch (e) {
     error = e instanceof ApiError ? e.message : "Cannot reach the API.";
   }

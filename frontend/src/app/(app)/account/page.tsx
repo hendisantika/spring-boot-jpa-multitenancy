@@ -1,4 +1,5 @@
 import { AccountEmailForm } from "./AccountEmailForm";
+import { AccountPhoneForm } from "./AccountPhoneForm";
 import { AccountPhotoForm } from "./AccountPhotoForm";
 import { currentAccount } from "@/lib/account";
 import { getEmail } from "@/lib/session";
@@ -41,6 +42,15 @@ export default async function AccountPage() {
             <AccountPhotoForm photoUrl={account.photoUrl} />
           ) : (
             <Alert>Cannot reach the API, so the photo cannot be changed right now.</Alert>
+          )}
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="mb-4 font-semibold text-ink">Phone</h2>
+          {account ? (
+            <AccountPhoneForm phoneNumber={account.phoneNumber} />
+          ) : (
+            <Alert>Cannot reach the API, so the phone number cannot be changed right now.</Alert>
           )}
         </Card>
 

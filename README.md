@@ -394,6 +394,18 @@ created.
 `application.email-verification.ttl` is 24 hours. `/api/auth/me` reports `emailVerified`, which the dashboard uses to
 show a reminder.
 
+### Correcting the phone number
+
+`PUT /api/auth/me/phone` takes `{"phoneNumber": "+62 811 2233 4455"}` and applies it. No confirmation and no password,
+unlike the address: nothing signs in with a phone number and nothing is sent to it, so there is nothing to prove
+first. The rule is the one signup applies — a single constant, so the two cannot drift and a number that could not be
+registered cannot be arrived at by editing either.
+
+**Validation failures now answer with a `detail`.** They used to fall through to the container's default body, which
+has none, so a client had nothing to show and a rejected form looked like a form that had quietly done nothing. Field
+names are humanised on the way out (`phoneNumber` reads as "Phone number"), because the person reading the message is
+the one who typed the value, not the developer who named the field.
+
 ### Changing the address on an account
 
 Signing up fixed the address and nothing could move it. It can now, and the change **does not take effect when it is
@@ -457,6 +469,7 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `POST` | `/api/auth/password/reset/{token}` | open | Set a new password                       |
 | `GET`  | `/api/auth/me`       | bearer      | The signed-in account                             |
 | `PUT`  | `/api/auth/me/photo` | bearer      | Your own photo; multipart, `removePhoto=true` drops it |
+| `PUT`  | `/api/auth/me/phone` | bearer      | Your own phone number                             |
 | `POST` | `/api/auth/me/email` | bearer      | Ask to move to another address; needs the current password |
 | `DELETE` | `/api/auth/me/email` | bearer    | Drop the outstanding request                      |
 | `POST` | `/api/auth/email-change/{token}` | open | Confirm the new address, which is when it takes effect |

@@ -103,6 +103,21 @@ public class AuthService {
     }
 
     /**
+     * Changes the phone number, which signup asked for and nothing could correct.
+     * <p>
+     * It goes straight through, unlike the email: nothing signs in with it and
+     * nothing is sent to it, so there is nothing to prove first. The shape is
+     * checked at the edge, where the same rule as signup lives.
+     */
+    @Transactional("centralTransactionManager")
+    public Account updatePhoneNumber(Account account, String phoneNumber) {
+        Account managed = accountRepository.findById(account.getId())
+                .orElseThrow(() -> new AuthenticationFailedException("The account no longer exists"));
+        managed.setPhoneNumber(phoneNumber.trim());
+        return managed;
+    }
+
+    /**
      * @return the authenticated account, never a hint about which half of the
      * credentials was wrong
      */

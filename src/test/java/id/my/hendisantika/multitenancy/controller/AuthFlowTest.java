@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -34,6 +35,7 @@ import static org.springframework.security.test.web.servlet.setup.SecurityMockMv
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -218,6 +220,51 @@ class AuthFlowTest {
                     return r;
                 }).param("removePhoto", "true"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    /**
+     * Signup asked for a phone number and nothing could correct it, so a typo
+     * there was permanent.
+     */
+    @Test
+    void thePhoneNumberCanBeChanged() throws Exception {
+        String token = signUpAndLogin();
+
+        mvc().perform(putPhone(token, "+62 811 2233 4455"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.phoneNumber").value("+62 811 2233 4455"));
+
+        assertThat(accountRepository.findByEmailIgnoreCase(EMAIL).orElseThrow().getPhoneNumber())
+                .isEqualTo("+62 811 2233 4455");
+    }
+
+    /**
+     * The same rule signup applies, so a number that could not be registered
+     * cannot be arrived at by editing either.
+     */
+    @Test
+    void aNumberThatIsNotOneIsRefused() throws Exception {
+        String token = signUpAndLogin();
+
+        mvc().perform(putPhone(token, "call me maybe"))
+                .andExpect(status().isBadRequest());
+
+        assertThat(accountRepository.findByEmailIgnoreCase(EMAIL).orElseThrow().getPhoneNumber())
+                .isEqualTo("+62 812 3456 7890");
+    }
+
+    @Test
+    void changingAPhoneNumberNeedsASession() throws Exception {
+        mvc().perform(putPhone(null, "+62 811 2233 4455"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private MockHttpServletRequestBuilder putPhone(String token, String phoneNumber) {
+        MockHttpServletRequestBuilder request = put("/api/auth/me/phone")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(
+                        new AuthController.PhoneNumberRequest(phoneNumber)));
+        return token == null ? request : request.header("Authorization", "Bearer " + token);
     }
 
     /**

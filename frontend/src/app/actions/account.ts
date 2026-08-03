@@ -40,6 +40,27 @@ export async function requestEmailChange(
   }
 }
 
+/**
+ * The phone number, which signup asked for and nothing could correct. It goes
+ * straight through, unlike the address: nothing signs in with it and nothing is
+ * sent to it, so there is nothing to confirm first.
+ */
+export async function saveAccountPhone(_prev: FormState, formData: FormData): Promise<FormState> {
+  const phoneNumber = String(formData.get("phoneNumber") ?? "").trim();
+  const values = { phoneNumber };
+
+  if (!phoneNumber) return { error: "Enter a phone number.", values };
+
+  try {
+    await api<Account>("/api/auth/me/phone", { method: "PUT", json: { phoneNumber } });
+  } catch (error) {
+    return { ...failure(error), values };
+  }
+
+  revalidatePath("/account");
+  return { ok: true, values };
+}
+
 /** Drops the outstanding request, rather than waiting a day for it to lapse. */
 export async function cancelEmailChange(): Promise<FormState> {
   try {

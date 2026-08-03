@@ -394,6 +394,17 @@ created.
 `application.email-verification.ttl` is 24 hours. `/api/auth/me` reports `emailVerified`, which the dashboard uses to
 show a reminder.
 
+### The organization photo on its own
+
+`PUT /api/organizations/{slug}/photo` is the profile form's photo half without the profile. Owner only, and the same
+three rules as everywhere else — omitting keeps, sending replaces and deletes what it replaced, `removePhoto=true`
+drops it — because both ways in run the one method rather than two copies of it.
+
+It exists because changing a picture through `PUT /api/organizations/{slug}` means re-sending eight profile fields,
+and re-sending them is how they get overwritten with whatever the form happened to be holding. The card on the
+organization page uses this; the full form at `/edit` still carries a photo field for whoever is editing everything at
+once.
+
 ### Changing the password from inside a session
 
 The reset link could only do this from outside one — you had to pretend to have forgotten it.
@@ -499,6 +510,7 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `POST` | `/api/organizations` | bearer      | Register an organization; caller becomes `OWNER`  |
 | `GET`  | `/api/organizations/{slug}` | member | One organization                              |
 | `PUT`  | `/api/organizations/{slug}` | **owner** | Edit the profile; identity stays put       |
+| `PUT`  | `/api/organizations/{slug}/photo` | **owner** | Just the photo; multipart, `removePhoto=true` drops it |
 | `GET`  | `/api/organizations/{slug}/users` | member | Its membership list, each with the account's photo |
 | `POST` | `/api/organizations/{slug}/users` | **owner** | Add a person directly, setting their password |
 | `GET`  | `/api/organizations/{slug}/invitations` | **owner** | Pending invitations                |

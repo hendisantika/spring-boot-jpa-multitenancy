@@ -63,11 +63,38 @@ public class OrganizationProfileService {
         tenant.setOrgStructure(profile.orgStructure());
         tenant.setPracticeSpeciality(profile.practiceSpeciality());
 
+        applyPhoto(tenant, newPhotoKey, removePhoto);
+
+        log.info("Updated the profile of tenant {}", slug);
+        return tenant;
+    }
+
+    /**
+     * The photo on its own, for the card on the organization page. The whole
+     * profile used to have to go with it, which meant re-sending eight fields to
+     * change a picture — and re-sending them is how they get overwritten with
+     * whatever the form happened to be holding.
+     */
+    @Transactional("centralTransactionManager")
+    public TenantRegistration updatePhoto(String slug, String newPhotoKey, boolean removePhoto) {
+        TenantRegistration tenant = tenantRegistrationRepository.findBySlug(slug)
+                .orElseThrow(() -> new TenantProvisioningException("'" + slug + "' is not registered"));
+
+        applyPhoto(tenant, newPhotoKey, removePhoto);
+
+        log.info("Updated the photo of tenant {}", slug);
+        return tenant;
+    }
+
+    /**
+     * One set of rules for both ways in: omitting keeps, sending replaces, the
+     * flag drops, and a replaced object is deleted rather than left in the
+     * bucket for nothing to point at.
+     */
+    private void applyPhoto(TenantRegistration tenant, String newPhotoKey, boolean removePhoto) {
         String previous = tenant.getPhotoKey();
         if (StringUtils.hasText(newPhotoKey)) {
             tenant.setPhotoKey(newPhotoKey);
-            // Otherwise every edit leaves an orphan in the bucket that nothing
-            // will ever point at again.
             if (StringUtils.hasText(previous) && !previous.equals(newPhotoKey)) {
                 storageService.delete(previous);
             }
@@ -75,8 +102,5 @@ public class OrganizationProfileService {
             tenant.setPhotoKey(null);
             storageService.delete(previous);
         }
-
-        log.info("Updated the profile of tenant {}", slug);
-        return tenant;
     }
 }

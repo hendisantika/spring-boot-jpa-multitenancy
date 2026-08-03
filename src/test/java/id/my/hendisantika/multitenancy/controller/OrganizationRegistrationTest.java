@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -269,6 +270,40 @@ class OrganizationRegistrationTest {
                                         "someone.else@example.test", "+62 813 0000 2222", PASSWORD,
                                         TenantRole.MEMBER))))
                 .andExpect(status().isForbidden());
+    }
+
+    /**
+     * The card is only rendered for an owner, but the endpoint is what decides:
+     * a member who reaches it anyway is refused rather than trusted to have been
+     * shown the right screen.
+     */
+    @Test
+    void memberCannotChangeThePhoto() throws Exception {
+        String ownerToken = registerOrganization(signUp(OWNER_EMAIL));
+        mvc().perform(post("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new OrganizationRegistrationController.AddMemberRequest(
+                                        MEMBER_EMAIL, "+62 813 0000 1111", PASSWORD, TenantRole.MEMBER))))
+                .andExpect(status().isCreated());
+
+        mvc().perform(putPhoto(SLUG, login(MEMBER_EMAIL)).param("removePhoto", "true"))
+                .andExpect(status().isForbidden());
+
+        // And the owner can, so the refusal is about the role and nothing else.
+        mvc().perform(putPhoto(SLUG, ownerToken).param("removePhoto", "true"))
+                .andExpect(status().isOk());
+    }
+
+    private MockMultipartHttpServletRequestBuilder putPhoto(String slug, String token) {
+        MockMultipartHttpServletRequestBuilder request =
+                multipart("/api/organizations/" + slug + "/photo");
+        request.header("Authorization", "Bearer " + token).with(r -> {
+            r.setMethod("PUT");
+            return r;
+        });
+        return request;
     }
 
     @Test

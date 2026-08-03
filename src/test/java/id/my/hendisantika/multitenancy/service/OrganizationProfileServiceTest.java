@@ -146,6 +146,43 @@ class OrganizationProfileServiceTest {
         verify(storageService, times(1)).delete(any());
     }
 
+    /**
+     * The card on the organization page changes a picture without carrying the
+     * profile, which is the point: the profile is what gets overwritten when it
+     * is re-sent to do something else.
+     */
+    @Test
+    void changingOnlyThePhotoLeavesTheProfileAlone() {
+        organizationProfileService.updatePhoto(SLUG, "organizations/only.png", false);
+
+        TenantRegistration tenant = tenantRegistrationRepository.findBySlug(SLUG).orElseThrow();
+        assertThat(tenant.getPhotoKey()).isEqualTo("organizations/only.png");
+        assertThat(tenant.getDisplayName()).isEqualTo(ORGANIZATION);
+        assertThat(tenant.getBusinessEmail()).isEqualTo("before@example.test");
+        assertThat(tenant.getPhoneNumber()).isEqualTo("+62 811 0000 0001");
+        // The one it replaced goes with it rather than lingering unreferenced.
+        verify(storageService).delete("organizations/before.png");
+    }
+
+    /**
+     * The same three rules as the profile form, because they are the same rules:
+     * both ways in run the one method.
+     */
+    @Test
+    void thePhotoOnItsOwnFollowsTheSameThreeRules() {
+        organizationProfileService.updatePhoto(SLUG, null, false);
+        assertThat(tenantRegistrationRepository.findBySlug(SLUG).orElseThrow().getPhotoKey())
+                .isEqualTo("organizations/before.png");
+
+        organizationProfileService.updatePhoto(SLUG, "organizations/second.png", true);
+        assertThat(tenantRegistrationRepository.findBySlug(SLUG).orElseThrow().getPhotoKey())
+                .isEqualTo("organizations/second.png");
+
+        organizationProfileService.updatePhoto(SLUG, null, true);
+        assertThat(tenantRegistrationRepository.findBySlug(SLUG).orElseThrow().getPhotoKey()).isNull();
+        verify(storageService).delete("organizations/second.png");
+    }
+
     @Test
     void everyProfileFieldIsUpdated() {
         organizationProfileService.update(SLUG, changed(), null);

@@ -38,6 +38,7 @@ bun run lint
 | `/organizations/[slug]/units/[id]` | One unit, whole, on the same shape as the person screen   |
 | `/organizations/[slug]/members/[id]` | One membership: the account behind a row on the organization page |
 | `/organizations/[slug]/invitations/[id]` | One invitation, owner only, with Withdraw on it |
+| `/organizations/[slug]/reference-data/[category]` | One of the tenant's own lists, whole   |
 | `/invitations/[token]`  | Open: accept an invitation, choosing your own password                   |
 | `/forgot-password`      | Ask for a reset link                                                     |
 | `/reset-password/[token]` | Open: choose a new password                                            |
@@ -55,6 +56,16 @@ The organization page carries a Photo card of its own for the owner, on the same
 to the photo-only endpoint rather than through the profile form: changing a picture should not mean re-submitting
 eight fields that were fine as they were, and re-submitting them is how they get overwritten. The card says so, since
 the form behind **Edit** also has a photo field and two ways to do one thing needs explaining.
+
+**The reference lists had no screen at all** — they were only ever seen one option at a time inside a dropdown, so
+reading one meant querying the database. A card on the organization page lists the categories with how many of each
+are in use, and each opens the list itself: label, the code a record actually stores, the order, whether it is
+switched off, and whether it came with the tenant or was added to it.
+
+That screen reads `/reference-data` and picks its category out of the map rather than calling
+`/reference-data/{category}`. The single-category endpoint answers an unknown category with an empty list, on purpose,
+because an absent dropdown is not an error — but a screen has to tell "this tenant keeps no such list" from "the list
+is empty", and only the map says which.
 
 Invitation rows link the same way, to a screen that adds who sent it, whether the address is already registered, and
 — for one past its date — an EXPIRED badge the row cannot show, since the database still calls it PENDING. Withdraw

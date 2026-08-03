@@ -100,7 +100,7 @@ class OrganizationRegistrationTest {
         invitationRepository.deleteAll(invitationRepository.findAllByTenantSlug(SLUG));
         tenantRegistrationRepository.findBySlug(SLUG)
                 .ifPresent(tenant -> tenantProvisioningService.deprovision(SLUG));
-        List.of(OWNER_EMAIL, MEMBER_EMAIL, "nobody.here@example.test",
+        List.of(OWNER_EMAIL, MEMBER_EMAIL, "nobody.here@example.test", "org.owner.moved@example.test",
                         "org.paged1@example.test", "org.paged2@example.test", "org.paged3@example.test")
                 .forEach(email ->
                 accountRepository.findByEmailIgnoreCase(email).ifPresent(account -> {
@@ -305,6 +305,69 @@ class OrganizationRegistrationTest {
                         .param("size", "0").param("page", "-3"))
                 .andExpect(jsonPath("$.size").value(1))
                 .andExpect(jsonPath("$.page").value(0));
+    }
+
+    /**
+     * A search widens: an address or a role, either one. And it matches the
+     * account's address rather than the one the membership was granted to,
+     * which an email change leaves behind.
+     */
+    @Test
+    void theMembershipListCanBeSearched() throws Exception {
+        String ownerToken = registerOrganization(signUp(OWNER_EMAIL));
+        mvc().perform(post("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new OrganizationRegistrationController.AddMemberRequest(
+                                        MEMBER_EMAIL, "+62 813 0000 1111", PASSWORD, TenantRole.MEMBER))))
+                .andExpect(status().isCreated());
+
+        // By address.
+        mvc().perform(get("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken).param("q", "member.probe"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].email").value(MEMBER_EMAIL));
+
+        // By role, without anybody typing OWNER.
+        mvc().perform(get("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken).param("q", "own"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].email").value(OWNER_EMAIL));
+
+        // Blank is everybody, not nobody.
+        mvc().perform(get("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken).param("q", "   "))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        // A wildcard somebody types is what they are looking for, not syntax.
+        mvc().perform(get("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken).param("q", "%"))
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    /**
+     * The list showed the address a membership was granted to, while the detail
+     * showed the account's own — so after somebody moved address the two
+     * disagreed about who they were.
+     */
+    @Test
+    void theListShowsTheAddressTheAccountUsesNow() throws Exception {
+        String ownerToken = registerOrganization(signUp(OWNER_EMAIL));
+        String moved = "org.owner.moved@example.test";
+        accountRepository.findByEmailIgnoreCase(OWNER_EMAIL).ifPresent(account -> {
+            account.setEmail(moved);
+            accountRepository.saveAndFlush(account);
+        });
+
+        mvc().perform(get("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.content[0].email").value(moved));
+
+        // And the search follows what is shown.
+        mvc().perform(get("/api/organizations/" + SLUG + "/users")
+                        .header("Authorization", "Bearer " + ownerToken).param("q", "moved"))
+                .andExpect(jsonPath("$.totalElements").value(1));
     }
 
     /**

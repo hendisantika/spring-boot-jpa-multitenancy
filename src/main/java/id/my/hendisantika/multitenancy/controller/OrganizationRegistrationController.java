@@ -178,15 +178,18 @@ public class OrganizationRegistrationController {
      * membership list only grows, and an endpoint that hands back all of it is
      * one nobody can withdraw later.
      *
+     * @param q    matched against the address and the role, so "own" finds the
+     *             owners without anybody typing OWNER
      * @param page zero based
      * @param size clamped, so a client cannot ask for the lot in one go
      */
     @GetMapping("/{slug}/users")
     public PageResponse<MemberView> members(@PathVariable String slug,
+                                            @RequestParam(name = "q", required = false) String q,
                                             @RequestParam(name = "page", required = false) Integer page,
                                             @RequestParam(name = "size", required = false) Integer size) {
         tenantSecurity.requireMember(slug);
-        return PageResponse.of(membershipService.membersOf(slug, page, size).map(this::viewOf));
+        return PageResponse.of(membershipService.membersOf(slug, q, page, size).map(this::viewOf));
     }
 
     /**
@@ -316,7 +319,11 @@ public class OrganizationRegistrationController {
         Account account = membership.getAccount();
         return new MemberView(
                 account == null ? null : account.getId(),
-                membership.getUserName(),
+                // The account's address, not the membership's: user_name holds
+                // the one it was granted to, and an email change leaves that
+                // behind. The detail screen already showed the current one, so
+                // the list and the detail disagreed about who somebody is.
+                account == null ? membership.getUserName() : account.getEmail(),
                 membership.getRole(),
                 account == null ? null : storageService.urlOf(account.getPhotoKey()));
     }

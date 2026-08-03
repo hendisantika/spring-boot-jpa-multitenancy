@@ -450,6 +450,16 @@ the recipient's mailbox and nowhere else. The screen says so, because that is th
 still `PENDING` in the database while being useless to whoever holds the link. It stays withdrawable for exactly that
 reason — it is still in the pending list, and withdrawing is how an owner clears it.
 
+**`?q=` searches it**, on the same terms as everywhere else: a search widens, so an address *or* a role matches, and
+"own" finds the owners because nobody types OWNER. The wildcards somebody types are escaped rather than honoured — a
+search for `%` finds nothing, not everything. The roles are resolved in Java and passed to the query as a collection,
+the way the tenant lists resolve their reference codes: matching them in HQL would mean casting an enum to text.
+
+**The address searched is the account's, not the membership's.** `user_tenants.user_name` holds the address a
+membership was granted to, and an email change leaves that behind — so the list showed one address while the detail
+screen showed another, for the same person. The list now shows what the account uses today, and the search matches
+what the list shows.
+
 **The membership list is paged**, on the same terms as the tenant's own lists: `?page=` and `?size=`, zero based, size
 clamped to 200 with a default of 20. A membership list only grows — a hospital group is not a handful of people — and
 an endpoint that hands back all of it is one nobody can withdraw later.
@@ -554,7 +564,7 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `GET`  | `/api/organizations/{slug}` | member | One organization                              |
 | `PUT`  | `/api/organizations/{slug}` | **owner** | Edit the profile; identity stays put       |
 | `PUT`  | `/api/organizations/{slug}/photo` | **owner** | Just the photo; multipart, `removePhoto=true` drops it |
-| `GET`  | `/api/organizations/{slug}/users` | member | A **page** of its memberships, each with the account's photo |
+| `GET`  | `/api/organizations/{slug}/users` | member | A **page** of its memberships, searchable with `?q=` |
 | `GET`  | `/api/organizations/{slug}/users/{accountId}` | member | One membership, whole; **404** when that account is not a member here |
 | `POST` | `/api/organizations/{slug}/users` | **owner** | Add a person directly, setting their password |
 | `GET`  | `/api/organizations/{slug}/invitations` | **owner** | Pending invitations                |

@@ -75,32 +75,15 @@ export default async function InvitationPage({ params }: PageProps<"/organizatio
 
       <Card className="p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-4">
-            {/* Only when that address is already registered; otherwise there is
-                no account and no face to show. */}
-            {invitation.photoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={invitation.photoUrl}
-                alt=""
-                className="size-28 shrink-0 rounded-xl border border-line object-cover"
-              />
-            ) : (
-              <span
-                aria-hidden="true"
-                className="grid size-28 shrink-0 place-items-center rounded-xl border border-line bg-surface-muted text-3xl font-medium text-ink-muted"
-              >
-                {invitation.email.trim().charAt(0).toUpperCase() || "?"}
-              </span>
-            )}
-            <div className="min-w-0">
+          {/* No photo here either: an invitation is an address, not a person
+              this organization has any claim on yet. */}
+          <div className="min-w-0">
             <h1 className="text-2xl font-semibold tracking-tight text-ink">{invitation.email}</h1>
             <p className="mt-1 text-sm text-ink-muted">
               {invitation.accountExists
                 ? "That address already has an account, so accepting grants it access rather than creating another."
                 : "No account has that address yet, so accepting creates one and they choose the password."}
             </p>
-            </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Badge tone={invitation.role === "OWNER" ? "brand" : "muted"}>{invitation.role}</Badge>

@@ -283,12 +283,14 @@ class OrganizationRegistrationTest {
     }
 
     /**
-     * An invitation carries the face of the account that address already
-     * belongs to, and nothing when nobody has registered it — which is the
-     * ordinary case and must not become a broken image.
+     * An invitation says whether accepting will grant an account that exists or
+     * make one — and says nothing else about that person. It carried their
+     * photo for one commit; it does not now, because an invited address may
+     * belong to somebody who is not a member of anything here and has agreed to
+     * nothing, and this test is what would notice it coming back.
      */
     @Test
-    void anInvitationCarriesThePhotoOfAnAddressThatIsAlreadyRegistered() throws Exception {
+    void anInvitationSaysWhetherTheAddressIsRegisteredAndNothingMore() throws Exception {
         String ownerToken = registerOrganization(signUpWithPhoto(OWNER_EMAIL));
 
         // Nobody has this address, so there is no account and no face.
@@ -316,9 +318,9 @@ class OrganizationRegistrationTest {
             assertThat(invitation.get("accountExists").asBoolean())
                     .as("accountExists for %s", invitation.get("email").asString())
                     .isEqualTo(registered);
-            // Null, not a broken image, for an address nobody has registered.
-            assertThat(invitation.get("photoUrl").isNull()).isNotEqualTo(registered);
         }
+        // Not even for the address that does have an account with a photo.
+        assertThat(body).doesNotContain("photoUrl");
     }
 
     /**

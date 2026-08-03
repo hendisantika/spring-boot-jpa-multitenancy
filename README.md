@@ -426,6 +426,13 @@ Without that it lands microseconds *after* the pair minted beside it, and the ve
 login landing in the same second as a reset had the same problem. The cost is that a session opened in the same second
 as the change survives it, which is as fine-grained as a second-precision claim can be.
 
+**The invitation list is paged and searchable** on the same terms as the membership list: `?page=`, `?size=` clamped
+to 200, and `?q=` matching the address or the role, so "own" finds the ones inviting somebody as OWNER.
+
+It keeps its own order. Invitations read newest first — that is what an invitation list is for — and paging it with
+the default id order would have quietly turned that into oldest first, so `TenantListing.pageRequest` gained an
+overload that takes the sort rather than assuming it.
+
 ### One invitation, whole
 
 `GET /api/organizations/{slug}/invitations/{id}` answers who sent it, when, when it expires, whether it has been
@@ -575,7 +582,7 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `GET`  | `/api/organizations/{slug}/users` | member | A **page** of its memberships; `?q=` searches, `?role=` filters |
 | `GET`  | `/api/organizations/{slug}/users/{accountId}` | member | One membership, whole; **404** when that account is not a member here |
 | `POST` | `/api/organizations/{slug}/users` | **owner** | Add a person directly, setting their password |
-| `GET`  | `/api/organizations/{slug}/invitations` | **owner** | Pending invitations                |
+| `GET`  | `/api/organizations/{slug}/invitations` | **owner** | A **page** of pending invitations; `?q=` searches |
 | `GET`  | `/api/organizations/{slug}/invitations/{id}` | **owner** | One invitation, whatever became of it |
 | `POST` | `/api/organizations/{slug}/invitations` | **owner** | Invite someone; returns the accept link |
 | `DELETE` | `/api/organizations/{slug}/invitations/{id}` | **owner** | Withdraw an invitation      |

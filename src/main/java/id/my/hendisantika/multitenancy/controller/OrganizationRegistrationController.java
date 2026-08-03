@@ -252,12 +252,23 @@ public class OrganizationRegistrationController {
         return ResponseEntity.status(HttpStatus.CREATED).body(viewOf(membership));
     }
 
+    /**
+     * Paged and searchable like the membership list beside it: an organization
+     * that invites people steadily accumulates pending invitations, and reading
+     * them one screen at a time is the same problem.
+     *
+     * @param q    matched against the address and the role
+     * @param page zero based
+     * @param size clamped, so a client cannot ask for the lot in one go
+     */
     @GetMapping("/{slug}/invitations")
-    public List<InvitationSummary> invitations(@PathVariable String slug) {
+    public PageResponse<InvitationSummary> invitations(
+            @PathVariable String slug,
+            @RequestParam(name = "q", required = false) String q,
+            @RequestParam(name = "page", required = false) Integer page,
+            @RequestParam(name = "size", required = false) Integer size) {
         tenantSecurity.requireOwner(slug);
-        return invitationService.pendingFor(slug).stream()
-                .map(this::summaryOf)
-                .toList();
+        return PageResponse.of(invitationService.pendingFor(slug, q, page, size).map(this::summaryOf));
     }
 
     /**

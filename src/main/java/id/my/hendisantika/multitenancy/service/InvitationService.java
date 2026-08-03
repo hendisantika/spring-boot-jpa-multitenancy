@@ -17,6 +17,8 @@ import id.my.hendisantika.multitenancy.service.email.InvitationEmail;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -26,6 +28,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
@@ -114,6 +117,43 @@ public class InvitationService {
     public List<Invitation> pendingFor(String tenantSlug) {
         return invitationRepository.findAllByTenantSlugAndStatusOrderByCreatedAtDesc(
                 tenantSlug, InvitationStatus.PENDING);
+    }
+
+    /**
+     * A page of the pending ones, narrowed to what somebody typed.
+     * <p>
+     * Newest first, which is why it does not take the default order: an
+     * invitation list is read from the top, and paging it by id would have
+     * turned that into oldest first without anybody asking.
+     *
+     * @param query matched against the address and the role; blank means all of
+     *              them
+     * @param page  zero based
+     * @param size  clamped, so a client cannot ask for the lot in one go
+     */
+    @Transactional(value = "centralTransactionManager", readOnly = true)
+    public Page<Invitation> pendingFor(String tenantSlug, String query, Integer page, Integer size) {
+        String term = TenantListing.searchTerm(query);
+        return invitationRepository.search(
+                tenantSlug,
+                InvitationStatus.PENDING,
+                term == null ? TenantListing.MATCH_EVERYTHING : term,
+                rolesMatching(query),
+                TenantListing.pageRequest(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
+    }
+
+    /**
+     * The roles somebody searching would have meant, matched on the name
+     * because that is what a role is called on screen.
+     */
+    private static List<TenantRole> rolesMatching(String query) {
+        if (query == null || query.isBlank()) {
+            return List.of();
+        }
+        String needle = query.strip().toLowerCase(Locale.ROOT);
+        return Arrays.stream(TenantRole.values())
+                .filter(role -> role.name().toLowerCase(Locale.ROOT).contains(needle))
+                .toList();
     }
 
     /**

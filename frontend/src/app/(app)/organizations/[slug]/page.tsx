@@ -34,9 +34,19 @@ const PREVIEW = 5;
  */
 const MEMBERS_PER_PAGE = 8;
 
+/** The same reasoning as the memberships, in the same column. */
+const INVITES_PER_PAGE = 8;
+
 export default async function OrganizationPage({ params, searchParams }: PageProps<"/organizations/[slug]">) {
   const { slug } = await params;
-  const { fresh, members: membersPage, memberq, memberrole } = await searchParams;
+  const {
+    fresh,
+    members: membersPage,
+    memberq,
+    memberrole,
+    invites: invitesPage,
+    inviteq,
+  } = await searchParams;
   // Their own parameters, because this page carries more than one list and they
   // move independently.
   const page = Math.max(0, Number(firstValue(membersPage)) || 0);
@@ -46,6 +56,8 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
   const roles = (Array.isArray(memberrole) ? memberrole : memberrole ? [memberrole] : []).filter(
     (value): value is string => typeof value === "string" && value.length > 0,
   );
+  const invitePage = Math.max(0, Number(firstValue(invitesPage)) || 0);
+  const inviteQuery = (firstValue(inviteq) ?? "").trim();
 
   const role = await getRole(slug);
 
@@ -62,7 +74,9 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
 
   let organization: Organization | null = null;
   let members: PageOf<Member> = { content: [], page: 0, size: MEMBERS_PER_PAGE, totalElements: 0, totalPages: 0 };
-  let invitations: Invitation[] = [];
+  let invitations: PageOf<Invitation> = {
+    content: [], page: 0, size: INVITES_PER_PAGE, totalElements: 0, totalPages: 0,
+  };
   let error: string | null = null;
 
   try {
@@ -76,7 +90,10 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
     ]);
     // Owner only, so a member's page does not 403 on a panel they never see.
     if (role === "OWNER") {
-      invitations = await api<Invitation[]>(`/api/organizations/${slug}/invitations`);
+      invitations = await api<PageOf<Invitation>>(
+        `/api/organizations/${slug}/invitations?page=${invitePage}&size=${INVITES_PER_PAGE}` +
+          (inviteQuery ? `&q=${encodeURIComponent(inviteQuery)}` : ""),
+      );
     }
   } catch (e) {
     error = e instanceof ApiError ? e.message : "Cannot reach the API.";
@@ -280,17 +297,51 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
             </Card>
           ) : null}
 
-          {role === "OWNER" && invitations.length > 0 ? (
+          {/* Shown while a search is on even when it matches nothing, or there
+              would be no way to clear the box that emptied the card. */}
+          {role === "OWNER" && (invitations.totalElements > 0 || inviteQuery) ? (
             <Card className="p-6">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="font-semibold text-ink">Pending invitations</h2>
-                <span className="text-sm text-ink-muted">{invitations.length}</span>
+                <span className="text-sm text-ink-muted">{invitations.totalElements}</span>
               </div>
+
+              <form action={`/organizations/${slug}`} className="mb-4 flex gap-2">
+                <input
+                  type="search"
+                  name="inviteq"
+                  defaultValue={inviteQuery}
+                  placeholder="Search address or role"
+                  aria-label="Search invitations"
+                  className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none transition placeholder:text-ink-muted/70 focus:border-brand"
+                />
+                <button
+                  type="submit"
+                  className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition hover:bg-surface-muted"
+                >
+                  Apply
+                </button>
+              </form>
+
               <ul className="divide-y divide-line">
-                {invitations.map((invitation) => (
+                {invitations.content.map((invitation) => (
                   <InvitationRow key={invitation.id} invitation={invitation} slug={slug} />
                 ))}
+                {invitations.totalElements === 0 ? (
+                  <li className="py-3 text-sm text-ink-muted">No invitation matches that.</li>
+                ) : null}
               </ul>
+
+              <Pager
+                href={(next) =>
+                  `/organizations/${slug}?invites=${next}` +
+                  (inviteQuery ? `&inviteq=${encodeURIComponent(inviteQuery)}` : "")
+                }
+                page={invitations.page}
+                size={invitations.size}
+                totalElements={invitations.totalElements}
+                totalPages={invitations.totalPages}
+              />
             </Card>
           ) : null}
 

@@ -85,9 +85,18 @@ public final class TenantListing {
     }
 
     public static Pageable pageRequest(Integer page, Integer size) {
+        return pageRequest(page, size, ORDER);
+    }
+
+    /**
+     * The same clamping, for a list whose order is part of what it means.
+     * Invitations read newest first, and paging them by id would have quietly
+     * turned that into oldest first.
+     */
+    public static Pageable pageRequest(Integer page, Integer size, Sort order) {
         int number = page == null ? 0 : Math.max(0, page);
         int length = size == null ? DEFAULT_PAGE_SIZE : Math.clamp(size, 1, MAX_PAGE_SIZE);
-        return PageRequest.of(number, length, ORDER);
+        return PageRequest.of(number, length, order);
     }
 
     /**

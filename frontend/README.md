@@ -28,6 +28,7 @@ bun run lint
 | `/signup`               | Email, phone, password and an optional photo. Signs you in straight after |
 | `/login`                | The parent login: one account, every organization it belongs to           |
 | `/dashboard`            | Only the organizations you are a member of                                |
+| `/account`              | Your own account; the photo is the only thing changeable here             |
 | `/organizations/new`    | The registration form; creates the database and the subdomain             |
 | `/organizations/[slug]` | Profile, the people in it, and inviting people when you are the `OWNER`   |
 | `/organizations/[slug]/edit` | Edit the profile; owner only                                        |
@@ -48,6 +49,11 @@ the whole multipart body, so the boundaries and the other fields have to fit bes
 All three forms that take a photo share one `PhotoField`, which previews the chosen file and refuses one over 5 MB
 before anything is uploaded. That is a courtesy — the API refuses an oversized file anyway — but without it the
 mistake costs a full upload before anybody hears about it.
+
+The header avatar links to `/account`, where the photo can be changed or removed — signup could set one and nothing
+could afterwards. Only the photo: the email is what you sign in with, so changing it would mean confirming the new one
+first, which is a different piece of work. Saving revalidates the whole layout rather than the route, because the
+header on every page shows it.
 
 **The header shows the account's photo**, from `currentAccount()` — wrapped in React's `cache`, so the header and the
 dashboard asking for the same account costs one request per render rather than two. It cannot be kept in a cookie

@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -27,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -127,6 +129,82 @@ class AuthFlowTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(body).get("accessToken").asText();
+    }
+
+    private MockMultipartHttpServletRequestBuilder putPhoto(String token) {
+        MockMultipartHttpServletRequestBuilder request = multipart("/api/auth/me/photo");
+        request.header("Authorization", "Bearer " + token).with(r -> {
+            r.setMethod("PUT");
+            return r;
+        });
+        return request;
+    }
+
+    /**
+     * Signup could set a photo and nothing could change it afterwards, so an
+     * account was stuck with whichever face it registered with.
+     */
+    @Test
+    void theAccountPhotoCanBeReplaced() throws Exception {
+        String token = signUpAndLogin();
+        given(storageService.store(any(), anyString())).willReturn("accounts/second.jpg");
+        given(storageService.urlOf("accounts/second.jpg"))
+                .willReturn("https://cdn.example.test/accounts/second.jpg");
+
+        mvc().perform(putPhoto(token)
+                        .file(new MockMultipartFile("photo", "new.jpg", MediaType.IMAGE_JPEG_VALUE,
+                                "another".getBytes())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.photoUrl").value("https://cdn.example.test/accounts/second.jpg"));
+
+        // The one it replaced goes with it rather than lingering unreferenced.
+        verify(storageService).delete("accounts/probe.jpg");
+        assertThat(accountRepository.findByEmailIgnoreCase(EMAIL).orElseThrow().getPhotoKey())
+                .isEqualTo("accounts/second.jpg");
+    }
+
+    @Test
+    void theAccountPhotoCanBeRemoved() throws Exception {
+        String token = signUpAndLogin();
+
+        mvc().perform(putPhoto(token).param("removePhoto", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.photoUrl").doesNotExist());
+
+        verify(storageService).delete("accounts/probe.jpg");
+        assertThat(accountRepository.findByEmailIgnoreCase(EMAIL).orElseThrow().getPhotoKey()).isNull();
+    }
+
+    /**
+     * Asking to remove one while uploading another is a contradiction, and the
+     * upload wins rather than leaving the account with neither.
+     */
+    @Test
+    void anUploadWinsOverTheRemovalFlag() throws Exception {
+        String token = signUpAndLogin();
+        given(storageService.store(any(), anyString())).willReturn("accounts/second.jpg");
+        given(storageService.urlOf("accounts/second.jpg"))
+                .willReturn("https://cdn.example.test/accounts/second.jpg");
+
+        mvc().perform(putPhoto(token)
+                        .file(new MockMultipartFile("photo", "new.jpg", MediaType.IMAGE_JPEG_VALUE,
+                                "another".getBytes()))
+                        .param("removePhoto", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.photoUrl").value("https://cdn.example.test/accounts/second.jpg"));
+    }
+
+    /**
+     * Your own account and nobody else's: there is no id in the path, so the
+     * token decides whose photo this is.
+     */
+    @Test
+    void changingAPhotoNeedsASession() throws Exception {
+        mvc().perform(multipart("/api/auth/me/photo").with(r -> {
+                    r.setMethod("PUT");
+                    return r;
+                }).param("removePhoto", "true"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

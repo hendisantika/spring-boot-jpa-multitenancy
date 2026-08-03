@@ -21,6 +21,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -125,6 +127,26 @@ public class AuthController {
     @GetMapping("/me")
     public AccountView me(@AuthenticationPrincipal Jwt jwt) {
         return viewOf(authService.accountOf(jwt.getSubject()));
+    }
+
+    /**
+     * The photo on your own account, which signup could set and nothing could
+     * change afterwards.
+     * <p>
+     * Only the photo: the email is what you sign in with and changing it needs
+     * verifying the new one, which is a different piece of work.
+     * <p>
+     * Omitting the part keeps the current photo, sending one replaces it, and
+     * {@code removePhoto=true} drops it — the same three rules as a person and
+     * an organization, so there is one thing to learn rather than three.
+     */
+    @PutMapping(path = "/me/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public AccountView updateMyPhoto(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestPart(value = "photo", required = false) MultipartFile photo,
+            @RequestParam(value = "removePhoto", defaultValue = "false") boolean removePhoto) {
+        Account account = authService.accountOf(jwt.getSubject());
+        return viewOf(authService.updatePhoto(account, photo, removePhoto));
     }
 
     private TokenPair tokensFor(Account account) {

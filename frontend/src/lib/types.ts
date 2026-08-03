@@ -54,6 +54,8 @@ export type Member = {
   accountId: number | null;
   email: string;
   role: TenantRole;
+  /** The account's photo, signed and short-lived, or null when there is none. */
+  photoUrl: string | null;
 };
 
 /**

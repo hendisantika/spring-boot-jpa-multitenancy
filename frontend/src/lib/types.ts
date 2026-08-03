@@ -26,6 +26,11 @@ export type Account = {
   photoUrl: string | null;
   status: string;
   emailVerified: boolean;
+  /**
+   * An address asked for and not yet confirmed. The account still signs in as
+   * `email` until the link sent to this one is opened.
+   */
+  pendingEmail: string | null;
 };
 
 export type TokenPair = {

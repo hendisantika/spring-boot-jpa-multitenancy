@@ -10,9 +10,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Every page below this layout needs a session; checking once here keeps the
   // pages themselves free of the guard.
   if (!(await isSignedIn())) redirect("/login");
-  // The email comes from the cookie so the header renders even when the API is
-  // unreachable; the account is only needed for the photo.
+  // The account is what the header shows, and the cookie is the fallback that
+  // keeps it rendering when the API is unreachable. That order matters once the
+  // address can change: the cookie was written at sign-in and outlives it.
   const [email, account] = await Promise.all([getEmail(), currentAccount()]);
+  const shownEmail = account?.email ?? email;
 
   return (
     <div className="min-h-dvh">
@@ -28,8 +30,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <div className="flex items-center gap-3">
             {/* The avatar is where people look for their own settings. */}
             <Link href="/account" className="flex items-center gap-3" title="Your account">
-              <Avatar photoUrl={account?.photoUrl ?? null} email={account?.email ?? email} />
-              <span className="hidden text-sm text-ink-muted hover:text-ink sm:inline">{email}</span>
+              <Avatar photoUrl={account?.photoUrl ?? null} email={shownEmail} />
+              <span className="hidden text-sm text-ink-muted hover:text-ink sm:inline">{shownEmail}</span>
             </Link>
             <form action={logOut}>
               <button

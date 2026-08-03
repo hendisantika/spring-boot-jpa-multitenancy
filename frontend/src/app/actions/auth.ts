@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { ApiError, api, jsonPart } from "@/lib/api";
-import { clearSession, getRefreshToken, saveSession } from "@/lib/session";
+import { clearSession, emailFromAccessToken, getRefreshToken, saveSession } from "@/lib/session";
 import type { Account, FormState, TokenPair } from "@/lib/types";
 
 export async function signUp(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -68,7 +68,7 @@ export async function refreshSession(): Promise<FormState> {
       json: { refreshToken },
       anonymous: true,
     });
-    const email = String(formEmailFallback(tokens));
+    const email = emailFromAccessToken(tokens.accessToken);
     await saveSession(tokens, email);
   } catch (error) {
     return { error: messageOf(error) };
@@ -88,17 +88,6 @@ function toLoginForm(email: string, password: string): FormData {
   form.set("email", email);
   form.set("password", password);
   return form;
-}
-
-/** The refresh response carries no email, so read it out of the token itself. */
-function formEmailFallback(tokens: TokenPair): string {
-  try {
-    const payload = tokens.accessToken.split(".")[1];
-    const claims = JSON.parse(Buffer.from(payload, "base64url").toString()) as { email?: string };
-    return claims.email ?? "";
-  } catch {
-    return "";
-  }
 }
 
 function messageOf(error: unknown): string {

@@ -19,6 +19,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Locale;
@@ -111,7 +112,9 @@ public class PasswordResetService {
         account.setPassword(passwordEncoder.encode(newPassword));
         // Refresh tokens live for two weeks; stamping this disowns the ones handed
         // out before the reset, which is the point of resetting a stolen password.
-        account.setPasswordChangedAt(Instant.now());
+        // Truncated because a JWT carries iat in whole seconds, so a finer stamp
+        // would also disown a token issued in the same second as the reset.
+        account.setPasswordChangedAt(Instant.now().truncatedTo(ChronoUnit.SECONDS));
         reset.setUsedAt(Instant.now());
 
         log.info("Password reset completed for {}", account.getEmail());

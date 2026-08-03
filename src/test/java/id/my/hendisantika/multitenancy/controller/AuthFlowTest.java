@@ -223,6 +223,92 @@ class AuthFlowTest {
     }
 
     /**
+     * The pair handed back has to work, or changing your password would sign you
+     * out of the session you changed it from. It nearly did: a JWT carries its
+     * issue time in whole seconds, so a finer stamp on the account was later
+     * than the token minted beside it, and the check refused it.
+     */
+    @Test
+    void changingThePasswordKeepsThisSessionAndDisownsTheOthers() throws Exception {
+        String token = signUpAndLogin();
+        String elsewhere = refreshTokenFrom(logIn(EMAIL, PASSWORD));
+        // Whole seconds is all a JWT records, so a session opened in the same
+        // second as the change cannot be told from one opened after it. Crossing
+        // the boundary is what makes "issued before" mean anything at all here.
+        Thread.sleep(1100);
+
+        String changed = mvc().perform(putPassword(token, PASSWORD, "a-new-password-1"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        mvc().perform(post("/api/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new AuthController.RefreshRequest(refreshTokenFrom(changed)))))
+                .andExpect(status().isOk());
+
+        // Every other session goes, which is the reason for changing a password.
+        mvc().perform(post("/api/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new AuthController.RefreshRequest(elsewhere))))
+                .andExpect(status().isUnauthorized());
+
+        assertThat(statusOfLogIn(PASSWORD)).isEqualTo(401);
+        assertThat(statusOfLogIn("a-new-password-1")).isEqualTo(200);
+    }
+
+    @Test
+    void theCurrentPasswordIsRequiredToChangeIt() throws Exception {
+        String token = signUpAndLogin();
+
+
+        mvc().perform(putPassword(token, "not-the-password", "a-new-password-1"))
+                .andExpect(status().isBadRequest());
+
+        assertThat(statusOfLogIn(PASSWORD)).isEqualTo(200);
+    }
+
+    @Test
+    void changingAPasswordNeedsASession() throws Exception {
+        mvc().perform(putPassword(null, PASSWORD, "a-new-password-1"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private MockHttpServletRequestBuilder putPassword(String token, String current, String next) {
+        MockHttpServletRequestBuilder request = put("/api/auth/me/password")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(
+                        new AuthController.PasswordChangeRequest(current, next)));
+        return token == null ? request : request.header("Authorization", "Bearer " + token);
+    }
+
+    private String logIn(String email, String password) throws Exception {
+        return mvc().perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new AuthController.LoginRequest(email, password))))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+    }
+
+    private int statusOfLogIn(String password) throws Exception {
+        return mvc().perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new AuthController.LoginRequest(EMAIL, password))))
+                .andReturn().getResponse().getStatus();
+    }
+
+    private String accessTokenFrom(String body) {
+        return objectMapper.readTree(body).get("accessToken").asString();
+    }
+
+    private String refreshTokenFrom(String body) {
+        return objectMapper.readTree(body).get("refreshToken").asString();
+    }
+
+    /**
      * Signup asked for a phone number and nothing could correct it, so a typo
      * there was permanent.
      */

@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { ApiError, api } from "@/lib/api";
-import type { Account, FormState } from "@/lib/types";
+import { emailFromAccessToken, saveSession } from "@/lib/session";
+import type { Account, FormState, TokenPair } from "@/lib/types";
 
 /**
  * confirmUrl comes back only when mail delivery is off, so the flow stays
@@ -38,6 +39,40 @@ export async function requestEmailChange(
   } catch (error) {
     return { ...failure(error), values };
   }
+}
+
+/**
+ * The password, from inside a session rather than through a reset link.
+ *
+ * The response is a fresh token pair, and saving it is not optional: the change
+ * disowns every refresh token issued before it, this session's included, so
+ * skipping this would sign you out for having tidied up your own password.
+ */
+export async function saveAccountPassword(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const currentPassword = String(formData.get("currentPassword") ?? "");
+  const newPassword = String(formData.get("newPassword") ?? "");
+
+  if (!currentPassword) return { error: "Enter your current password." };
+  if (newPassword.length < 8) return { error: "Choose a password of at least 8 characters." };
+  if (newPassword !== String(formData.get("confirmPassword") ?? "")) {
+    return { error: "The two new passwords do not match." };
+  }
+
+  try {
+    const tokens = await api<TokenPair>("/api/auth/me/password", {
+      method: "PUT",
+      json: { currentPassword, newPassword },
+    });
+    await saveSession(tokens, emailFromAccessToken(tokens.accessToken));
+  } catch (error) {
+    return failure(error);
+  }
+
+  revalidatePath("/account");
+  return { ok: true };
 }
 
 /**

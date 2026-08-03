@@ -6,6 +6,7 @@ import id.my.hendisantika.multitenancy.service.AuthenticationFailedException;
 import id.my.hendisantika.multitenancy.service.EmailChangeException;
 import id.my.hendisantika.multitenancy.service.EmailVerificationException;
 import id.my.hendisantika.multitenancy.service.InvitationException;
+import id.my.hendisantika.multitenancy.service.PasswordChangeException;
 import id.my.hendisantika.multitenancy.service.PasswordResetException;
 import id.my.hendisantika.multitenancy.service.TenantProvisioningException;
 import id.my.hendisantika.multitenancy.service.TenantRecordInvalidException;
@@ -88,6 +89,11 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(EmailChangeException.class)
     public ProblemDetail onEmailChangeFailed(EmailChangeException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
+    @ExceptionHandler(PasswordChangeException.class)
+    public ProblemDetail onPasswordChangeFailed(PasswordChangeException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
     }
 

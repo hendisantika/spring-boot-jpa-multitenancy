@@ -394,6 +394,27 @@ created.
 `application.email-verification.ttl` is 24 hours. `/api/auth/me` reports `emailVerified`, which the dashboard uses to
 show a reminder.
 
+### Changing the password from inside a session
+
+The reset link could only do this from outside one — you had to pretend to have forgotten it.
+
+```bash
+curl -X PUT http://localhost:8080/api/auth/me/password \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"currentPassword":"the-old-one","newPassword":"the-new-one"}'
+# { "accessToken": "...", "refreshToken": "...", "memberships": {...} }
+```
+
+The current password is required, and the change stamps `password_changed_at`, which disowns every refresh token
+issued before it. **That is the point** — a password is changed because somebody else may know it — but it would
+otherwise include the session doing the changing, so the answer is a fresh pair. Save it: the frontend does, and
+without that, tidying up your own password would sign you out.
+
+**A JWT records `iat` in whole seconds**, so `password_changed_at` is truncated to the second before it is stored.
+Without that it lands microseconds *after* the pair minted beside it, and the very check it just set refuses them; a
+login landing in the same second as a reset had the same problem. The cost is that a session opened in the same second
+as the change survives it, which is as fine-grained as a second-precision claim can be.
+
 ### Correcting the phone number
 
 `PUT /api/auth/me/phone` takes `{"phoneNumber": "+62 811 2233 4455"}` and applies it. No confirmation and no password,
@@ -470,6 +491,7 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `GET`  | `/api/auth/me`       | bearer      | The signed-in account                             |
 | `PUT`  | `/api/auth/me/photo` | bearer      | Your own photo; multipart, `removePhoto=true` drops it |
 | `PUT`  | `/api/auth/me/phone` | bearer      | Your own phone number                             |
+| `PUT`  | `/api/auth/me/password` | bearer   | Change it from inside a session; answers with a fresh token pair |
 | `POST` | `/api/auth/me/email` | bearer      | Ask to move to another address; needs the current password |
 | `DELETE` | `/api/auth/me/email` | bearer    | Drop the outstanding request                      |
 | `POST` | `/api/auth/email-change/{token}` | open | Confirm the new address, which is when it takes effect |
@@ -819,6 +841,7 @@ but sends mail to whatever address the caller types.
 | `POST /api/auth/login` | 10 per 5 minutes | **failures only** — a correct password never counts, so nobody is locked out by signing in |
 | `POST /api/auth/password/forgot` | 5 per 15 minutes | every request, because each one sends mail |
 | `POST /api/auth/me/email` | 5 per 15 minutes | every request; without it an account is a licence to send mail to anybody |
+| `PUT /api/auth/me/password` | 10 per 5 minutes | **failures only** — a session alone cannot change the password or the address without the current password, so this is the last thing between a stolen token and the account |
 
 Each request is keyed by client address **and** by the email in the body. Either alone leaves a hole: by IP only
 punishes everyone behind one NAT and lets a botnet through, by email only lets a single host work through a list of
@@ -832,6 +855,8 @@ application.rate-limit.forgot-password.capacity=5
 application.rate-limit.forgot-password.window=15m
 application.rate-limit.email-change.capacity=5
 application.rate-limit.email-change.window=15m
+application.rate-limit.password-change.capacity=10
+application.rate-limit.password-change.window=5m
 ```
 
 **The counters live in Redis**, so every instance draws from the same allowance rather than each granting its own. The

@@ -69,6 +69,10 @@ public class WebMvcConfiguration implements WebMvcConfigurer {
             registry.addInterceptor(new RateLimitInterceptor(
                             rateLimiterFactory.create(rateLimitProperties.getEmailChange()), "email-change", false))
                     .addPathPatterns("/api/auth/me/email");
+            // Only failures, so getting it right never counts against you.
+            registry.addInterceptor(new RateLimitInterceptor(
+                            rateLimiterFactory.create(rateLimitProperties.getPasswordChange()), "password-change", true))
+                    .addPathPatterns("/api/auth/me/password");
         }
 
         registry.addInterceptor(tenantSubdomainInterceptor()).addPathPatterns("/**");

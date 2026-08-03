@@ -1,4 +1,5 @@
 import { AccountEmailForm } from "./AccountEmailForm";
+import { AccountPasswordForm } from "./AccountPasswordForm";
 import { AccountPhoneForm } from "./AccountPhoneForm";
 import { AccountPhotoForm } from "./AccountPhotoForm";
 import { currentAccount } from "@/lib/account";
@@ -52,6 +53,16 @@ export default async function AccountPage() {
           ) : (
             <Alert>Cannot reach the API, so the phone number cannot be changed right now.</Alert>
           )}
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="font-semibold text-ink">Password</h2>
+          <p className="mt-1 mb-4 text-sm text-ink-muted">
+            {/* Said before the form, because it affects sessions elsewhere. */}
+            Changing it signs out every other session — a password is changed because somebody
+            else may know it. This one stays signed in.
+          </p>
+          <AccountPasswordForm />
         </Card>
 
         <Card className="p-6">

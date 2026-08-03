@@ -53,6 +53,14 @@ public class RateLimitProperties {
      */
     private Limit emailChange = new Limit(5, Duration.ofMinutes(15));
 
+    /**
+     * Only failures count, like sign-in. A session alone cannot change the
+     * password or the address without it, so this endpoint is the last thing
+     * between a stolen token and the account, and guessing at it is worth
+     * slowing down.
+     */
+    private Limit passwordChange = new Limit(10, Duration.ofMinutes(5));
+
     public enum Backend {
         AUTO, MEMORY, REDIS
     }

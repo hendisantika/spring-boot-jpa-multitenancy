@@ -11,6 +11,7 @@ import id.my.hendisantika.multitenancy.entity.central.TenantRole;
 import id.my.hendisantika.multitenancy.entity.central.UserTenant;
 import id.my.hendisantika.multitenancy.repository.central.TenantRegistrationRepository;
 import id.my.hendisantika.multitenancy.repository.central.UserTenantRepository;
+import id.my.hendisantika.multitenancy.service.storage.StorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.flywaydb.core.Flyway;
@@ -24,6 +25,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -48,6 +51,7 @@ public class TenantProvisioningService {
     private final TenantDataSourceRegistry tenantDataSourceRegistry;
     private final TenantProperties tenantProperties;
     private final DatabaseProperties databaseProperties;
+    private final StorageService storageService;
 
     /**
      * @param displayName organization name as the owner typed it, e.g. "Sehat"
@@ -200,6 +204,11 @@ public class TenantProvisioningService {
     /**
      * Drops a tenant database. Intended for tests and for undoing a failed
      * provisioning run, not for routine use.
+     * <p>
+     * The photos go too. Every delete endpoint removes the object beside the row
+     * that pointed at it, and this used to be the one path that did not: it
+     * dropped the database holding the keys, so the objects stayed in the bucket
+     * with nothing left to say whose they were or that they could go.
      */
     @Transactional("centralTransactionManager")
     public void deprovision(String slug) {
@@ -212,6 +221,12 @@ public class TenantProvisioningService {
         if (tenant.getDatabaseName().equals(databaseProperties.getCentralDatabase())) {
             throw new TenantProvisioningException("Refusing to drop the central database");
         }
+
+        // Read before dropping: afterwards there is nothing left to read them
+        // from. The name is safe to interpolate only because it was checked
+        // against TenantSlugs just above.
+        List<String> photoKeys = photoKeysOf(tenant);
+
         try (Connection connection = tenantDataSourceRegistry.getCentralDataSource().getConnection();
              Statement statement = connection.createStatement()) {
             statement.executeUpdate("DROP DATABASE IF EXISTS `%s`".formatted(tenant.getDatabaseName()));
@@ -224,6 +239,50 @@ public class TenantProvisioningService {
         // Memberships reference the slug rather than the row, so they have to go too.
         userTenantRepository.deleteAll(userTenantRepository.findAllByTenantSlug(normalized));
         tenantRegistrationRepository.delete(tenant);
-        log.info("Deprovisioned tenant {}", normalized);
+
+        // After the drop, in the order the record deletes use: losing a photo
+        // while the tenant still exists is worse than a bucket that lags by one
+        // failed call, and by here there is nothing left to roll back to.
+        for (String key : photoKeys) {
+            try {
+                storageService.delete(key);
+            } catch (RuntimeException e) {
+                log.warn("Could not delete {} while deprovisioning {}", key, normalized, e);
+            }
+        }
+        log.info("Deprovisioned tenant {}, removing {} photo(s)", normalized, photoKeys.size());
+    }
+
+    /**
+     * Every object this tenant owns: its own logo, held centrally, plus the
+     * photo of every person and unit in its database.
+     *
+     * @return best effort — a database that is already gone, or predates the
+     * photo columns, simply has nothing to contribute, and that is not a reason
+     * to refuse to deprovision
+     */
+    private List<String> photoKeysOf(TenantRegistration tenant) {
+        List<String> keys = new ArrayList<>();
+        if (tenant.getPhotoKey() != null && !tenant.getPhotoKey().isBlank()) {
+            keys.add(tenant.getPhotoKey());
+        }
+        for (String table : new String[]{"persons", "organizations"}) {
+            String sql = "SELECT photo_key FROM `%s`.`%s` WHERE photo_key IS NOT NULL"
+                    .formatted(tenant.getDatabaseName(), table);
+            try (Connection connection = tenantDataSourceRegistry.getCentralDataSource().getConnection();
+                 Statement statement = connection.createStatement();
+                 ResultSet rows = statement.executeQuery(sql)) {
+                while (rows.next()) {
+                    String key = rows.getString(1);
+                    if (key != null && !key.isBlank()) {
+                        keys.add(key);
+                    }
+                }
+            } catch (SQLException e) {
+                log.warn("Could not read photo keys from {}.{}, leaving those objects alone",
+                        tenant.getDatabaseName(), table, e);
+            }
+        }
+        return keys;
     }
 }

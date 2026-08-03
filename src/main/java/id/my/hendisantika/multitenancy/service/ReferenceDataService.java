@@ -3,12 +3,15 @@ package id.my.hendisantika.multitenancy.service;
 import id.my.hendisantika.multitenancy.entity.tenant.ReferenceData;
 import id.my.hendisantika.multitenancy.repository.tenant.ReferenceDataRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -57,8 +60,40 @@ public class ReferenceDataService {
      */
     @Transactional(value = "tenantTransactionManager", readOnly = true)
     public List<ReferenceData> findByCategory(String category) {
-        return referenceDataRepository.findByCategoryOrderBySortOrderAsc(
-                category == null ? "" : category.trim().toUpperCase());
+        return referenceDataRepository.findByCategoryOrderBySortOrderAsc(normalise(category));
+    }
+
+    /**
+     * One category as a page, narrowed to what somebody typed.
+     * <p>
+     * Held in its own order — {@code sortOrder} is the order a dropdown offers
+     * these in, and paging them by id would show them in the order somebody
+     * happened to insert them.
+     *
+     * @param query matched against the label and the code; blank means all of
+     *              them
+     */
+    @Transactional(value = "tenantTransactionManager", readOnly = true)
+    public Page<ReferenceData> findPage(String category, String query, Integer page, Integer size) {
+        String term = TenantListing.searchTerm(query);
+        return referenceDataRepository.search(
+                normalise(category),
+                term == null ? TenantListing.MATCH_EVERYTHING : term,
+                TenantListing.pageRequest(page, size, Sort.by(Sort.Direction.ASC, "sortOrder")));
+    }
+
+    /**
+     * @return whether this tenant keeps the list at all. Asked apart from the
+     * search, so that a screen can tell "nothing matched what you typed" from
+     * "there is no such list here" — which look identical in an empty page.
+     */
+    @Transactional(value = "tenantTransactionManager", readOnly = true)
+    public boolean hasCategory(String category) {
+        return referenceDataRepository.existsByCategory(normalise(category));
+    }
+
+    private static String normalise(String category) {
+        return category == null ? "" : category.trim().toUpperCase(Locale.ROOT);
     }
 
     /**

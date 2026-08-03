@@ -1,9 +1,14 @@
 import Link from "next/link";
 
 import { ApiError, api } from "@/lib/api";
+import { firstValue } from "@/lib/listing";
 import { getRole } from "@/lib/session";
-import { categoryName, type ReferenceLists, type ReferenceValue } from "@/lib/types";
+import { categoryName, type Page as PageOf, type ReferenceValue } from "@/lib/types";
 import { Alert, Badge, Card, PageHeading } from "@/components/ui";
+import { Pager } from "@/components/Pager";
+
+/** The provinces are 38; a screenful of them is plenty at a time. */
+const PER_PAGE = 20;
 
 export const metadata = { title: "Reference list" };
 
@@ -17,8 +22,12 @@ export const metadata = { title: "Reference list" };
  */
 export default async function ReferenceListPage({
   params,
+  searchParams,
 }: PageProps<"/organizations/[slug]/reference-data/[category]">) {
   const { slug, category } = await params;
+  const resolved = await searchParams;
+  const query = (firstValue(resolved.q) ?? "").trim();
+  const page = Math.max(0, Number(firstValue(resolved.page)) || 0);
   const role = await getRole(slug);
   const backToOrganization = `/organizations/${slug}`;
   const wanted = decodeURIComponent(category).toUpperCase();
@@ -32,22 +41,26 @@ export default async function ReferenceListPage({
     );
   }
 
-  let lists: ReferenceLists | null = null;
+  let values: PageOf<ReferenceValue> | null = null;
   let error: string | null = null;
 
   try {
-    // The whole map rather than /reference-data/{category}: that endpoint
-    // answers an unknown category with an empty list, deliberately, because an
-    // absent dropdown is not an error. A screen has to tell "this tenant keeps
-    // no such list" from "the list is empty", and the map says which.
-    lists = await api<ReferenceLists>("/reference-data", { tenant: slug });
+    // The category endpoint, which answers 404 when the tenant keeps no such
+    // list — the distinction an empty page cannot carry on its own.
+    values = await api<PageOf<ReferenceValue>>(
+      `/reference-data/${encodeURIComponent(wanted)}?page=${page}&size=${PER_PAGE}` +
+        (query ? `&q=${encodeURIComponent(query)}` : ""),
+      { tenant: slug },
+    );
   } catch (e) {
-    error = e instanceof ApiError ? e.message : "Cannot reach the API.";
+    if (e instanceof ApiError) {
+      error = e.status === 404 ? `This tenant keeps no list called ${wanted}.` : e.message;
+    } else {
+      error = "Cannot reach the API.";
+    }
   }
 
-  const values: ReferenceValue[] | undefined = lists?.[wanted];
-
-  if (error || !lists || !values) {
+  if (error || !values) {
     return (
       <>
         <Link
@@ -57,12 +70,12 @@ export default async function ReferenceListPage({
           ← Back to the organization
         </Link>
         <PageHeading title="Reference list" />
-        <Alert>{error ?? `This tenant keeps no list called ${wanted}.`}</Alert>
+        <Alert>{error ?? "Not found."}</Alert>
       </>
     );
   }
 
-  const live = values.filter((value) => value.active).length;
+  const live = values.content.filter((value) => value.active).length;
 
   return (
     <>
@@ -78,12 +91,31 @@ export default async function ReferenceListPage({
           title={categoryName(wanted)}
           description="What the dropdowns offer, and what a record in this tenant may store."
         />
+        {/* Of what is on this page, not of the list: counting the whole list
+            would mean fetching the whole list, which is what paging is for. */}
         <Badge>
-          {live} of {values.length} in use
+          {live} of {values.content.length} in use here
         </Badge>
       </div>
 
       <Card className="p-6">
+        <form action={`/organizations/${slug}/reference-data/${wanted}`} className="mb-4 flex gap-2">
+          <input
+            type="search"
+            name="q"
+            defaultValue={query}
+            placeholder="Search label or code"
+            aria-label="Search this list"
+            className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none transition placeholder:text-ink-muted/70 focus:border-brand"
+          />
+          <button
+            type="submit"
+            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition hover:bg-surface-muted"
+          >
+            Apply
+          </button>
+        </form>
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -96,7 +128,7 @@ export default async function ReferenceListPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {values.map((value) => (
+              {values.content.map((value) => (
                 <tr key={value.id} className={value.active ? "" : "text-ink-muted"}>
                   {/* The label is read, the code is stored. Both are shown
                       because the code is what a record actually holds and what
@@ -110,16 +142,29 @@ export default async function ReferenceListPage({
                   </td>
                 </tr>
               ))}
-              {values.length === 0 ? (
+              {values.totalElements === 0 ? (
                 <tr>
                   <td className="py-3 text-ink-muted" colSpan={5}>
-                    This list is empty, so its dropdown offers nothing.
+                    {query
+                      ? `Nothing in this list matches "${query}".`
+                      : "This list is empty, so its dropdown offers nothing."}
                   </td>
                 </tr>
               ) : null}
             </tbody>
           </table>
         </div>
+
+        <Pager
+          href={(next) =>
+            `/organizations/${slug}/reference-data/${wanted}?page=${next}` +
+            (query ? `&q=${encodeURIComponent(query)}` : "")
+          }
+          page={values.page}
+          size={values.size}
+          totalElements={values.totalElements}
+          totalPages={values.totalPages}
+        />
 
         <p className="mt-4 text-xs text-ink-muted">
           {/* Said here because there is no edit button and somebody will look

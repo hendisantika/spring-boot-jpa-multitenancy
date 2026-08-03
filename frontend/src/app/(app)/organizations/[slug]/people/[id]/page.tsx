@@ -2,10 +2,29 @@ import Link from "next/link";
 
 import { ApiError, api } from "@/lib/api";
 import { getRole } from "@/lib/session";
-import { referenceLabel, type ReferenceLists, type TenantPerson } from "@/lib/types";
+import {
+  referenceLabel,
+  type Page as PageOf,
+  type ReferenceLists,
+  type TenantPerson,
+} from "@/lib/types";
 import { Alert, Card, PageHeading } from "@/components/ui";
 
 export const metadata = { title: "Person" };
+
+/**
+ * How many people are looked at to work out who sits either side. Past this the
+ * steps are not offered, rather than being offered wrongly — a tenant's list of
+ * people only grows, and this is the same window the units screen uses.
+ */
+const NEIGHBOURS_WINDOW = 200;
+
+/** What a person is called in a link, which is not always a name. */
+function nameOf(person: TenantPerson): string {
+  return (
+    [person.firstName, person.lastName].filter(Boolean).join(" ") || person.email || "Unnamed"
+  );
+}
 
 /**
  * One person, whole. The list has room for a line each and the form is for
@@ -54,6 +73,16 @@ export default async function PersonPage({ params }: PageProps<"/organizations/[
   }
 
   const name = [person.firstName, person.lastName].filter(Boolean).join(" ") || "—";
+
+  // The neighbours, in the order the list shows them.
+  const siblings = await api<PageOf<TenantPerson>>(`/person?size=${NEIGHBOURS_WINDOW}`, {
+    tenant: slug,
+  })
+    .then((page) => page.content)
+    .catch(() => []);
+  const here = siblings.findIndex((candidate) => candidate.id === person.id);
+  const previous = here > 0 ? siblings[here - 1] : null;
+  const next = here >= 0 && here + 1 < siblings.length ? siblings[here + 1] : null;
   const document = [
     referenceLabel(lists.IDENTITY_DOCUMENT, person.identityDocumentType),
     person.identityNumber,
@@ -123,6 +152,36 @@ export default async function PersonPage({ params }: PageProps<"/organizations/[
           <Row label="Blood type" value={referenceLabel(lists.BLOOD_TYPE, person.bloodType)} />
           <Row label="Identity document" value={document} />
         </dl>
+
+        {previous || next ? (
+          <nav
+            aria-label="The other people"
+            className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-4 text-sm"
+          >
+            {previous ? (
+              <Link
+                href={`${backToList}/${previous.id}`}
+                rel="prev"
+                className="min-w-0 truncate text-ink-muted transition hover:text-ink"
+              >
+                ← {nameOf(previous)}
+              </Link>
+            ) : (
+              <span />
+            )}
+            {next ? (
+              <Link
+                href={`${backToList}/${next.id}`}
+                rel="next"
+                className="min-w-0 truncate text-right text-ink-muted transition hover:text-ink"
+              >
+                {nameOf(next)} →
+              </Link>
+            ) : (
+              <span />
+            )}
+          </nav>
+        ) : null}
       </Card>
     </>
   );

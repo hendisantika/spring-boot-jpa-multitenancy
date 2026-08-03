@@ -14,8 +14,15 @@ import {
   type Invitation,
   type Member,
   type Organization,
+  type Page as PageOf,
+  type TenantPerson,
+  type TenantUnit,
 } from "@/lib/types";
 import { Alert, Badge, Card, PageHeading } from "@/components/ui";
+import { Avatar } from "@/components/Avatar";
+
+/** Enough to recognise the tenant's data without becoming a second list. */
+const PREVIEW = 5;
 
 export default async function OrganizationPage({ params, searchParams }: PageProps<"/organizations/[slug]">) {
   const { slug } = await params;
@@ -51,6 +58,14 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
   } catch (e) {
     error = e instanceof ApiError ? e.message : "Cannot reach the API.";
   }
+
+  // The tenant's own database, fetched apart from the rest: everything above
+  // lives centrally, and a tenant database that is unreachable should empty two
+  // cards rather than take the profile down with it.
+  const [people, units] = await Promise.all([
+    api<PageOf<TenantPerson>>(`/person?size=${PREVIEW}`, { tenant: slug }).catch(() => null),
+    api<PageOf<TenantUnit>>(`/organization?size=${PREVIEW}`, { tenant: slug }).catch(() => null),
+  ]);
 
   if (error || !organization) {
     return (
@@ -114,23 +129,6 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
             </Link>
           ) : null}
         </div>
-      </div>
-
-      {/* The tenant's own database, as opposed to everything else on this page,
-          which lives centrally. */}
-      <div className="mb-6 flex flex-wrap gap-3">
-        <Link
-          href={`/organizations/${slug}/people`}
-          className="rounded-lg border border-line bg-surface px-4 py-2 text-sm text-ink transition hover:bg-surface-muted"
-        >
-          People in this tenant →
-        </Link>
-        <Link
-          href={`/organizations/${slug}/units`}
-          className="rounded-lg border border-line bg-surface px-4 py-2 text-sm text-ink transition hover:bg-surface-muted"
-        >
-          Business units →
-        </Link>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
@@ -227,7 +225,123 @@ export default async function OrganizationPage({ params, searchParams }: PagePro
           ) : null}
         </div>
       </div>
+
+      {/* The tenant's own database. Everything above this lives centrally, and
+          the two are worth keeping visibly apart. */}
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <TenantCard
+          title="People in this tenant"
+          seeAll={`/organizations/${slug}/people`}
+          total={people?.totalElements ?? null}
+        >
+          {people?.content.map((person) => {
+            const name = [person.firstName, person.lastName].filter(Boolean).join(" ") || "—";
+            return (
+              <PreviewRow
+                key={person.id}
+                href={`/organizations/${slug}/people/${person.id}`}
+                photoUrl={person.photoUrl}
+                initialFrom={name || person.email}
+                title={name}
+                subtitle={[person.email, person.mobile].filter(Boolean).join(" · ")}
+              />
+            );
+          })}
+        </TenantCard>
+
+        <TenantCard
+          title="Business units"
+          seeAll={`/organizations/${slug}/units`}
+          total={units?.totalElements ?? null}
+        >
+          {units?.content.map((unit) => (
+            <PreviewRow
+              key={unit.id}
+              href={`/organizations/${slug}/units/${unit.id}`}
+              photoUrl={unit.photoUrl}
+              initialFrom={unit.name}
+              title={unit.name || "—"}
+              subtitle={[unit.address, unit.email].filter(Boolean).join(" · ")}
+              // A place, not a face.
+              rounded="lg"
+            />
+          ))}
+        </TenantCard>
+      </div>
     </>
+  );
+}
+
+/**
+ * @param total null when the tenant database could not be read, which is not the
+ *              same as a tenant with nothing in it and must not read like one
+ */
+function TenantCard({
+  title,
+  seeAll,
+  total,
+  children,
+}: {
+  title: string;
+  seeAll: string;
+  total: number | null;
+  children: React.ReactNode;
+}) {
+  const rows = Array.isArray(children) ? children.filter(Boolean) : children;
+  const empty = !Array.isArray(rows) || rows.length === 0;
+
+  return (
+    <Card className="flex flex-col p-6">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="font-semibold text-ink">{title}</h2>
+        <span className="text-sm text-ink-muted">{total ?? "—"}</span>
+      </div>
+
+      {total === null ? (
+        <p className="text-sm text-ink-muted">This tenant&apos;s database could not be read.</p>
+      ) : empty ? (
+        <p className="text-sm text-ink-muted">Nothing here yet.</p>
+      ) : (
+        <ul className="divide-y divide-line">{rows}</ul>
+      )}
+
+      <Link
+        href={seeAll}
+        className="mt-4 self-end text-sm text-ink-muted transition hover:text-ink"
+      >
+        See all →
+      </Link>
+    </Card>
+  );
+}
+
+function PreviewRow({
+  href,
+  photoUrl,
+  initialFrom,
+  title,
+  subtitle,
+  rounded,
+}: {
+  href: string;
+  photoUrl: string | null;
+  initialFrom: string | null;
+  title: string;
+  subtitle: string;
+  rounded?: "full" | "lg";
+}) {
+  return (
+    <li>
+      {/* The whole row is the link: a name on its own is a small target, and
+          there is nothing else on the row to click. */}
+      <Link href={href} className="flex items-center gap-3 py-3 transition hover:opacity-80">
+        <Avatar photoUrl={photoUrl} email={initialFrom} rounded={rounded} />
+        <div className="min-w-0">
+          <p className="truncate text-sm text-ink">{title}</p>
+          <p className="truncate text-xs text-ink-muted">{subtitle || "No details"}</p>
+        </div>
+      </Link>
+    </li>
   );
 }
 

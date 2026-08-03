@@ -26,8 +26,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </Link>
 
           <div className="flex items-center gap-3">
-            <Avatar photoUrl={account?.photoUrl ?? null} email={account?.email ?? email} />
-            <span className="hidden text-sm text-ink-muted sm:inline">{email}</span>
+            {/* The avatar is where people look for their own settings. */}
+            <Link href="/account" className="flex items-center gap-3" title="Your account">
+              <Avatar photoUrl={account?.photoUrl ?? null} email={account?.email ?? email} />
+              <span className="hidden text-sm text-ink-muted hover:text-ink sm:inline">{email}</span>
+            </Link>
             <form action={logOut}>
               <button
                 type="submit"

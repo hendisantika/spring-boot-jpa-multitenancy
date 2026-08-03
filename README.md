@@ -427,6 +427,7 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `GET`  | `/api/auth/password/reset/{token}` | open | Whose account the link belongs to        |
 | `POST` | `/api/auth/password/reset/{token}` | open | Set a new password                       |
 | `GET`  | `/api/auth/me`       | bearer      | The signed-in account                             |
+| `PUT`  | `/api/auth/me/photo` | bearer      | Your own photo; multipart, `removePhoto=true` drops it |
 | `GET`  | `/api/organizations` | bearer      | Organizations the caller belongs to               |
 | `POST` | `/api/organizations` | bearer      | Register an organization; caller becomes `OWNER`  |
 | `GET`  | `/api/organizations/{slug}` | member | One organization                              |

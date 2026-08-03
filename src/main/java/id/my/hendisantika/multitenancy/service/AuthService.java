@@ -14,6 +14,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
@@ -70,6 +71,35 @@ public class AuthService {
         emailVerificationService.startFor(saved);
         log.info("Registered account {}", saved.getEmail());
         return saved;
+    }
+
+    /**
+     * Changes the photo on an account that already exists, which signup could
+     * set but nothing could afterwards.
+     *
+     * @param photo       null keeps the current one
+     * @param removePhoto drops it, for whoever wants none rather than a
+     *                    different one. A supplied photo wins: choosing a file
+     *                    says more than setting a flag, and the two together is
+     *                    a contradiction the screen already prevents.
+     */
+    @Transactional("centralTransactionManager")
+    public Account updatePhoto(Account account, MultipartFile photo, boolean removePhoto) {
+        Account managed = accountRepository.findById(account.getId())
+                .orElseThrow(() -> new AuthenticationFailedException("The account no longer exists"));
+        String previous = managed.getPhotoKey();
+
+        if (photo != null && !photo.isEmpty()) {
+            managed.setPhotoKey(storageService.store(photo, PHOTO_PREFIX));
+            // Otherwise every change leaves an object nothing points at again.
+            if (StringUtils.hasText(previous) && !previous.equals(managed.getPhotoKey())) {
+                storageService.delete(previous);
+            }
+        } else if (removePhoto && StringUtils.hasText(previous)) {
+            managed.setPhotoKey(null);
+            storageService.delete(previous);
+        }
+        return managed;
     }
 
     /**

@@ -78,6 +78,8 @@ public class PersonService {
                 TenantListing.orNothing(filter.bloodTypes()),
                 filter.anyIdentityDocument(),
                 TenantListing.orNothing(filter.identityDocumentTypes()),
+                filter.anyUnit(),
+                filter.unitIds(),
                 pageable);
     }
 

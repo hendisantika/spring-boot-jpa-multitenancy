@@ -108,6 +108,7 @@ export default async function PersonPage({ params }: PageProps<"/organizations/[
         </div>
 
         <dl className="mt-6 divide-y divide-line border-t border-line text-sm">
+          <Row label="Unit" value={person.unitName} />
           <Row label="Date of birth" value={formatDate(person.birthDate)} />
           <Row label="Gender" value={referenceLabel(lists.GENDER, person.gender)} />
           <Row label="Marital status" value={referenceLabel(lists.MARITAL_STATUS, person.maritalStatus)} />

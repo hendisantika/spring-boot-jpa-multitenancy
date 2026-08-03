@@ -633,6 +633,15 @@ from the same code (`TenantListing`), so the two cannot drift apart.
 Each coded field is also a **filter**, named after the field: `?gender=`, `?bloodType=`, `?maritalStatus=`,
 `?identityDocumentType=` on `/person`; `?unitType=`, `?operatingStatus=`, `?province=` on `/organization`.
 
+**`?unit=` filters people by the business unit they belong to.** That link was stored and never shown, so it could
+not be searched for or narrowed to. It takes the unit's **id**, because a unit is a record rather than a code from a
+reference list; the search takes its **name**, because that is what somebody types. A unit id that is not a number
+narrows to nobody rather than widening to everybody, which is what an unknown code already did.
+
+The query joins the unit with an explicit `left join`. Writing `p.organization.name` instead makes it an inner join,
+which silently drops everybody who has no unit from the entire list rather than only from the unit filter — 23 tests
+said so at once.
+
 **A search widens and a filter narrows, so they combine.** `?q=cabang` matches a name *or* an address *or* a province
 label; `&province=BALI` then keeps only those that are also in Bali. Two filters mean both, never either.
 
@@ -659,7 +668,7 @@ away, and all-blank is no filter at all.
 
 | Endpoint         | `q` is matched against                                                                    |
 |------------------|---------------------------------------------------------------------------------------------|
-| `/person`        | First name, last name, the two joined, email, mobile, **and the labels** of its four codes   |
+| `/person`        | First name, last name, the two joined, email, mobile, **the unit's name**, and the labels of its four codes |
 | `/organization`  | Name, address, email, **and the labels** of its unit type, status and province                |
 
 ```bash

@@ -74,7 +74,8 @@ public class PersonController {
      * {@code ?bloodType=O_POSITIVE&bloodType=O_NEGATIVE} — and then means either
      * of them, while still narrowing whatever else was asked for.
      *
-     * @param q    matched against the names, email, mobile and the labels behind the codes
+     * @param q    matched against the names, email, mobile, the unit's name and
+     *             the labels behind the codes
      * @param page zero based
      * @param size clamped, so a client cannot ask for the lot in one go
      */
@@ -87,8 +88,10 @@ public class PersonController {
             @RequestParam(name = "gender", required = false) List<String> gender,
             @RequestParam(name = "maritalStatus", required = false) List<String> maritalStatus,
             @RequestParam(name = "bloodType", required = false) List<String> bloodType,
-            @RequestParam(name = "identityDocumentType", required = false) List<String> identityDocumentType) {
-        PersonFilter filter = PersonFilter.of(gender, maritalStatus, bloodType, identityDocumentType);
+            @RequestParam(name = "identityDocumentType", required = false) List<String> identityDocumentType,
+            @RequestParam(name = "unit", required = false) List<String> unit) {
+        PersonFilter filter = PersonFilter.of(
+                gender, maritalStatus, bloodType, identityDocumentType, unit);
         return PageResponse.of(personService.findPage(q, filter, page, size).map(this::viewOf));
     }
 

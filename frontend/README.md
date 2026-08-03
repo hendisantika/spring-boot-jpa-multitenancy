@@ -133,6 +133,11 @@ the other two use: the same 112px square, and the same fallback to an initial. I
 either of them, and with no photo at all it rendered nothing, so the heading simply slid left and the page looked like
 one that had never had a photo.
 
+**People can be narrowed to a unit.** The units are not a reference list, but the checkbox control only ever wanted
+options with a code and a label, and a unit is exactly that with its id as the code — so they are passed in under a
+key no migration uses, and the filter machinery is reused unchanged. Each row and the detail screen now name the unit
+too: a filter whose effect is invisible is a guess.
+
 **A person has a detail screen of their own.** The list has room for a line each and the form is for changing things;
 neither is a place to simply read a record, and the photo in particular was a 32px thumbnail. The name in the list is
 the way in, Edit goes back to the list where the form already lives, and a missing id says so rather than showing an

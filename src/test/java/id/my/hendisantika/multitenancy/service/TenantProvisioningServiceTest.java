@@ -5,12 +5,17 @@ import id.my.hendisantika.multitenancy.config.TenantDataSourceRegistry;
 import id.my.hendisantika.multitenancy.entity.central.TenantRegistration;
 import id.my.hendisantika.multitenancy.entity.central.TenantStatus;
 import id.my.hendisantika.multitenancy.entity.tenant.Organization;
+import id.my.hendisantika.multitenancy.entity.tenant.Person;
 import id.my.hendisantika.multitenancy.repository.central.TenantRegistrationRepository;
 import id.my.hendisantika.multitenancy.repository.tenant.OrganizationRepository;
+import id.my.hendisantika.multitenancy.repository.tenant.PersonRepository;
+import id.my.hendisantika.multitenancy.service.storage.StorageException;
+import id.my.hendisantika.multitenancy.service.storage.StorageService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +23,8 @@ import javax.sql.DataSource;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.verify;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -52,6 +59,16 @@ class TenantProvisioningServiceTest {
 
     @Autowired
     private DataSource centralDataSource;
+
+    @Autowired
+    private PersonRepository personRepository;
+
+    /**
+     * Mocked so the objects being deleted can be named without a bucket in the
+     * way, and because CI starts without one.
+     */
+    @MockitoBean
+    private StorageService storageService;
 
     @AfterEach
     void cleanUp() {
@@ -96,6 +113,58 @@ class TenantProvisioningServiceTest {
         Integer centralRows = new JdbcTemplate(centralDataSource).queryForObject(
                 "SELECT COUNT(*) FROM organizations WHERE name = ?", Integer.class, "Probe Clinic");
         assertThat(centralRows).isZero();
+    }
+
+    /**
+     * Every delete endpoint removes the object beside the row that pointed at
+     * it, and this was the one path that did not: it dropped the database
+     * holding the keys, leaving the objects in the bucket with nothing left to
+     * say whose they were.
+     */
+    @Test
+    void deprovisioningTakesTheTenantsPhotosWithIt() {
+        TenantRegistration tenant = tenantProvisioningService.provision(DISPLAY_NAME);
+        tenant.setPhotoKey("organizations/tenant-logo.png");
+        tenantRegistrationRepository.saveAndFlush(tenant);
+
+        TenantContext.setTenant(SLUG);
+        Organization unit = new Organization();
+        unit.setName("Cabang Berfoto");
+        unit.setPhotoKey("units/one.png");
+        organizationRepository.saveAndFlush(unit);
+        Person person = new Person();
+        person.setFirstName("Berfoto");
+        person.setPhotoKey("persons/one.png");
+        personRepository.saveAndFlush(person);
+        TenantContext.clearTenant();
+
+        tenantProvisioningService.deprovision(SLUG);
+
+        verify(storageService).delete("organizations/tenant-logo.png");
+        verify(storageService).delete("units/one.png");
+        verify(storageService).delete("persons/one.png");
+    }
+
+    /**
+     * A bucket that refuses must not leave a half-dropped tenant behind: the
+     * database is already gone by then, so there is nothing to roll back to and
+     * the failure is worth a log line rather than an exception.
+     */
+    @Test
+    void aBucketThatRefusesDoesNotStopTheTenantGoing() {
+        TenantRegistration tenant = tenantProvisioningService.provision(DISPLAY_NAME);
+        tenant.setPhotoKey("organizations/stubborn.png");
+        tenantRegistrationRepository.saveAndFlush(tenant);
+        willThrow(new StorageException("the bucket said no"))
+                .given(storageService).delete("organizations/stubborn.png");
+
+        tenantProvisioningService.deprovision(SLUG);
+
+        assertThat(tenantRegistrationRepository.findBySlug(SLUG)).isEmpty();
+        List<String> databases = new JdbcTemplate(centralDataSource).queryForList(
+                "SELECT schema_name FROM information_schema.schemata WHERE schema_name = ?",
+                String.class, SLUG);
+        assertThat(databases).isEmpty();
     }
 
     @Test

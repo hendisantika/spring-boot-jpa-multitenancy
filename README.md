@@ -641,6 +641,12 @@ Omitting the photo part on an edit keeps the current one; sending one replaces i
 edit does not leave an orphan in the bucket. Deleting a person deletes its photo too — the row was the only thing
 pointing at it.
 
+**Deprovisioning a tenant takes its photos with it**: its own logo, and the photo of every person and unit in its
+database. The keys are read before the database is dropped, because afterwards there is nothing left to read them
+from — which is exactly how that path used to leave objects behind. The objects go after the drop, in the order the
+record deletes use: losing a photo while the tenant still exists is worse than a bucket that lags by one failed call,
+and a bucket that refuses is a log line rather than a half-dropped tenant.
+
 `removePhoto=true` drops the photo without supplying another, which was otherwise impossible: you could replace one
 forever but never get back to none. It applies to `PUT /api/organizations/{slug}` as well. Sending a photo **and** the
 flag is a contradiction and the upload wins — choosing a file says more than ticking a box — though the screens do not

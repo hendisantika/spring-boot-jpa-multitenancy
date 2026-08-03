@@ -173,10 +173,20 @@ public class OrganizationRegistrationController {
         return viewOf(organizationProfileService.updatePhoto(slug, photoKey, removePhoto));
     }
 
+    /**
+     * Paged rather than whole, for the reason the tenant's own lists are: a
+     * membership list only grows, and an endpoint that hands back all of it is
+     * one nobody can withdraw later.
+     *
+     * @param page zero based
+     * @param size clamped, so a client cannot ask for the lot in one go
+     */
     @GetMapping("/{slug}/users")
-    public List<MemberView> members(@PathVariable String slug) {
+    public PageResponse<MemberView> members(@PathVariable String slug,
+                                            @RequestParam(name = "page", required = false) Integer page,
+                                            @RequestParam(name = "size", required = false) Integer size) {
         tenantSecurity.requireMember(slug);
-        return membershipService.membersOf(slug).stream().map(this::viewOf).toList();
+        return PageResponse.of(membershipService.membersOf(slug, page, size).map(this::viewOf));
     }
 
     /**
@@ -214,10 +224,10 @@ public class OrganizationRegistrationController {
     @GetMapping("/{slug}/users/{accountId}")
     public MemberDetailView member(@PathVariable String slug, @PathVariable Long accountId) {
         tenantSecurity.requireMember(slug);
-        return membershipService.membersOf(slug).stream()
-                .filter(membership -> membership.getAccount() != null
-                        && accountId.equals(membership.getAccount().getId()))
-                .findFirst()
+        // Queried, not filtered out of the list: the list is a page now, and
+        // walking it would have found only whoever landed on the first one.
+        return membershipService.memberOf(slug, accountId)
+                .filter(membership -> membership.getAccount() != null)
                 .map(this::detailOf)
                 .orElseThrow(() -> new TenantRecordNotFoundException(
                         "No member of '" + slug + "' with account id " + accountId));

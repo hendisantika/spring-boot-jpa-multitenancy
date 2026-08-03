@@ -450,6 +450,14 @@ the recipient's mailbox and nowhere else. The screen says so, because that is th
 still `PENDING` in the database while being useless to whoever holds the link. It stays withdrawable for exactly that
 reason — it is still in the pending list, and withdrawing is how an owner clears it.
 
+**The membership list is paged**, on the same terms as the tenant's own lists: `?page=` and `?size=`, zero based, size
+clamped to 200 with a default of 20. A membership list only grows — a hospital group is not a handful of people — and
+an endpoint that hands back all of it is one nobody can withdraw later.
+
+That changed how one membership is read. It used to be found by walking the list, which stopped being the same thing
+the moment the list became a page: whoever fell on page two would have been "not found". `MembershipService.memberOf`
+queries the pair instead, and a test opens the membership of somebody deliberately off the first page.
+
 ### One membership, whole
 
 `GET /api/organizations/{slug}/users/{accountId}` answers the list entry plus the phone number, whether the address is
@@ -546,7 +554,7 @@ Access tokens are not revoked, since nothing checks them against the database; t
 | `GET`  | `/api/organizations/{slug}` | member | One organization                              |
 | `PUT`  | `/api/organizations/{slug}` | **owner** | Edit the profile; identity stays put       |
 | `PUT`  | `/api/organizations/{slug}/photo` | **owner** | Just the photo; multipart, `removePhoto=true` drops it |
-| `GET`  | `/api/organizations/{slug}/users` | member | Its membership list, each with the account's photo |
+| `GET`  | `/api/organizations/{slug}/users` | member | A **page** of its memberships, each with the account's photo |
 | `GET`  | `/api/organizations/{slug}/users/{accountId}` | member | One membership, whole; **404** when that account is not a member here |
 | `POST` | `/api/organizations/{slug}/users` | **owner** | Add a person directly, setting their password |
 | `GET`  | `/api/organizations/{slug}/invitations` | **owner** | Pending invitations                |

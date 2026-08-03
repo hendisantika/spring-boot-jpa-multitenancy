@@ -10,12 +10,16 @@ import {
   type Account,
   type Member,
   type Organization,
+  type Page as PageOf,
 } from "@/lib/types";
 import { VerifyEmailBanner } from "./VerifyEmailBanner";
 import { Avatar } from "@/components/Avatar";
 import { Alert, Badge, Card, PageHeading } from "@/components/ui";
 
 export const metadata = { title: "Your organizations" };
+
+/** How many faces fit on a card before the row starts running the width. */
+const FACES = 5;
 
 export default async function DashboardPage() {
   let organizations: Organization[] = [];
@@ -38,11 +42,17 @@ export default async function DashboardPage() {
   // to, not a directory, and they go out together — but each catches its own
   // failure, so one unreachable membership list costs that card its faces
   // rather than emptying the page.
+  //
+  // Only the faces it draws, now that the list is paged: it used to fetch every
+  // member of every organization to show five of them, and the total comes from
+  // the page rather than from counting what arrived.
   const membersByOrganization = Object.fromEntries(
     await Promise.all(
       organizations.map(async (organization) => [
         organization.slug,
-        await api<Member[]>(`/api/organizations/${organization.slug}/users`).catch(() => null),
+        await api<PageOf<Member>>(
+          `/api/organizations/${organization.slug}/users?size=${FACES}`,
+        ).catch(() => null),
       ] as const),
     ),
   );
@@ -138,15 +148,12 @@ export default async function DashboardPage() {
   );
 }
 
-/** How many faces fit on a card before the row starts running the width. */
-const FACES = 5;
-
 /**
  * @param members null when that organization's membership list could not be
  *                read, which says nothing about how many people are in it and
  *                so shows nothing rather than "0 people"
  */
-function People({ members }: { members: Member[] | null }) {
+function People({ members }: { members: PageOf<Member> | null }) {
   if (!members) return null;
 
   return (
@@ -154,14 +161,16 @@ function People({ members }: { members: Member[] | null }) {
       {/* Overlapped, because these are faces rather than a list: the point is
           who is in there at a glance, and the names are one click away. */}
       <div className="flex -space-x-2">
-        {members.slice(0, FACES).map((member) => (
+        {members.content.map((member) => (
           <span key={`${member.accountId}-${member.email}`} className="ring-2 ring-surface rounded-full">
             <Avatar photoUrl={member.photoUrl} email={member.email} />
           </span>
         ))}
       </div>
+      {/* The total, not how many faces arrived: five faces beside "7 people" is
+          the truth, and counting the page would have said five. */}
       <span className="text-xs text-ink-muted">
-        {members.length === 1 ? "1 person" : `${members.length} people`}
+        {members.totalElements === 1 ? "1 person" : `${members.totalElements} people`}
       </span>
     </div>
   );

@@ -241,6 +241,11 @@ async function seedInvitations(token, slug) {
  * The dark pass is desktop-width only. The theme is a set of colour tokens
  * swapped by `prefers-color-scheme`, not a layout, so shooting it at all three
  * widths would be fifty-seven pictures of one palette change.
+ *
+ * Only the desktop pass is 2x. The other three are answering a yes-or-no
+ * question — does it stack, does it go dark — and are read at a fraction of
+ * their width, so a second pixel each way is detail nobody looks at in a file
+ * the history then carries forever.
  */
 const SHAPES = [
   {
@@ -256,7 +261,7 @@ const SHAPES = [
     dir: "dark",
     context: {
       viewport: { width: 1280, height: 800 },
-      deviceScaleFactor: 2,
+      deviceScaleFactor: 1,
       // There is no toggle to click: globals.css answers the media query, so
       // asking for the scheme is the whole of it.
       colorScheme: "dark",
@@ -268,7 +273,7 @@ const SHAPES = [
     context: {
       // An iPad Air held upright.
       viewport: { width: 820, height: 1180 },
-      deviceScaleFactor: 2,
+      deviceScaleFactor: 1,
       isMobile: true,
       hasTouch: true,
       userAgent:
@@ -284,7 +289,7 @@ const SHAPES = [
       // 2 rather than a real phone's 3: these are read at a fraction of their
       // width in a document, and a third of the sharpness nobody sees costs
       // three megabytes that the history then keeps forever.
-      deviceScaleFactor: 2,
+      deviceScaleFactor: 1,
       isMobile: true,
       hasTouch: true,
       userAgent:

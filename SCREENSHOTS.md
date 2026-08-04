@@ -355,10 +355,13 @@ actually describes — otherwise three sets would be three samples of one layout
 accordingly, rather than behaving like a very small desktop. The dark pass sets nothing but the scheme, since the
 application has no switch of its own to click.
 
-All three are full-page, so a long screen is one tall image rather than a fold. Locale is fixed to `en-GB` and the
-clock to `Asia/Jakarta`, or the dates in the pictures would not match the application anybody here is running. Every
-set is 2×, including the phone one where a real device would be 3×: these are read at a fraction of their width, and
-sharpness nobody can see still costs megabytes the history keeps forever.
+All four are full-page, so a long screen is one tall image rather than a fold. Locale is fixed to `en-GB` and the
+clock to `Asia/Jakarta`, or the dates in the pictures would not match the application anybody here is running.
+
+Only the desktop set is 2×. It is the one shown inline and read closely, so it is worth the pixels. The other three
+answer a yes-or-no question — does it stack, does it go dark — and are 1×, which is exactly what the device itself
+would show. That is 9 MB rather than 16 MB, and file size is a real constraint here: a picture is never edited, only
+replaced, so every re-run of the tour adds another copy to the history for good.
 
 ### Removing the tour data
 

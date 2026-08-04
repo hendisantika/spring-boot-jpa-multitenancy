@@ -1,8 +1,17 @@
 # Deploying to the dev server
 
-Every push to `main` builds two images, pushes them to Docker Hub and points the dev server at that pair.
-[`.github/workflows/deploy-dev.yml`](../.github/workflows/deploy-dev.yml) is the whole of it, and
-[`deploy/compose.dev.yaml`](../deploy/compose.dev.yaml) is what ends up running.
+A push to `main` that passes its checks builds two images, pushes them to Docker Hub and points the dev server at that
+pair. [`.github/workflows/deploy-dev.yml`](../.github/workflows/deploy-dev.yml) is the deploy itself, called by
+[Backend CI](../.github/workflows/backend.yml) and [Frontend CI](../.github/workflows/frontend.yml) rather than
+triggered on its own, and [`deploy/compose.dev.yaml`](../deploy/compose.dev.yaml) is what ends up running.
+
+Each CI workflow watches the paths it owns — `src/`, `pom.xml` and the `Dockerfile` on one side, `frontend/` on the
+other — so a commit that only changes the front end does not wait for the Maven tests, and neither deploys until its
+own tests have passed. A commit touching both runs both, and the second deploy is the same pair of images being
+pulled again.
+
+Both images are always built and always deployed together, whichever workflow called: the pair on the server then
+comes from one commit, and there is no combination running that was never tested as one.
 
 Nothing is built on the server and nothing is configured by hand there. The `.env` beside the compose file is written
 from repository secrets and variables on every deploy, so **editing it on the server changes nothing that survives the
@@ -12,8 +21,10 @@ MySQL, Redis and MinIO are the server's own, already running; the containers rea
 `host.docker.internal`, which compose maps to the host gateway.
 
 ```
-push to main ──► build api image ──┐
-                 build web image ──┴─► push to Docker Hub ──► ssh: pull, up -d ──► wait for both to answer
+push to main ──► Backend CI  (src/, pom.xml, Dockerfile) ──┐
+                 Frontend CI (frontend/)                  ──┴─► tests pass ──► check settings
+                                                                                    │
+     wait for both to answer ◄── ssh: pull, up -d ◄── push to Docker Hub ◄── build both images
 ```
 
 ## What to set on the repository
@@ -113,8 +124,10 @@ port it would let a caller name a tenant the host name did not.
 
 ## Deploying, and undeploying
 
-Push to `main` and it goes. Or run it by hand from Actions → Deploy to dev → Run workflow, which is also how a
-rollback works: give it the tag of a build that was good, and the build job is skipped entirely.
+Push to `main`, and it goes once that side's tests are green. Or run it by hand from Actions → Deploy to dev → Run
+workflow, which is also how a rollback works: give it the tag of a build that was good, and the build job is skipped
+entirely. Run by hand it deploys whatever it is given without waiting for anything, which is the point of it — a
+rollback happens when something is already wrong.
 
 ```
 sha-1a2b3c4          # the seven character commit, which is how every image is tagged

@@ -9,8 +9,16 @@ name: Deploy to dev
 # edit on the server: the .env beside the compose file is written from them on
 # every run.
 on:
-  push:
-    branches: [ "main" ]
+  # Called by Backend CI and Frontend CI once their tests have passed, which is
+  # how every deploy from main happens. There is no push trigger of its own:
+  # untested code should not reach the server, and a workflow that deployed
+  # beside the tests rather than behind them would let it.
+  workflow_call:
+    inputs:
+      image_tag:
+        type: string
+        required: false
+        default: ''
   workflow_dispatch:
     inputs:
       image_tag:

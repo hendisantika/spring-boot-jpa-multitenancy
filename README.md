@@ -1,6 +1,6 @@
 # spring-boot-jpa-multitenancy
 
-[![Java CI with Maven](https://github.com/hendisantika/spring-boot-jpa-multitenancy/actions/workflows/maven.yml/badge.svg)](https://github.com/hendisantika/spring-boot-jpa-multitenancy/actions/workflows/maven.yml)
+[![Backend CI](https://github.com/hendisantika/spring-boot-jpa-multitenancy/actions/workflows/backend.yml/badge.svg)](https://github.com/hendisantika/spring-boot-jpa-multitenancy/actions/workflows/backend.yml)
 [![Frontend CI](https://github.com/hendisantika/spring-boot-jpa-multitenancy/actions/workflows/frontend.yml/badge.svg)](https://github.com/hendisantika/spring-boot-jpa-multitenancy/actions/workflows/frontend.yml)
 
 Database-per-tenant multi tenancy with Spring Boot, Spring Data JPA, Hibernate, HikariCP, Flyway and MySQL.
@@ -1098,9 +1098,10 @@ Rotating the JWT secret invalidates every token already issued: holders have to 
 Note that the local development database uses `root`/`root`, which the `prod` profile rejects by design. Running the
 prod profile against it needs a database user created for the purpose.
 
-The dev server is deployed by GitHub Actions on every push to `main`: two images built and pushed to Docker Hub, then
-pulled by the server, which builds nothing and holds no configuration of its own — the environment beside the compose
-file is written from repository secrets and variables on each run. See
+The dev server is deployed by GitHub Actions once the checks pass on `main`. Backend CI and Frontend CI each run on
+the paths they own and, on a green push, call the same deploy: two images built and pushed to Docker Hub, then pulled
+by the server, which builds nothing and holds no configuration of its own — the environment beside the compose file is
+written from repository secrets and variables on each run. See
 [docs/dev-deployment.md](docs/dev-deployment.md) for what to set, and
 [`.github/workflows/deploy-dev.yml`](.github/workflows/deploy-dev.yml) for the run itself. Rolling back is the same
 workflow with the tag of a build that was good.

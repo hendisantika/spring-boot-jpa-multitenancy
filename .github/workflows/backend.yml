@@ -6,17 +6,39 @@
 # separate terms of service, privacy policy, and support
 # documentation.
 
-name: Java CI with Maven
+name: Deploy Backend CI/CD to Dev
 
+# Only when the backend changes; the front end has its own workflow, and a
+# commit that touches neither has nothing here to run. deploy/ is in the list
+# because the compose file and its environment are what the deploy applies.
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'src/**'
+      - 'pom.xml'
+      - '.mvn/**'
+      - 'mvnw'
+      - 'mvnw.cmd'
+      - 'Dockerfile'
+      - 'deploy/**'
+      - '.github/workflows/backend.yml'
+      - '.github/workflows/deploy-dev.yml'
   pull_request:
     branches: [ "main" ]
+    paths:
+      - 'src/**'
+      - 'pom.xml'
+      - '.mvn/**'
+      - 'mvnw'
+      - 'mvnw.cmd'
+      - 'Dockerfile'
+      - '.github/workflows/backend.yml'
+      - '.github/workflows/deploy-dev.yml'
 
 jobs:
   build:
-
+    name: Test
     runs-on: ubuntu-latest
 
     # The dependency submission API writes a snapshot to the repository, which
@@ -96,3 +118,12 @@ jobs:
     # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
     - name: Update dependency graph
       uses: advanced-security/maven-dependency-submission-action@b275d12641ac2d2108b2cbb7598b154ad2f2cee8
+
+  # Nothing reaches the dev server until the tests above pass, and never from a
+  # pull request: the same commit deploys or it does not.
+  deploy:
+    name: Deploy
+    needs: [ build ]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/deploy-dev.yml
+    secrets: inherit

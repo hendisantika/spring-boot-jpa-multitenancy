@@ -1,4 +1,4 @@
-name: Frontend CI
+name: Deploy Frontend CI/CD to Dev
 
 # Only when the frontend changes: the Maven workflow already runs on everything
 # else, and a bun install plus build on a backend-only commit buys nothing.
@@ -16,7 +16,7 @@ on:
 
 jobs:
   build:
-
+    name: Lint and build
     runs-on: ubuntu-latest
 
     defaults:
@@ -52,3 +52,12 @@ jobs:
       # to the API is server rendered on demand, so no backend is needed here.
       - name: Build
         run: bun run build
+
+  # Same as the backend: the dev server only ever sees a commit whose checks
+  # passed, and a pull request deploys nothing.
+  deploy:
+    name: Deploy
+    needs: [ build ]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/deploy-dev.yml
+    secrets: inherit

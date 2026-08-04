@@ -17,9 +17,11 @@ Organization "Sehat2" ->  database `sehat2` ->  https://sehat2.jvm.my.id
 📸 **[A walk through the service](SCREENSHOTS.md)** — nineteen screens, from having no account to reading a tenant's
 own reference lists. Everything below here is the API; that is what it looks like from the front.
 
-📱 The same nineteen **[on a tablet](SCREENSHOTS.md#on-a-tablet)** and **[on a phone](SCREENSHOTS.md#on-a-phone)** —
-the page columns stack below 1024px and the grids inside a card below 640px, so a tablet is genuinely its own layout
-rather than a wide phone. No screen scrolls sideways at any width.
+📐 The same nineteen **[on a tablet](SCREENSHOTS.md#on-a-tablet)** — its own layout rather than a wide phone: the page
+columns stack below 1024px, while the grids inside a card stay two across all the way down to 640px.
+
+📱 And **[on a phone](SCREENSHOTS.md#on-a-phone)** — one column throughout, filters stacked, and no screen scrolling
+sideways at any of the three widths.
 
 ## Tech stack
 

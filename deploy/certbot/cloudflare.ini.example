@@ -1,0 +1,20 @@
+# Credentials for certbot's Cloudflare DNS plugin, which answers the DNS-01
+# challenge by writing a TXT record into the zone. A wildcard certificate can
+# be issued no other way: HTTP-01 proves one name at a time, and there is no
+# host to serve the challenge from for a name that has not been registered yet.
+#
+#   install -m 600 deploy/certbot/cloudflare.ini.example /etc/letsencrypt/cloudflare.ini
+#   $EDITOR /etc/letsencrypt/cloudflare.ini
+#
+# The file holds a credential that can rewrite the zone, so certbot refuses to
+# use it unless it is 0600 and owned by the user running it.
+#
+# Create the token at https://dash.cloudflare.com/profile/api-tokens with
+# exactly two permissions, scoped to this zone alone and nothing wider:
+#
+#   Zone : DNS  : Edit    — to write and remove the _acme-challenge record
+#   Zone : Zone : Read    — to find the zone the record belongs to
+#
+# Use an API *token*, not the Global API Key: the key carries the whole account.
+
+dns_cloudflare_api_token = 0000000000000000000000000000000000000

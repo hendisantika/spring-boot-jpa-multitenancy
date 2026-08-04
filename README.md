@@ -958,6 +958,9 @@ lowercase `.sql` suffix are required by Flyway's default configuration.
   other schema. Provisioning refuses a name whose database already exists rather than adopting it, but choosing a
   dedicated MySQL instance (or reinstating a prefix) removes the class of collision entirely.
 * `*.jvm.my.id` needs wildcard DNS and a wildcard TLS certificate in production; use the `X-Tenant` header locally.
+  Set both up once and registering an organization needs no DNS work at all — a wildcard already answers for a slug
+  created a minute ago. [docs/wildcard-subdomain.md](docs/wildcard-subdomain.md) has the Cloudflare records, the
+  certbot invocation and the nginx configuration in `deploy/`.
 * **`application.jwt.secret` ships with a development value**; see [Running in production](#running-in-production).
   Anyone holding it can mint tokens for any account.
 * Photo uploads go to any S3 compatible endpoint. The defaults point at a local MinIO
@@ -1094,6 +1097,11 @@ Rotating the JWT secret invalidates every token already issued: holders have to 
 
 Note that the local development database uses `root`/`root`, which the `prod` profile rejects by design. Running the
 prod profile against it needs a database user created for the purpose.
+
+Serving the tenant subdomains is the other half of a deployment: one wildcard DNS record, one wildcard certificate and
+one nginx server block, set up once, after which every organization that registers is reachable at
+`{slug}.jvm.my.id` with no further work. The records, the certbot invocation and the configuration files are in
+[docs/wildcard-subdomain.md](docs/wildcard-subdomain.md) and [`deploy/`](deploy).
 
 ## Roadmap
 

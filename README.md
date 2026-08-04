@@ -14,6 +14,9 @@ Organization "Sehat"  ->  database `sehat`  ->  https://sehat.jvm.my.id
 Organization "Sehat2" ->  database `sehat2` ->  https://sehat2.jvm.my.id
 ```
 
+📸 **[A walk through the service](SCREENSHOTS.md)** — nineteen screens, from having no account to reading a tenant's
+own reference lists. Everything below here is the API; that is what it looks like from the front.
+
 ## Tech stack
 
 | Component        | Version                        |

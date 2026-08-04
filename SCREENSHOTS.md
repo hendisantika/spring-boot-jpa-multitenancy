@@ -2,9 +2,9 @@
 
 Nineteen screens, in the order somebody meets them: from having no account at all to reading a tenant's own
 reference lists. Every picture is of the running application against a real database — none of them is a mockup,
-and none was retouched. Each screen was shot three times — on a desktop, [on a tablet](#on-a-tablet) and
-[on a phone](#on-a-phone). [How they were taken](#how-these-were-taken) is at the bottom, along with how to make them
-again.
+and none was retouched. Each screen was shot four times — on a desktop, [in the dark](#in-the-dark),
+[on a tablet](#on-a-tablet) and [on a phone](#on-a-phone). [How they were taken](#how-these-were-taken) is at the
+bottom, along with how to make them again.
 
 The tenant in the pictures is **Klinik Sehat Nusantara**, with four business units, twelve people, four members and
 three unaccepted invitations. It is seeded and thrown away by the script; it is not part of the application.
@@ -190,6 +190,48 @@ a link sent to the *new* address is opened — so a mistyped address costs an em
 
 ---
 
+## In the dark
+
+The same nineteen at desktop width with the browser asking for a dark scheme, in
+[`docs/screenshots/dark/`](docs/screenshots/dark).
+
+There is no theme switch to find. `globals.css` answers `prefers-color-scheme` by swapping eight colour tokens —
+surface, line, ink, brand and the rest — and every screen is painted from those, so the whole application follows
+whatever the operating system is set to and nothing else has to know about it.
+
+Only at desktop width, because unlike the two below this is not a layout: shooting one palette change at three widths
+would be fifty-seven pictures of the same thing.
+
+Taking these found a real defect, now fixed. The tokens only reach what the stylesheet paints; checkboxes, date
+pickers, select arrows and scrollbars are painted by the browser, and with no `color-scheme` declared it went on
+painting them for a light page — white checkboxes on a dark card. The filters on People are the giveaway, and are
+worth comparing against [the light version](docs/screenshots/12-people.png).
+
+Six to look at:
+
+| | |
+|---|---|
+| **[2. Sign in](docs/screenshots/dark/02-login.png)** — the brand blue lightens rather than staying put, or it would not carry on a dark surface. | **[7. The organization](docs/screenshots/dark/07-organization.png)** — the busiest screen, and the one that shows the surface and card tones apart. |
+| **[10. One invitation](docs/screenshots/dark/10-invitation.png)** — badges keep their meaning: brand for the live one, muted for the rest. | **[12. People](docs/screenshots/dark/12-people.png)** — the checkboxes the fix was for, plus the selects and the date field. |
+| **[17. Reference lists](docs/screenshots/dark/17-reference-data.png)** — a long list of rules, where the divider tone earns its keep. | **[19. Account](docs/screenshots/dark/19-account.png)** — four forms, including the danger tone on the destructive one. |
+
+The other thirteen:
+[1](docs/screenshots/dark/01-signup.png) ·
+[3](docs/screenshots/dark/03-password-revealed.png) ·
+[4](docs/screenshots/dark/04-forgot-password.png) ·
+[5](docs/screenshots/dark/05-dashboard.png) ·
+[6](docs/screenshots/dark/06-register-organization.png) ·
+[8](docs/screenshots/dark/08-organization-edit.png) ·
+[9](docs/screenshots/dark/09-member.png) ·
+[11](docs/screenshots/dark/11-accept-invitation.png) ·
+[13](docs/screenshots/dark/13-people-filtered.png) ·
+[14](docs/screenshots/dark/14-person.png) ·
+[15](docs/screenshots/dark/15-units.png) ·
+[16](docs/screenshots/dark/16-unit.png) ·
+[18](docs/screenshots/dark/18-reference-list.png)
+
+---
+
 ## On a tablet
 
 The same nineteen screens at 820 × 1180, an iPad Air held upright, in
@@ -298,18 +340,20 @@ BACKEND_URL=http://localhost:8081 APP_URL=http://localhost:3001 node scripts/scr
 
 Chromium comes from `npx playwright install chromium`, once.
 
-The tour runs three times against the same seeded tenant, once per shape:
+The tour runs four times against the same seeded tenant, once per pass:
 
 | | Viewport | Into | |
 |---|---|---|---|
 | Desktop | 1280 × 800 | `docs/screenshots/` | at Tailwind's `xl` |
+| Dark | 1280 × 800 | `docs/screenshots/dark/` | `colorScheme: "dark"` |
 | Tablet | 820 × 1180 | `docs/screenshots/tablet/` | between `md` and `lg` |
 | Phone | 390 × 844 | `docs/screenshots/mobile/` | below `md` |
 
 The widths are real devices rather than the edges of the breakpoints, and each lands in a range the stylesheet
 actually describes — otherwise three sets would be three samples of one layout. The two touch shapes also set
 `isMobile`, which matters as much as the width: it is what makes the page report a touch screen and lay itself out
-accordingly, rather than behaving like a very small desktop.
+accordingly, rather than behaving like a very small desktop. The dark pass sets nothing but the scheme, since the
+application has no switch of its own to click.
 
 All three are full-page, so a long screen is one tall image rather than a fold. Locale is fixed to `en-GB` and the
 clock to `Asia/Jakarta`, or the dates in the pictures would not match the application anybody here is running. Every

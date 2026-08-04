@@ -226,17 +226,21 @@ async function seedInvitations(token, slug) {
 /* ------------------------------------------------------------------ shots */
 
 /**
- * The three shapes the tour is taken in.
+ * The passes the tour is taken in.
  *
- * Real devices, not the narrowest and widest a browser can be dragged to: the
- * point is what a person sees, and a viewport nobody owns proves nothing. The
- * three land in different Tailwind ranges on purpose — 390 below `md`, 820
- * between `md` and `lg`, 1280 at `xl` — so each one is a layout the stylesheet
- * actually describes rather than three samples of the same one.
+ * The three widths are real devices, not the narrowest and widest a browser can
+ * be dragged to: the point is what a person sees, and a viewport nobody owns
+ * proves nothing. They land in different Tailwind ranges on purpose — 390 below
+ * `md`, 820 between `md` and `lg`, 1280 at `xl` — so each is a layout the
+ * stylesheet actually describes rather than three samples of the same one.
  *
  * `isMobile` matters as much as the width on the two touch shapes: it is what
  * makes the page report a touch screen and lay itself out accordingly instead
  * of behaving like a small desktop.
+ *
+ * The dark pass is desktop-width only. The theme is a set of colour tokens
+ * swapped by `prefers-color-scheme`, not a layout, so shooting it at all three
+ * widths would be fifty-seven pictures of one palette change.
  */
 const SHAPES = [
   {
@@ -245,6 +249,17 @@ const SHAPES = [
     context: {
       viewport: { width: 1280, height: 800 },
       deviceScaleFactor: 2,
+    },
+  },
+  {
+    name: "dark",
+    dir: "dark",
+    context: {
+      viewport: { width: 1280, height: 800 },
+      deviceScaleFactor: 2,
+      // There is no toggle to click: globals.css answers the media query, so
+      // asking for the scheme is the whole of it.
+      colorScheme: "dark",
     },
   },
   {

@@ -14,6 +14,13 @@
 }
 
 :root {
+  /* The tokens below only reach what this stylesheet paints. Checkboxes, date
+     pickers, select arrows and scrollbars are painted by the browser, and
+     without this it keeps painting them for a light page — white checkboxes on
+     a dark card. Declaring both lets it follow the same preference the media
+     query below does. */
+  color-scheme: light dark;
+
   --surface: oklch(100% 0 0);
   --surface-muted: oklch(97.5% 0.005 250);
   --line: oklch(92% 0.006 250);

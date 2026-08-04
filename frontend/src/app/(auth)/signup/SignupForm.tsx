@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { signUp } from "@/app/actions/auth";
+import { PasswordInput } from "@/components/PasswordInput";
 import { PhotoField } from "@/components/PhotoField";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Alert, Field, Input } from "@/components/ui";
@@ -40,10 +41,10 @@ export function SignupForm() {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Password" hint="At least 8 characters">
-          <Input name="password" type="password" required minLength={8} autoComplete="new-password" />
+          <PasswordInput name="password" required minLength={8} autoComplete="new-password" />
         </Field>
         <Field label="Confirm password">
-          <Input name="confirmPassword" type="password" required minLength={8} autoComplete="new-password" />
+          <PasswordInput name="confirmPassword" required minLength={8} autoComplete="new-password" />
         </Field>
       </div>
 

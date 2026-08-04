@@ -1,6 +1,7 @@
 import type { ComponentProps, ReactNode } from "react";
 
-const FIELD =
+/** Exported so PasswordInput can wear the same field without copying it. */
+export const FIELD =
   "w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none " +
   "transition placeholder:text-ink-muted/60 focus:border-brand focus:ring-2 focus:ring-brand/20";
 

@@ -7,6 +7,7 @@ import {
   requestEmailChange,
   type EmailChangeState,
 } from "@/app/actions/account";
+import { PasswordInput } from "@/components/PasswordInput";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Alert, Field, Input } from "@/components/ui";
 import type { FormState } from "@/lib/types";
@@ -74,7 +75,7 @@ export function AccountEmailForm({
           label="Current password"
           hint="This is the address you sign in with, so it takes your password to change it."
         >
-          <Input name="password" type="password" required autoComplete="current-password" />
+          <PasswordInput name="password" required autoComplete="current-password" />
         </Field>
 
         <div className="flex items-center justify-end border-t border-line pt-4">

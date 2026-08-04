@@ -3,8 +3,9 @@
 import { useActionState, useRef } from "react";
 
 import { saveAccountPassword } from "@/app/actions/account";
+import { PasswordInput } from "@/components/PasswordInput";
 import { SubmitButton } from "@/components/SubmitButton";
-import { Alert, Field, Input } from "@/components/ui";
+import { Alert, Field } from "@/components/ui";
 import type { FormState } from "@/lib/types";
 
 export function AccountPasswordForm() {
@@ -23,15 +24,15 @@ export function AccountPasswordForm() {
       {state.ok ? <Alert tone="info">Saved. Other sessions have been signed out.</Alert> : null}
 
       <Field label="Current password">
-        <Input name="currentPassword" type="password" required autoComplete="current-password" />
+        <PasswordInput name="currentPassword" required autoComplete="current-password" />
       </Field>
 
       <Field label="New password" hint="At least 8 characters.">
-        <Input name="newPassword" type="password" required minLength={8} autoComplete="new-password" />
+        <PasswordInput name="newPassword" required minLength={8} autoComplete="new-password" />
       </Field>
 
       <Field label="Confirm new password">
-        <Input name="confirmPassword" type="password" required minLength={8} autoComplete="new-password" />
+        <PasswordInput name="confirmPassword" required minLength={8} autoComplete="new-password" />
       </Field>
 
       <div className="flex items-center justify-end border-t border-line pt-4">

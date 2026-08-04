@@ -3,8 +3,9 @@
 import { useActionState } from "react";
 
 import { resetPassword } from "@/app/actions/password";
+import { PasswordInput } from "@/components/PasswordInput";
 import { SubmitButton } from "@/components/SubmitButton";
-import { Alert, Field, Input } from "@/components/ui";
+import { Alert, Field } from "@/components/ui";
 import type { FormState } from "@/lib/types";
 
 export function ResetPasswordForm({ token }: { token: string }) {
@@ -17,17 +18,11 @@ export function ResetPasswordForm({ token }: { token: string }) {
       {state.error ? <Alert>{state.error}</Alert> : null}
 
       <Field label="New password" hint="At least 8 characters">
-        <Input name="password" type="password" required minLength={8} autoComplete="new-password" />
+        <PasswordInput name="password" required minLength={8} autoComplete="new-password" />
       </Field>
 
       <Field label="Confirm password">
-        <Input
-          name="confirmPassword"
-          type="password"
-          required
-          minLength={8}
-          autoComplete="new-password"
-        />
+        <PasswordInput name="confirmPassword" required minLength={8} autoComplete="new-password" />
       </Field>
 
       <SubmitButton className="w-full" pendingLabel="Saving…">

@@ -30,9 +30,46 @@ env:
 
 jobs:
 
+  check:
+    name: Check the settings are all there
+    runs-on: ubuntu-latest
+
+    steps:
+      # Missing configuration should stop here, with the name of what is
+      # missing, rather than eighty seconds later as a container that will not
+      # start or — worse — a link mailed to a user pointing at nothing.
+      - name: Every secret and variable this needs
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          APPLICATION_JWT_SECRET: ${{ secrets.APPLICATION_JWT_SECRET }}
+          APPLICATION_DATABASE_URL_TEMPLATE: ${{ vars.APPLICATION_DATABASE_URL_TEMPLATE }}
+          APPLICATION_DATABASE_USER: ${{ vars.APPLICATION_DATABASE_USER }}
+          APPLICATION_DATABASE_PASSWORD: ${{ secrets.APPLICATION_DATABASE_PASSWORD }}
+          APPLICATION_STORAGE_ENDPOINT: ${{ vars.APPLICATION_STORAGE_ENDPOINT }}
+          PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
+        run: |
+          missing=
+          for name in SSH_HOST SSH_PORT SSH_USERNAME SSH_PRIVATE_KEY \
+                      DOCKERHUB_USERNAME DOCKERHUB_TOKEN \
+                      APPLICATION_JWT_SECRET APPLICATION_DATABASE_URL_TEMPLATE \
+                      APPLICATION_DATABASE_USER APPLICATION_DATABASE_PASSWORD \
+                      APPLICATION_STORAGE_ENDPOINT PUBLIC_BASE_URL; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Not set, see docs/dev-deployment.md:$missing"
+            exit 1
+          fi
+
   build:
     name: Build and push images
     runs-on: ubuntu-latest
+    needs: [ check ]
     # Skipped entirely when a tag to deploy was named, which is what makes
     # rolling back fast: the images already exist.
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.image_tag == '' }}
@@ -86,7 +123,7 @@ jobs:
   deploy:
     name: Deploy to the dev server
     runs-on: ubuntu-latest
-    needs: [ build ]
+    needs: [ check, build ]
     # `always()` would deploy over a failed build; this runs when the build
     # succeeded or was skipped because a tag was named, and not otherwise.
     if: ${{ !failure() && !cancelled() }}
@@ -106,37 +143,6 @@ jobs:
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "Deploying $tag"
-
-      # Missing configuration should stop here, with the name of what is
-      # missing, rather than eighty seconds later as a container that will not
-      # start or — worse — a link mailed to a user pointing at nothing.
-      - name: Check the settings are all there
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-          APPLICATION_JWT_SECRET: ${{ secrets.APPLICATION_JWT_SECRET }}
-          APPLICATION_DATABASE_URL_TEMPLATE: ${{ vars.APPLICATION_DATABASE_URL_TEMPLATE }}
-          APPLICATION_DATABASE_USER: ${{ vars.APPLICATION_DATABASE_USER }}
-          APPLICATION_DATABASE_PASSWORD: ${{ secrets.APPLICATION_DATABASE_PASSWORD }}
-          APPLICATION_STORAGE_ENDPOINT: ${{ vars.APPLICATION_STORAGE_ENDPOINT }}
-          PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
-        run: |
-          missing=
-          for name in SSH_HOST SSH_PORT SSH_USERNAME SSH_PRIVATE_KEY \
-                      DOCKERHUB_USERNAME DOCKERHUB_TOKEN \
-                      APPLICATION_JWT_SECRET APPLICATION_DATABASE_URL_TEMPLATE \
-                      APPLICATION_DATABASE_USER APPLICATION_DATABASE_PASSWORD \
-                      APPLICATION_STORAGE_ENDPOINT PUBLIC_BASE_URL; do
-            [ -n "${!name}" ] || missing="$missing $name"
-          done
-          if [ -n "$missing" ]; then
-            echo "::error::Not set, see docs/dev-deployment.md:$missing"
-            exit 1
-          fi
 
       # Written here rather than through a third party action: this key opens a
       # shell on the server, and the fewer things that handle it the better.

@@ -2,8 +2,8 @@
 
 Nineteen screens, in the order somebody meets them: from having no account at all to reading a tenant's own
 reference lists. Every picture is of the running application against a real database — none of them is a mockup,
-and none was retouched. [How they were taken](#how-these-were-taken) is at the bottom, along with how to make them
-again.
+and none was retouched. Each screen was shot twice, on a desktop and [on a phone](#on-a-phone).
+[How they were taken](#how-these-were-taken) is at the bottom, along with how to make them again.
 
 The tenant in the pictures is **Klinik Sehat Nusantara**, with four business units, twelve people, four members and
 three unaccepted invitations. It is seeded and thrown away by the script; it is not part of the application.
@@ -189,6 +189,45 @@ a link sent to the *new* address is opened — so a mistyped address costs an em
 
 ---
 
+## On a phone
+
+The same nineteen screens at 390 × 844, the shape of a current iPhone, reported to the page as a touch device rather
+than as a narrow desktop. They are in [`docs/screenshots/mobile/`](docs/screenshots/mobile) under the same numbers,
+so any step above can be compared side by side.
+
+Nothing is a separate mobile layout. Two columns become one, the filters go from two across to a single stack, and
+forms that sat beside a list move below it — which is why the organization screen, the busiest of them, is one very
+long page on a phone rather than a cramped version of the desktop one. No screen scrolls sideways and nothing is cut
+off.
+
+Six of them, where the reflow is worth seeing:
+
+| | |
+|---|---|
+| **[2. Sign in](docs/screenshots/mobile/02-login.png)** — the card is already narrow on the desktop, so a phone barely changes it. | **[5. Dashboard](docs/screenshots/mobile/05-dashboard.png)** — the organization cards go full width, one per row. |
+| **[7. The organization](docs/screenshots/mobile/07-organization.png)** — the two columns unstack into one run: profile, members, photo, invitations, then the summaries. | **[12. People](docs/screenshots/mobile/12-people.png)** — five filter groups stack, and "Add someone" drops below the list instead of sitting beside it. |
+| **[14. One person](docs/screenshots/mobile/14-person.png)** — a label-and-value list needs no rearranging; it just narrows. | **[19. Account](docs/screenshots/mobile/19-account.png)** — the four forms become one column, in the order they are most often wanted. |
+
+The other thirteen are the same numbers in the same folder:
+[1](docs/screenshots/mobile/01-signup.png) ·
+[3](docs/screenshots/mobile/03-password-revealed.png) ·
+[4](docs/screenshots/mobile/04-forgot-password.png) ·
+[6](docs/screenshots/mobile/06-register-organization.png) ·
+[8](docs/screenshots/mobile/08-organization-edit.png) ·
+[9](docs/screenshots/mobile/09-member.png) ·
+[10](docs/screenshots/mobile/10-invitation.png) ·
+[11](docs/screenshots/mobile/11-accept-invitation.png) ·
+[13](docs/screenshots/mobile/13-people-filtered.png) ·
+[15](docs/screenshots/mobile/15-units.png) ·
+[16](docs/screenshots/mobile/16-unit.png) ·
+[17](docs/screenshots/mobile/17-reference-data.png) ·
+[18](docs/screenshots/mobile/18-reference-list.png)
+
+They are linked rather than shown because these are full-page pictures: the organization screen is nearly four
+thousand pixels tall on a phone, and nineteen of those inline would be a document nobody scrolls to the end of.
+
+---
+
 ## How these were taken
 
 `frontend/scripts/screenshots.mjs` drives a real Chromium through Playwright. It seeds its own tenant through the
@@ -211,9 +250,14 @@ BACKEND_URL=http://localhost:8081 APP_URL=http://localhost:3001 node scripts/scr
 
 Chromium comes from `npx playwright install chromium`, once.
 
-The pictures are 1280 wide at 2× and full-page, so a long screen is one tall image rather than a fold. Locale is
-fixed to `en-GB` and the clock to `Asia/Jakarta`, or the dates in the pictures would not match the application
-anybody here is running.
+The tour runs twice against the same seeded tenant, once per shape: 1280 × 800 into `docs/screenshots/`, and
+390 × 844 with `isMobile` into `docs/screenshots/mobile/`. That flag matters as much as the width — it is what makes
+the page report a touch screen and lay itself out accordingly, rather than behaving like a very narrow desktop.
+
+Both are full-page, so a long screen is one tall image rather than a fold. Locale is fixed to `en-GB` and the clock
+to `Asia/Jakarta`, or the dates in the pictures would not match the application anybody here is running. The desktop
+set is 2× and the phone set is 2× as well rather than a phone's real 3×: these are read at a fraction of their width,
+and sharpness nobody can see still costs megabytes the history keeps forever.
 
 ### Removing the tour data
 

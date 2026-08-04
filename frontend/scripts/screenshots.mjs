@@ -32,9 +32,6 @@ const TOUR = {
   slug: "kliniksehatnusantara",
 };
 
-/** Wide enough for the two-column screens, short enough to read at full width. */
-const VIEWPORT = { width: 1280, height: 800 };
-
 async function call(path, { token, tenant, json, method = "GET", form } = {}) {
   const headers = {};
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -228,26 +225,95 @@ async function seedInvitations(token, slug) {
 
 /* ------------------------------------------------------------------ shots */
 
-let taken = 0;
+/**
+ * The two shapes the tour is taken in.
+ *
+ * The phone is a 390-wide iPhone rather than the narrowest thing a browser can
+ * be made to do: the point is what a person on a phone sees, and a viewport
+ * nobody owns proves nothing. `isMobile` matters as much as the width — it is
+ * what makes the page report a touch screen and lay itself out accordingly.
+ */
+const SHAPES = [
+  {
+    name: "desktop",
+    dir: "",
+    context: {
+      viewport: { width: 1280, height: 800 },
+      deviceScaleFactor: 2,
+    },
+  },
+  {
+    name: "phone",
+    dir: "mobile",
+    context: {
+      viewport: { width: 390, height: 844 },
+      // 2 rather than a real phone's 3: these are read at a fraction of their
+      // width in a document, and a third of the sharpness nobody sees costs
+      // three megabytes that the history then keeps forever.
+      deviceScaleFactor: 2,
+      isMobile: true,
+      hasTouch: true,
+      userAgent:
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 " +
+        "(KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+    },
+  },
+];
 
-async function shoot(page, name, url, { prepare } = {}) {
+async function shoot(page, out, name, url) {
   await page.goto(`${APP}${url}`, { waitUntil: "networkidle" });
-  if (prepare) await prepare(page);
   // Photos are signed URLs fetched after hydration; without this they land in
   // the picture as broken-image icons.
   await page.waitForTimeout(600);
-  await page.screenshot({ path: join(OUT, `${name}.png`), fullPage: true });
-  taken += 1;
-  console.log(`  ${String(taken).padStart(2, "0")}  ${name}.png  ${url}`);
+  await page.screenshot({ path: join(out, `${name}.png`), fullPage: true });
+  console.log(`  ${name}.png  ${url}`);
+}
+
+/**
+ * One pass of the tour.
+ *
+ * The numbers follow the order SCREENSHOTS.md reads in, which is not the order
+ * the pictures can be taken in: everything signed out has to come first. `/` is
+ * not among them — it only redirects to sign-in, so its picture was the login
+ * screen twice.
+ */
+async function tour(page, out, { slug, units, owner, people, invitations }) {
+  await shoot(page, out, "01-signup", "/signup");
+  await shoot(page, out, "02-login", "/login");
+  await shoot(page, out, "04-forgot-password", "/forgot-password");
+  // The link a pending invitation carries. With no Brevo key the API hands it
+  // back rather than mailing it, which is the only reason this is reachable.
+  const accept = invitations.find((i) => i.acceptUrl)?.acceptUrl;
+  if (accept) await shoot(page, out, "11-accept-invitation", new URL(accept).pathname);
+
+  await page.goto(`${APP}/login`, { waitUntil: "networkidle" });
+  await page.fill('input[name="email"]', TOUR.email);
+  await page.fill('input[name="password"]', TOUR.password);
+  // Proof the eye works, and the only screenshot that needs a password in it.
+  await page.click('button[aria-label="Show password"]');
+  await page.screenshot({ path: join(out, "03-password-revealed.png"), fullPage: true });
+  console.log("  03-password-revealed.png  /login");
+  await page.click('button[aria-label="Hide password"]');
+  await Promise.all([page.waitForURL(`${APP}/dashboard`), page.click('button[type="submit"]')]);
+
+  await shoot(page, out, "05-dashboard", "/dashboard");
+  await shoot(page, out, "06-register-organization", "/organizations/new");
+  await shoot(page, out, "07-organization", `/organizations/${slug}`);
+  await shoot(page, out, "08-organization-edit", `/organizations/${slug}/edit`);
+  await shoot(page, out, "09-member", `/organizations/${slug}/members/${owner.accountId}`);
+  await shoot(page, out, "10-invitation", `/organizations/${slug}/invitations/${invitations[0].id}`);
+  await shoot(page, out, "12-people", `/organizations/${slug}/people`);
+  await shoot(page, out, "13-people-filtered", `/organizations/${slug}/people?unit=${units[0].id}`);
+  await shoot(page, out, "14-person", `/organizations/${slug}/people/${people[0].id}`);
+  await shoot(page, out, "15-units", `/organizations/${slug}/units`);
+  await shoot(page, out, "16-unit", `/organizations/${slug}/units/${units[0].id}`);
+  await shoot(page, out, "17-reference-data", `/organizations/${slug}/reference-data`);
+  await shoot(page, out, "18-reference-list", `/organizations/${slug}/reference-data/PROVINCE`);
+  await shoot(page, out, "19-account", "/account");
 }
 
 async function main() {
   if (process.argv.includes("--clean")) return clean();
-
-  await mkdir(OUT, { recursive: true });
-  for (const file of await readdir(OUT).catch(() => [])) {
-    if (file.endsWith(".png")) await rm(join(OUT, file));
-  }
 
   console.log("Seeding…");
   const { token, slug, units, members, invitations } = await seed();
@@ -257,60 +323,32 @@ async function main() {
     `${members.length} members, ${invitations.length} invitations`);
 
   const browser = await chromium.launch();
-  const context = await browser.newContext({
-    viewport: VIEWPORT,
-    deviceScaleFactor: 2,
-    // Dates and money read differently per locale, and a screenshot that says
-    // 8/17/1990 does not match the app anybody here is running.
-    locale: "en-GB",
-    timezoneId: "Asia/Jakarta",
-    reducedMotion: "reduce",
-  });
-  const page = await context.newPage();
+  let total = 0;
 
-  // The numbers follow the order SCREENSHOTS.md reads in, which is not the
-  // order they can be taken in: everything signed out has to come first.
-  // `/` is not among them — it only redirects to sign-in, so its picture was
-  // the login screen twice.
-  console.log("Shooting, signed out…");
-  await shoot(page, "01-signup", "/signup");
-  await shoot(page, "02-login", "/login");
-  await shoot(page, "04-forgot-password", "/forgot-password");
-  // The link a pending invitation carries. With no Brevo key the API hands it
-  // back rather than mailing it, which is the only reason this is reachable.
-  const accept = invitations.find((i) => i.acceptUrl)?.acceptUrl;
-  if (accept) await shoot(page, "11-accept-invitation", new URL(accept).pathname);
+  for (const shape of SHAPES) {
+    const out = join(OUT, shape.dir);
+    await mkdir(out, { recursive: true });
+    for (const file of await readdir(out).catch(() => [])) {
+      if (file.endsWith(".png")) await rm(join(out, file));
+    }
 
-  console.log("Signing in through the form…");
-  await page.goto(`${APP}/login`, { waitUntil: "networkidle" });
-  await page.fill('input[name="email"]', TOUR.email);
-  await page.fill('input[name="password"]', TOUR.password);
-  // Proof the eye works, and the only screenshot that needs a password in it.
-  await page.click('button[aria-label="Show password"]');
-  await page.screenshot({ path: join(OUT, "03-password-revealed.png"), fullPage: true });
-  taken += 1;
-  console.log(`  ${String(taken).padStart(2, "0")}  03-password-revealed.png  /login`);
-  await page.click('button[aria-label="Hide password"]');
-  await Promise.all([page.waitForURL(`${APP}/dashboard`), page.click('button[type="submit"]')]);
-
-  console.log("Shooting, signed in…");
-  await shoot(page, "05-dashboard", "/dashboard");
-  await shoot(page, "06-register-organization", "/organizations/new");
-  await shoot(page, "07-organization", `/organizations/${slug}`);
-  await shoot(page, "08-organization-edit", `/organizations/${slug}/edit`);
-  await shoot(page, "09-member", `/organizations/${slug}/members/${owner.accountId}`);
-  await shoot(page, "10-invitation", `/organizations/${slug}/invitations/${invitations[0].id}`);
-  await shoot(page, "12-people", `/organizations/${slug}/people`);
-  await shoot(page, "13-people-filtered", `/organizations/${slug}/people?unit=${units[0].id}`);
-  await shoot(page, "14-person", `/organizations/${slug}/people/${people[0].id}`);
-  await shoot(page, "15-units", `/organizations/${slug}/units`);
-  await shoot(page, "16-unit", `/organizations/${slug}/units/${units[0].id}`);
-  await shoot(page, "17-reference-data", `/organizations/${slug}/reference-data`);
-  await shoot(page, "18-reference-list", `/organizations/${slug}/reference-data/PROVINCE`);
-  await shoot(page, "19-account", "/account");
+    console.log(`\nShooting ${shape.name} (${shape.context.viewport.width}px)…`);
+    const context = await browser.newContext({
+      ...shape.context,
+      // Dates read differently per locale, and a screenshot that says 8/17/1990
+      // does not match the app anybody here is running.
+      locale: "en-GB",
+      timezoneId: "Asia/Jakarta",
+      reducedMotion: "reduce",
+    });
+    const page = await context.newPage();
+    await tour(page, out, { slug, units, owner, people, invitations });
+    await context.close();
+    total += (await readdir(out)).filter((f) => f.endsWith(".png")).length;
+  }
 
   await browser.close();
-  console.log(`\n${taken} screenshots in docs/screenshots/.`);
+  console.log(`\n${total} screenshots in docs/screenshots/.`);
   console.log(`Remove the tour data with:  node scripts/screenshots.mjs --clean`);
 }
 

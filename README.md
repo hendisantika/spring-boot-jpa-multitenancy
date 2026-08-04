@@ -1098,6 +1098,13 @@ Rotating the JWT secret invalidates every token already issued: holders have to 
 Note that the local development database uses `root`/`root`, which the `prod` profile rejects by design. Running the
 prod profile against it needs a database user created for the purpose.
 
+The dev server is deployed by GitHub Actions on every push to `main`: two images built and pushed to Docker Hub, then
+pulled by the server, which builds nothing and holds no configuration of its own — the environment beside the compose
+file is written from repository secrets and variables on each run. See
+[docs/dev-deployment.md](docs/dev-deployment.md) for what to set, and
+[`.github/workflows/deploy-dev.yml`](.github/workflows/deploy-dev.yml) for the run itself. Rolling back is the same
+workflow with the tag of a build that was good.
+
 Serving the tenant subdomains is the other half of a deployment: one wildcard DNS record, one wildcard certificate and
 one nginx server block, set up once, after which every organization that registers is reachable at
 `{slug}.jvm.my.id` with no further work. The records, the certbot invocation and the configuration files are in

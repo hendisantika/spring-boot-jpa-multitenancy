@@ -1,0 +1,22 @@
+# Installed inside the image from bun.lock, never copied in: a host
+# node_modules is both enormous and built for the wrong platform.
+node_modules/
+.next/
+out/
+
+# Local secrets. .env.example is kept, being the documentation of what to set.
+.env
+.env.local
+.env.*.local
+
+.git/
+.github/
+.idea/
+
+# Screenshot tooling and its output, which the server has no use for.
+scripts/
+tsconfig.tsbuildinfo
+
+README.md
+AGENTS.md
+CLAUDE.md

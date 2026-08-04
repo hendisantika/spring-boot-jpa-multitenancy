@@ -1,6 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /**
+   * Only the Dockerfile sets this. A standalone build traces what the server
+   * actually imports and writes a server.js beside it, which is what keeps the
+   * image to that instead of a copy of node_modules — but it also replaces
+   * `next start` with `node server.js`, so leaving it off here keeps the local
+   * commands in the README working as they are documented.
+   */
+  output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
+
   experimental: {
     serverActions: {
       /**

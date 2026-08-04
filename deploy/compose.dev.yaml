@@ -1,0 +1,45 @@
+# What runs on the dev server. Copied there by the deploy workflow, which also
+# writes the .env beside it from GitHub secrets and variables — so this file is
+# the only description of the deployment and there is nothing to edit by hand.
+#
+#   docker compose -f compose.dev.yaml up -d
+#
+# MySQL, Redis and MinIO are already running on the server and are not started
+# here. The containers reach them over host.docker.internal, which the
+# extra_hosts entry below maps to the host's gateway address.
+services:
+
+  api:
+    image: ${API_IMAGE}
+    container_name: multitenancy-api
+    env_file: [ .env ]
+    environment:
+      # The credential check refuses to start on the values committed to the
+      # repository, which is the point of setting it here: a missing secret
+      # stops the deployment rather than quietly running on a public one.
+      SPRING_PROFILES_ACTIVE: prod
+    ports:
+      # Bound to the loopback interface, because nginx on this host is what
+      # serves the internet. Change to 0.0.0.0 to reach it from outside.
+      - "${BIND_ADDRESS:-127.0.0.1}:8010:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  frontend:
+    image: ${FRONTEND_IMAGE}
+    container_name: multitenancy-frontend
+    env_file: [ .env ]
+    environment:
+      # Over the compose network, not through the published port: the front end
+      # calls the API server side, and this keeps that traffic off the host
+      # interface entirely.
+      BACKEND_URL: http://api:8080
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:5000:3000"
+    depends_on:
+      # The health check is the jar's own, and it reports the database, so the
+      # front end does not come up in front of an API that cannot serve.
+      api:
+        condition: service_healthy
+    restart: unless-stopped

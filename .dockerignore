@@ -7,8 +7,18 @@ target/
 .idea/
 *.iml
 
+# The front end has its own image and its own context. Left in, its
+# node_modules — tens of thousands of files — would be uploaded to the daemon
+# on every backend build for nothing.
+frontend/
+
+# Not part of any image: deployment configuration is read on the server.
+deploy/
+docs/
+
 # Notes and local files that would only invalidate the build cache.
 README.md
+SCREENSHOTS.md
 HELP.md
 Query.sql
 compose.yaml

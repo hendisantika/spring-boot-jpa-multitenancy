@@ -226,12 +226,17 @@ async function seedInvitations(token, slug) {
 /* ------------------------------------------------------------------ shots */
 
 /**
- * The two shapes the tour is taken in.
+ * The three shapes the tour is taken in.
  *
- * The phone is a 390-wide iPhone rather than the narrowest thing a browser can
- * be made to do: the point is what a person on a phone sees, and a viewport
- * nobody owns proves nothing. `isMobile` matters as much as the width — it is
- * what makes the page report a touch screen and lay itself out accordingly.
+ * Real devices, not the narrowest and widest a browser can be dragged to: the
+ * point is what a person sees, and a viewport nobody owns proves nothing. The
+ * three land in different Tailwind ranges on purpose — 390 below `md`, 820
+ * between `md` and `lg`, 1280 at `xl` — so each one is a layout the stylesheet
+ * actually describes rather than three samples of the same one.
+ *
+ * `isMobile` matters as much as the width on the two touch shapes: it is what
+ * makes the page report a touch screen and lay itself out accordingly instead
+ * of behaving like a small desktop.
  */
 const SHAPES = [
   {
@@ -240,6 +245,20 @@ const SHAPES = [
     context: {
       viewport: { width: 1280, height: 800 },
       deviceScaleFactor: 2,
+    },
+  },
+  {
+    name: "tablet",
+    dir: "tablet",
+    context: {
+      // An iPad Air held upright.
+      viewport: { width: 820, height: 1180 },
+      deviceScaleFactor: 2,
+      isMobile: true,
+      hasTouch: true,
+      userAgent:
+        "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 " +
+        "(KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
     },
   },
   {

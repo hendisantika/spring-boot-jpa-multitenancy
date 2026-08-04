@@ -2,8 +2,9 @@
 
 Nineteen screens, in the order somebody meets them: from having no account at all to reading a tenant's own
 reference lists. Every picture is of the running application against a real database — none of them is a mockup,
-and none was retouched. Each screen was shot twice, on a desktop and [on a phone](#on-a-phone).
-[How they were taken](#how-these-were-taken) is at the bottom, along with how to make them again.
+and none was retouched. Each screen was shot three times — on a desktop, [on a tablet](#on-a-tablet) and
+[on a phone](#on-a-phone). [How they were taken](#how-these-were-taken) is at the bottom, along with how to make them
+again.
 
 The tenant in the pictures is **Klinik Sehat Nusantara**, with four business units, twelve people, four members and
 three unaccepted invitations. It is seeded and thrown away by the script; it is not part of the application.
@@ -189,6 +190,53 @@ a link sent to the *new* address is opened — so a mistyped address costs an em
 
 ---
 
+## On a tablet
+
+The same nineteen screens at 820 × 1180, an iPad Air held upright, in
+[`docs/screenshots/tablet/`](docs/screenshots/tablet) under the same numbers.
+
+This is not a wide phone or a small desktop; it is a third layout, and it splits the difference in a specific way that
+falls straight out of the two breakpoints the styles use. **Page-level** columns are `lg` (1024px), so at 820 they
+stack, as on a phone. **Grids inside a card** are `sm` (640px), so they stay two across, as on the desktop.
+
+People is the clearest case: the five filter groups are still two columns wide and "Add someone" still puts First name
+beside Last name, but the whole form has moved below the list instead of sitting next to it.
+
+The page heights say the same thing without a picture — the tablet is between the two everywhere there is enough
+content for it to matter:
+
+| Screen | 1280px | 820px | 390px |
+|---|---:|---:|---:|
+| 12. People | 1751px | 2507px | 3324px |
+| 15. Units | 1060px | 1716px | 2110px |
+| 19. Account | 1358px | 1809px | 1901px |
+| 7. The organization | 3113px | 3772px | 3878px |
+
+Six worth a look:
+
+| | |
+|---|---|
+| **[5. Dashboard](docs/screenshots/tablet/05-dashboard.png)** — the organization card takes half the width; that grid is two across from 640px up, so it never goes full width here. | **[7. The organization](docs/screenshots/tablet/07-organization.png)** — the two page columns stack into one run, while each card keeps its own two-across insides. |
+| **[8. Editing](docs/screenshots/tablet/08-organization-edit.png)** — paired fields stay paired; the form does not become one long column. | **[12. People](docs/screenshots/tablet/12-people.png)** — filters two across, the form below the list rather than beside it. |
+| **[15. Units](docs/screenshots/tablet/15-units.png)** — the same threshold, so "Add a unit" drops below the list too. | **[19. Account](docs/screenshots/tablet/19-account.png)** — still one column of forms, as on a phone; what the width buys is inside them. |
+
+The other thirteen:
+[1](docs/screenshots/tablet/01-signup.png) ·
+[2](docs/screenshots/tablet/02-login.png) ·
+[3](docs/screenshots/tablet/03-password-revealed.png) ·
+[4](docs/screenshots/tablet/04-forgot-password.png) ·
+[6](docs/screenshots/tablet/06-register-organization.png) ·
+[9](docs/screenshots/tablet/09-member.png) ·
+[10](docs/screenshots/tablet/10-invitation.png) ·
+[11](docs/screenshots/tablet/11-accept-invitation.png) ·
+[13](docs/screenshots/tablet/13-people-filtered.png) ·
+[14](docs/screenshots/tablet/14-person.png) ·
+[16](docs/screenshots/tablet/16-unit.png) ·
+[17](docs/screenshots/tablet/17-reference-data.png) ·
+[18](docs/screenshots/tablet/18-reference-list.png)
+
+---
+
 ## On a phone
 
 The same nineteen screens at 390 × 844, the shape of a current iPhone, reported to the page as a touch device rather
@@ -250,14 +298,23 @@ BACKEND_URL=http://localhost:8081 APP_URL=http://localhost:3001 node scripts/scr
 
 Chromium comes from `npx playwright install chromium`, once.
 
-The tour runs twice against the same seeded tenant, once per shape: 1280 × 800 into `docs/screenshots/`, and
-390 × 844 with `isMobile` into `docs/screenshots/mobile/`. That flag matters as much as the width — it is what makes
-the page report a touch screen and lay itself out accordingly, rather than behaving like a very narrow desktop.
+The tour runs three times against the same seeded tenant, once per shape:
 
-Both are full-page, so a long screen is one tall image rather than a fold. Locale is fixed to `en-GB` and the clock
-to `Asia/Jakarta`, or the dates in the pictures would not match the application anybody here is running. The desktop
-set is 2× and the phone set is 2× as well rather than a phone's real 3×: these are read at a fraction of their width,
-and sharpness nobody can see still costs megabytes the history keeps forever.
+| | Viewport | Into | |
+|---|---|---|---|
+| Desktop | 1280 × 800 | `docs/screenshots/` | at Tailwind's `xl` |
+| Tablet | 820 × 1180 | `docs/screenshots/tablet/` | between `md` and `lg` |
+| Phone | 390 × 844 | `docs/screenshots/mobile/` | below `md` |
+
+The widths are real devices rather than the edges of the breakpoints, and each lands in a range the stylesheet
+actually describes — otherwise three sets would be three samples of one layout. The two touch shapes also set
+`isMobile`, which matters as much as the width: it is what makes the page report a touch screen and lay itself out
+accordingly, rather than behaving like a very small desktop.
+
+All three are full-page, so a long screen is one tall image rather than a fold. Locale is fixed to `en-GB` and the
+clock to `Asia/Jakarta`, or the dates in the pictures would not match the application anybody here is running. Every
+set is 2×, including the phone one where a real device would be 3×: these are read at a fraction of their width, and
+sharpness nobody can see still costs megabytes the history keeps forever.
 
 ### Removing the tour data
 

@@ -41,6 +41,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
 import java.util.List;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 /**
  * Registering an organization and running its membership list.
@@ -59,6 +61,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/organizations")
 @RequiredArgsConstructor
+@Tag(name = "Organizations", description = "Registering organizations and running their membership and invitation lists. Listing is scoped to the caller's memberships.")
 public class OrganizationRegistrationController {
 
     private static final String PHOTO_PREFIX = "organizations";
@@ -72,6 +75,7 @@ public class OrganizationRegistrationController {
     private final TenantSecurity tenantSecurity;
 
     @GetMapping
+    @Operation(summary = "Organizations you belong to", description = "List the organizations the signed-in account is a member of.")
     public List<OrganizationView> mine() {
         return membershipService.organizationsOf(tenantSecurity.currentAccountId()).stream()
                 .map(this::viewOf)
@@ -79,6 +83,7 @@ public class OrganizationRegistrationController {
     }
 
     @GetMapping("/{slug}")
+    @Operation(summary = "One organization", description = "Return a single organization the caller belongs to.")
     public OrganizationView one(@PathVariable String slug) {
         tenantSecurity.requireMember(slug);
         return membershipService.organizationsOf(tenantSecurity.currentAccountId()).stream()
@@ -94,6 +99,7 @@ public class OrganizationRegistrationController {
      * before this returns.
      */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Register an organization", description = "Create an organization; the caller becomes its OWNER, and its database and subdomain are created before this returns. Multipart, so the logo arrives with it.")
     public ResponseEntity<OrganizationView> register(
             @Valid @RequestPart("organization") RegisterOrganizationRequest request,
             @RequestPart(value = "photo", required = false) MultipartFile photo) {
@@ -132,6 +138,7 @@ public class OrganizationRegistrationController {
      * Sending both a photo and the flag is a contradiction, and the upload wins.
      */
     @PutMapping(path = "/{slug}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Edit an organization", description = "Replace the organization profile. Owner only; the slug, database name and subdomain stay as they are.")
     public OrganizationView update(@PathVariable String slug,
                                    @Valid @RequestPart("organization") RegisterOrganizationRequest request,
                                    @RequestPart(value = "photo", required = false) MultipartFile photo,
@@ -164,6 +171,7 @@ public class OrganizationRegistrationController {
      * was holding, so this is the safer way round as well as the shorter one.
      */
     @PutMapping(path = "/{slug}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Change an organization's photo", description = "Replace or remove just the organization's photo. Owner only; multipart, removePhoto=true drops it.")
     public OrganizationView updatePhoto(@PathVariable String slug,
                                         @RequestPart(value = "photo", required = false) MultipartFile photo,
                                         @RequestParam(value = "removePhoto", defaultValue = "false")
@@ -187,6 +195,7 @@ public class OrganizationRegistrationController {
      * @param size clamped, so a client cannot ask for the lot in one go
      */
     @GetMapping("/{slug}/users")
+    @Operation(summary = "A page of members", description = "List an organization's memberships; q searches the address and role, role filters. Member only.")
     public PageResponse<MemberView> members(@PathVariable String slug,
                                             @RequestParam(name = "q", required = false) String q,
                                             @RequestParam(name = "role", required = false) List<String> role,
@@ -205,6 +214,7 @@ public class OrganizationRegistrationController {
      * than turning into "does not exist".
      */
     @GetMapping("/{slug}/invitations/{invitationId}")
+    @Operation(summary = "One invitation", description = "Return a single invitation of the organization, whatever became of it. Owner only.")
     public InvitationDetailView invitation(@PathVariable String slug, @PathVariable Long invitationId) {
         tenantSecurity.requireOwner(slug);
         Invitation invitation = invitationService.oneOf(slug, invitationId);
@@ -229,6 +239,7 @@ public class OrganizationRegistrationController {
      * than an empty body, the same as a person or a unit.
      */
     @GetMapping("/{slug}/users/{accountId}")
+    @Operation(summary = "One membership", description = "Return a single membership; 404 when that account is not a member here. Member only.")
     public MemberDetailView member(@PathVariable String slug, @PathVariable Long accountId) {
         tenantSecurity.requireMember(slug);
         // Queried, not filtered out of the list: the list is a page now, and
@@ -244,6 +255,7 @@ public class OrganizationRegistrationController {
      * Only the owner may add people, which is what separates OWNER from MEMBER.
      */
     @PostMapping("/{slug}/users")
+    @Operation(summary = "Add a member directly", description = "Add a person to the organization, setting their password. Owner only.")
     public ResponseEntity<MemberView> addMember(@PathVariable String slug,
                                                 @Valid @RequestBody AddMemberRequest request) {
         tenantSecurity.requireOwner(slug);
@@ -272,6 +284,7 @@ public class OrganizationRegistrationController {
      * @param size   clamped, so a client cannot ask for the lot in one go
      */
     @GetMapping("/{slug}/invitations")
+    @Operation(summary = "A page of invitations", description = "List an organization's invitations; q searches, status and role filter. Owner only.")
     public PageResponse<InvitationSummary> invitations(
             @PathVariable String slug,
             @RequestParam(name = "q", required = false) String q,
@@ -290,6 +303,7 @@ public class OrganizationRegistrationController {
      * that would let them accept on that person's behalf.
      */
     @PostMapping("/{slug}/invitations")
+    @Operation(summary = "Invite someone", description = "Invite a person to the organization and return the accept link. Owner only.")
     public ResponseEntity<CreatedInvitationView> invite(@PathVariable String slug,
                                                         @Valid @RequestBody InvitationController.InviteRequest request) {
         tenantSecurity.requireOwner(slug);
@@ -306,6 +320,7 @@ public class OrganizationRegistrationController {
     }
 
     @DeleteMapping("/{slug}/invitations/{invitationId}")
+    @Operation(summary = "Withdraw an invitation", description = "Revoke an outstanding invitation. Owner only.")
     public ResponseEntity<Void> revokeInvitation(@PathVariable String slug, @PathVariable Long invitationId) {
         tenantSecurity.requireOwner(slug);
         invitationService.revoke(slug, invitationId);
@@ -313,6 +328,7 @@ public class OrganizationRegistrationController {
     }
 
     @DeleteMapping("/{slug}/users/{accountId}")
+    @Operation(summary = "Remove a member", description = "Remove a person from the organization. Owner only.")
     public ResponseEntity<Void> removeMember(@PathVariable String slug, @PathVariable Long accountId) {
         tenantSecurity.requireOwner(slug);
         membershipService.removeMember(slug, accountId);

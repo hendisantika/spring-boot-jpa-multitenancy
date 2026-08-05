@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 /**
  * The lists every tenant starts with, read from that tenant's own database.
@@ -34,12 +36,14 @@ import java.util.Map;
  */
 @RestController
 @RequiredArgsConstructor
+@Tag(name = "Reference data", description = "Lookup lists — categories and their values — in the tenant's database.")
 public class ReferenceDataController {
 
     private final ReferenceDataService referenceDataService;
 
     @GetMapping("/reference-data")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
+    @Operation(summary = "All reference data", description = "Return every category mapped to its list of values.")
     public Map<String, List<ReferenceData>> listAll() {
         return referenceDataService.findAllByCategory();
     }
@@ -59,6 +63,7 @@ public class ReferenceDataController {
      */
     @GetMapping("/reference-values")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
+    @Operation(summary = "A page of values", description = "List reference values across categories, paged and filtered.")
     public PageResponse<ReferenceData> listValues(
             @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "category", required = false) List<String> category,
@@ -71,6 +76,7 @@ public class ReferenceDataController {
     /** The lists this tenant keeps, so a filter can offer them. */
     @GetMapping("/reference-categories")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
+    @Operation(summary = "Category names", description = "List the reference-data category names.")
     public List<String> listCategories() {
         return referenceDataService.categories();
     }
@@ -95,6 +101,7 @@ public class ReferenceDataController {
      */
     @GetMapping("/reference-data/{category}")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
+    @Operation(summary = "Values in a category", description = "List the values of one category, paged.")
     public PageResponse<ReferenceData> listCategory(
             @PathVariable("category") String category,
             @RequestParam(name = "q", required = false) String q,

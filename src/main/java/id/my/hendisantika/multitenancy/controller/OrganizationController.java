@@ -23,6 +23,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 /**
  * The business units inside whichever tenant the request resolved to. Not to be
@@ -43,6 +45,7 @@ import java.util.List;
  */
 @RestController
 @RequiredArgsConstructor
+@Tag(name = "Units", description = "The tenant's organizational units, held in its own database. Every call is scoped to the resolved tenant.")
 public class OrganizationController {
 
     private static final String PHOTO_PREFIX = "units";
@@ -53,6 +56,7 @@ public class OrganizationController {
 
     @GetMapping("/organization/{id}")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
+    @Operation(summary = "One unit", description = "Return a unit by id from the tenant's database; 404 when there is none.")
     public UnitView getOrganization(@PathVariable("id") Long id) {
         return organizationService.findById(id).map(this::viewOf)
                 .orElseThrow(() -> new TenantRecordNotFoundException("No organization with id " + id));
@@ -75,6 +79,7 @@ public class OrganizationController {
      */
     @GetMapping("/organization")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
+    @Operation(summary = "A page of units", description = "List the tenant's units, paged and filtered.")
     public PageResponse<UnitView> listOrganizations(
             @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "page", required = false) Integer page,
@@ -88,6 +93,7 @@ public class OrganizationController {
 
     @PostMapping("/organization")
     @PreAuthorize("@tenantSecurity.isOwnerOfCurrentTenant()")
+    @Operation(summary = "Create a unit", description = "Create a unit from JSON. Owner only.")
     public ResponseEntity<UnitView> createOrganization(@Valid @RequestBody Organization organization) {
         return ResponseEntity.status(HttpStatus.CREATED).body(viewOf(organizationService.save(organization)));
     }
@@ -101,6 +107,7 @@ public class OrganizationController {
      */
     @PostMapping(path = "/organization", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("@tenantSecurity.isOwnerOfCurrentTenant()")
+    @Operation(summary = "Create a unit with a photo", description = "Create a unit and attach a photo; multipart. Owner only.")
     public ResponseEntity<UnitView> createOrganizationWithPhoto(
             @Valid @RequestPart("organization") Organization organization,
             @RequestPart(value = "photo", required = false) MultipartFile photo) {
@@ -110,6 +117,7 @@ public class OrganizationController {
 
     @PutMapping("/organization/{id}")
     @PreAuthorize("@tenantSecurity.isOwnerOfCurrentTenant()")
+    @Operation(summary = "Update a unit", description = "Replace a unit from JSON. Owner only.")
     public UnitView updateOrganization(@PathVariable("id") Long id,
                                        @Valid @RequestBody Organization organization) {
         return viewOf(organizationService.update(id, organization));
@@ -125,6 +133,7 @@ public class OrganizationController {
      */
     @PutMapping(path = "/organization/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("@tenantSecurity.isOwnerOfCurrentTenant()")
+    @Operation(summary = "Update a unit with a photo", description = "Replace a unit and its photo; multipart. Owner only.")
     public UnitView updateOrganizationWithPhoto(
             @PathVariable("id") Long id,
             @Valid @RequestPart("organization") Organization organization,
@@ -143,6 +152,7 @@ public class OrganizationController {
 
     @DeleteMapping("/organization/{id}")
     @PreAuthorize("@tenantSecurity.isOwnerOfCurrentTenant()")
+    @Operation(summary = "Delete a unit", description = "Delete a unit by id, removing its photo with it. Owner only.")
     public ResponseEntity<Void> deleteOrganization(@PathVariable("id") Long id) {
         organizationService.delete(id);
         return ResponseEntity.noContent().build();

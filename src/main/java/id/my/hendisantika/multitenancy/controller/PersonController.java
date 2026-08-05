@@ -23,6 +23,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 /**
  * People inside whichever tenant the request resolved to.
@@ -42,6 +44,7 @@ import java.util.List;
  */
 @RestController
 @RequiredArgsConstructor
+@Tag(name = "People", description = "People in the tenant's own database. Every call is scoped to the resolved tenant.")
 public class PersonController {
 
     private static final String PHOTO_PREFIX = "persons";
@@ -58,6 +61,7 @@ public class PersonController {
      */
     @GetMapping("/person/{id}")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
+    @Operation(summary = "One person", description = "Return a person by id from the tenant's database; 404 when there is none.")
     public PersonView getPerson(@PathVariable("id") Long id) {
         return personService.findById(id).map(this::viewOf)
                 .orElseThrow(() -> new TenantRecordNotFoundException("No person with id " + id));
@@ -81,6 +85,7 @@ public class PersonController {
      */
     @GetMapping("/person")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
+    @Operation(summary = "A page of people", description = "List the tenant's people, paged, searchable and filterable.")
     public PageResponse<PersonView> listPeople(
             @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "page", required = false) Integer page,
@@ -97,6 +102,7 @@ public class PersonController {
 
     @PostMapping("/person")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
+    @Operation(summary = "Create a person", description = "Create a person from JSON.")
     public ResponseEntity<PersonView> createPerson(@Valid @RequestBody Person person) {
         return ResponseEntity.status(HttpStatus.CREATED).body(viewOf(personService.save(person)));
     }
@@ -111,6 +117,7 @@ public class PersonController {
      */
     @PostMapping(path = "/person", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
+    @Operation(summary = "Create a person with a photo", description = "Create a person and attach a photo; multipart.")
     public ResponseEntity<PersonView> createPersonWithPhoto(
             @Valid @RequestPart("person") Person person,
             @RequestPart(value = "photo", required = false) MultipartFile photo) {
@@ -120,6 +127,7 @@ public class PersonController {
 
     @PutMapping("/person/{id}")
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
+    @Operation(summary = "Update a person", description = "Replace a person from JSON.")
     public PersonView updatePerson(@PathVariable("id") Long id, @Valid @RequestBody Person person) {
         return viewOf(personService.update(id, person));
     }
@@ -134,6 +142,7 @@ public class PersonController {
      */
     @PutMapping(path = "/person/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("@tenantSecurity.isMemberOfCurrentTenant()")
+    @Operation(summary = "Update a person with a photo", description = "Replace a person and their photo; multipart.")
     public PersonView updatePersonWithPhoto(
             @PathVariable("id") Long id,
             @Valid @RequestPart("person") Person person,
@@ -152,6 +161,7 @@ public class PersonController {
 
     @DeleteMapping("/person/{id}")
     @PreAuthorize("@tenantSecurity.isOwnerOfCurrentTenant()")
+    @Operation(summary = "Delete a person", description = "Delete a person by id, removing their photo with it.")
     public ResponseEntity<Void> deletePerson(@PathVariable("id") Long id) {
         personService.delete(id);
         return ResponseEntity.noContent().build();

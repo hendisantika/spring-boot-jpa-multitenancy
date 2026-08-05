@@ -35,6 +35,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 /**
  * Signup and the parent login. Every user of every tenant authenticates here.
@@ -50,6 +52,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+@Tag(name = "Authentication", description = "Signing up, signing in, token refresh, and self-service account management — email, phone and password.")
 public class AuthController {
 
     /**
@@ -73,6 +76,7 @@ public class AuthController {
      * JSON part named "account" plus an optional file part named "photo".
      */
     @PostMapping(path = "/signup", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Register an owner account", description = "Create an account from email, phone, password and an optional photo; the caller can then register an organization.")
     public ResponseEntity<AccountView> signUp(@Valid @RequestPart("account") SignUpRequest request,
                                               @RequestPart(value = "photo", required = false) MultipartFile photo) {
         Account account = authService.signUp(request.email(), request.phoneNumber(), request.password(), photo);
@@ -80,11 +84,13 @@ public class AuthController {
     }
 
     @PostMapping("/login")
+    @Operation(summary = "Sign in", description = "Exchange email and password for an access and refresh token pair.")
     public TokenPair login(@Valid @RequestBody LoginRequest request) {
         return tokensFor(authService.authenticate(request.email(), request.password()));
     }
 
     @PostMapping("/refresh")
+    @Operation(summary = "Refresh tokens", description = "Exchange a valid refresh token for a fresh access and refresh token pair.")
     public TokenPair refresh(@Valid @RequestBody RefreshRequest request) {
         return tokensFor(authService.accountFromRefreshToken(request.refreshToken()));
     }
@@ -95,6 +101,7 @@ public class AuthController {
      * when mail delivery is off, so the flow is still followable locally.
      */
     @PostMapping("/password/forgot")
+    @Operation(summary = "Request a password reset", description = "Send a reset link to the address if it has an account; the response is the same whether it does or not, so it reveals nothing.")
     public ForgotPasswordResponse forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         return new ForgotPasswordResponse(
                 "If that address has an account, a reset link is on its way.",
@@ -105,11 +112,13 @@ public class AuthController {
      * Shows whose account a link belongs to, before anything is changed.
      */
     @GetMapping("/password/reset/{token}")
+    @Operation(summary = "Preview a password reset", description = "Return the address a reset token belongs to, for the reset screen, before a new password is set.")
     public ResetPasswordView previewReset(@PathVariable String token) {
         return new ResetPasswordView(passwordResetService.emailFor(token));
     }
 
     @PostMapping("/password/reset/{token}")
+    @Operation(summary = "Set a new password from a reset link", description = "Consume a reset token and set the account's new password.")
     public ResetPasswordView resetPassword(@PathVariable String token,
                                            @Valid @RequestBody ResetPasswordRequest request) {
         String email = passwordResetService.emailFor(token);
@@ -122,6 +131,7 @@ public class AuthController {
      * may not be signed in.
      */
     @PostMapping("/verify-email/{token}")
+    @Operation(summary = "Confirm an email address", description = "Consume an email-verification token and mark the address confirmed.")
     public VerifiedView verifyEmail(@PathVariable String token) {
         return new VerifiedView(emailVerificationService.verify(token));
     }
@@ -130,6 +140,7 @@ public class AuthController {
      * Sends a fresh link, invalidating the earlier one.
      */
     @PostMapping("/verify-email/resend")
+    @Operation(summary = "Resend the verification link", description = "Send a fresh email-verification link to the signed-in account.")
     public ForgotPasswordResponse resendVerification(@AuthenticationPrincipal Jwt jwt) {
         Account account = authService.accountOf(jwt.getSubject());
         return new ForgotPasswordResponse(
@@ -138,6 +149,7 @@ public class AuthController {
     }
 
     @GetMapping("/me")
+    @Operation(summary = "The signed-in account", description = "Return the account the access token was issued for.")
     public AccountView me(@AuthenticationPrincipal Jwt jwt) {
         return viewOf(authService.accountOf(jwt.getSubject()));
     }
@@ -151,6 +163,7 @@ public class AuthController {
      * an organization, so there is one thing to learn rather than three.
      */
     @PutMapping(path = "/me/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Change your photo", description = "Replace or remove the signed-in account's photo; multipart, removePhoto=true drops it.")
     public AccountView updateMyPhoto(
             @AuthenticationPrincipal Jwt jwt,
             @RequestPart(value = "photo", required = false) MultipartFile photo,
@@ -166,6 +179,7 @@ public class AuthController {
      * this and nothing is sent to it, so there is nothing to prove first.
      */
     @PutMapping("/me/phone")
+    @Operation(summary = "Change your phone number", description = "Update the signed-in account's phone number.")
     public AccountView updateMyPhoneNumber(@AuthenticationPrincipal Jwt jwt,
                                            @Valid @RequestBody PhoneNumberRequest request) {
         Account account = authService.accountOf(jwt.getSubject());
@@ -181,6 +195,7 @@ public class AuthController {
      * otherwise include the session doing the changing.
      */
     @PutMapping("/me/password")
+    @Operation(summary = "Change your password", description = "Change the password from inside a session and receive a fresh token pair; the current password is required.")
     public TokenPair changeMyPassword(@AuthenticationPrincipal Jwt jwt,
                                       @Valid @RequestBody PasswordChangeRequest request) {
         Account account = authService.accountOf(jwt.getSubject());
@@ -200,6 +215,7 @@ public class AuthController {
      * followable locally.
      */
     @PostMapping("/me/email")
+    @Operation(summary = "Request an email change", description = "Start moving the account to a new address; a confirmation link is sent to the new mailbox. The current password is required.")
     public EmailChangeResponse requestEmailChange(@AuthenticationPrincipal Jwt jwt,
                                                   @Valid @RequestBody EmailChangeRequest request) {
         Account account = authService.accountOf(jwt.getSubject());
@@ -213,6 +229,7 @@ public class AuthController {
      * would rather not wait a day for the link to lapse.
      */
     @DeleteMapping("/me/email")
+    @Operation(summary = "Cancel an email change", description = "Drop an outstanding email-change request.")
     public ResponseEntity<Void> cancelEmailChange(@AuthenticationPrincipal Jwt jwt) {
         emailChangeService.cancel(authService.accountOf(jwt.getSubject()));
         return ResponseEntity.noContent().build();
@@ -224,6 +241,7 @@ public class AuthController {
      * session at all.
      */
     @PostMapping("/email-change/{token}")
+    @Operation(summary = "Confirm a new email address", description = "Consume the token sent to the new mailbox, which is when the address actually changes.")
     public VerifiedView confirmEmailChange(@PathVariable String token) {
         return new VerifiedView(emailChangeService.confirm(token));
     }

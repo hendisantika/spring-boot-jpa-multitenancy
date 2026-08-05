@@ -21,6 +21,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 /**
  * The recipient's half of the invitation flow, which is open: the token is the
@@ -37,6 +39,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/invitations")
 @RequiredArgsConstructor
+@Tag(name = "Invitations", description = "Accepting an organization invitation, before the recipient has an account of their own.")
 public class InvitationController {
 
     private final InvitationService invitationService;
@@ -47,6 +50,7 @@ public class InvitationController {
      * What the accept page shows before anyone commits to anything.
      */
     @GetMapping("/{token}")
+    @Operation(summary = "What an invitation shows", description = "Return who invited you and to which organization, for the accept screen, before committing.")
     public InvitationView preview(@PathVariable String token) {
         InvitationService.InvitationPreview preview = invitationService.preview(token);
         return new InvitationView(
@@ -63,6 +67,7 @@ public class InvitationController {
      * rather than at a login form.
      */
     @PostMapping("/{token}/accept")
+    @Operation(summary = "Accept an invitation", description = "Accept the invitation, choosing a password if the account is new, and sign in.")
     public AuthController.TokenPair accept(@PathVariable String token,
                                            @Valid @RequestBody AcceptRequest request) {
         Account account = invitationService.accept(token, request.password());

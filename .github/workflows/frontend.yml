@@ -137,7 +137,7 @@ jobs:
       # `dev`, a label for reading. Nothing is ever deployed by `dev` — it does
       # not say which build it was, so it cannot be rolled back to.
       - name: Build and push the front end image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./frontend
           file: ./frontend/Dockerfile

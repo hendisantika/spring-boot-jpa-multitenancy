@@ -74,6 +74,8 @@ public class SecurityConfiguration {
                         // The API document and the Swagger UI that renders it.
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**",
                                 "/v3/api-docs", "/v3/api-docs/**").permitAll()
+                        // The favicon a browser asks for on any of the above.
+                        .requestMatchers("/favicon.ico").permitAll()
                         // Accepting an invitation happens before the recipient has
                         // an account: the token in the link is the only credential.
                         .requestMatchers(HttpMethod.GET, "/api/invitations/*").permitAll()

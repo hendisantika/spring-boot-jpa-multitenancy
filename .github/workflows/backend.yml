@@ -415,7 +415,14 @@ jobs:
           # server's compose v2.6.0 mishandles `--no-deps` when a service has a
           # health-conditioned depends_on, reporting "no such service: redis"
           # and leaving the new container created but not started.
-          docker compose -f compose.dev.yaml pull api
+          # Docker Hub token requests time out on shared runners often enough to
+          # retry rather than fail a whole deploy over one.
+          pulled=
+          for i in 1 2 3; do
+            if docker compose -f compose.dev.yaml pull api; then pulled=1; break; fi
+            echo "pull attempt $i failed; retrying in 5s"; sleep 5
+          done
+          [ -n "$pulled" ] || { echo "::error::could not pull api after 3 attempts"; exit 1; }
           docker compose -f compose.dev.yaml up -d api
           docker image prune -f
           EOF

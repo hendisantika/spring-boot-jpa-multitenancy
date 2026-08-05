@@ -347,7 +347,14 @@ jobs:
           # `up -d frontend` (not `--no-deps`) is used because this server's
           # compose v2.6.0 mishandles `--no-deps` with a health-conditioned
           # depends_on, leaving the new container created but not started.
-          docker compose -f compose.dev.yaml pull frontend
+          # Docker Hub token requests time out on shared runners often enough to
+          # retry rather than fail a whole deploy over one.
+          pulled=
+          for i in 1 2 3; do
+            if docker compose -f compose.dev.yaml pull frontend; then pulled=1; break; fi
+            echo "pull attempt $i failed; retrying in 5s"; sleep 5
+          done
+          [ -n "$pulled" ] || { echo "::error::could not pull frontend after 3 attempts"; exit 1; }
           docker compose -f compose.dev.yaml up -d frontend
           docker image prune -f
           EOF

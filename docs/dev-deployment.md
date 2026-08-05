@@ -71,6 +71,7 @@ everything else is a variable — an address masked into `***` only makes a fail
 | `APPLICATION_STORAGE_SIGNED_URL_ENDPOINT` | the address a *browser* can reach MinIO at; a signature covers the host, so a URL signed for the internal one cannot be repointed |
 | `APPLICATION_STORAGE_BUCKET`              | optional, defaults to `jvm-uploads`                                       |
 | `APPLICATION_TENANT_BASE_DOMAIN`          | optional, defaults to `jvm.my.id`                                         |
+| `APPLICATION_TENANT_NEUTRAL_HOSTS`        | hosts that carry no tenant; must include the API host (`api-dev.jvm.my.id`) so Swagger under it is not read as a tenant |
 | `REDIS_HOST` / `REDIS_PORT`               | `redis` and `6379` — the compose service, not a host address              |
 | `REDIS_TIMEOUT`                           | optional, defaults to `10000ms`                                           |
 | `REDIS_USERNAME`                          | optional; empty for an unauthenticated Redis, set to reach a protected one |

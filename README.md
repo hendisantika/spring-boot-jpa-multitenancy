@@ -315,9 +315,10 @@ built from, and the app's name and version — deliberately public, since it onl
 
 ```json
 {
-  "app":   { "name": "spring-boot-jpa-multitenancy", "version": "0.0.1" },
-  "build": { "artifact": "multitenancy", "group": "id.my.hendisantika", "version": "0.0.1", "time": "…" },
-  "git":   { "branch": "main", "commit": { "id": "…" } }
+  "app":         { "name": "spring-boot-jpa-multitenancy", "version": "0.0.1" },
+  "spring-boot": { "version": "4.1.0", "spring-framework-version": "7.0.8" },
+  "build":       { "artifact": "multitenancy", "group": "id.my.hendisantika", "version": "0.0.1", "time": "…" },
+  "git":         { "branch": "main", "commit": { "id": "…" } }
 }
 ```
 

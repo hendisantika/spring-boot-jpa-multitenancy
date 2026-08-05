@@ -319,6 +319,9 @@ jobs:
           APPLICATION_STORAGE_SECRET_KEY: ${{ secrets.APPLICATION_STORAGE_SECRET_KEY }}
           REDIS_HOST: ${{ vars.REDIS_HOST || 'host.docker.internal' }}
           REDIS_PORT: ${{ vars.REDIS_PORT || '6379' }}
+          REDIS_TIMEOUT: ${{ vars.REDIS_TIMEOUT || '10000ms' }}
+          REDIS_USERNAME: ${{ vars.REDIS_USERNAME }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
           BREVO_SENDER_EMAIL: ${{ vars.BREVO_SENDER_EMAIL }}
           BREVO_SENDER_NAME: ${{ vars.BREVO_SENDER_NAME }}
@@ -352,6 +355,11 @@ jobs:
             echo "APPLICATION_RATE_LIMIT_BACKEND=REDIS"
             echo "REDIS_HOST=$REDIS_HOST"
             echo "REDIS_PORT=$REDIS_PORT"
+            echo "REDIS_TIMEOUT=$REDIS_TIMEOUT"
+            # Empty when the Redis needs no auth, which the app reads as no
+            # credential; set to reach a protected one.
+            echo "REDIS_USERNAME=$REDIS_USERNAME"
+            echo "REDIS_PASSWORD=$REDIS_PASSWORD"
             echo
             echo "BREVO_API_KEY=$BREVO_API_KEY"
             echo "BREVO_SENDER_EMAIL=$BREVO_SENDER_EMAIL"

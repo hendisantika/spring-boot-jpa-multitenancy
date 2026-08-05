@@ -56,6 +56,7 @@ everything else is a variable — an address masked into `***` only makes a fail
 | `APPLICATION_DATABASE_PASSWORD`  | the MySQL password on the server                                 |
 | `APPLICATION_STORAGE_ACCESS_KEY` | MinIO access key; omit both keys to use the AWS credential chain |
 | `APPLICATION_STORAGE_SECRET_KEY` | MinIO secret key                                                 |
+| `REDIS_PASSWORD`                 | optional; empty for an unauthenticated Redis, set to reach a protected one |
 | `BREVO_API_KEY`                  | optional — without it, invitation links are returned rather than mailed |
 
 ### Variables
@@ -72,6 +73,8 @@ everything else is a variable — an address masked into `***` only makes a fail
 | `APPLICATION_STORAGE_BUCKET`              | optional, defaults to `jvm-uploads`                                       |
 | `APPLICATION_TENANT_BASE_DOMAIN`          | optional, defaults to `jvm.my.id`                                         |
 | `REDIS_HOST` / `REDIS_PORT`               | `redis` and `6379` — the compose service, not a host address              |
+| `REDIS_TIMEOUT`                           | optional, defaults to `10000ms`                                           |
+| `REDIS_USERNAME`                          | optional; empty for an unauthenticated Redis, set to reach a protected one |
 | `APP_ORIGIN`                              | same as `PUBLIC_BASE_URL`; it is what sends a tenant subdomain to its pages |
 | `BREVO_SENDER_EMAIL` / `BREVO_SENDER_NAME`| the verified sender, if Brevo is configured                               |
 | `BIND_ADDRESS`                            | optional, defaults to `127.0.0.1`; `0.0.0.0` publishes the ports to the internet |

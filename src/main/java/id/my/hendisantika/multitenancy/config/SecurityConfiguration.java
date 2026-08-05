@@ -66,11 +66,14 @@ public class SecurityConfiguration {
                         // The container HEALTHCHECK and any orchestrator probe this
                         // without credentials. Details stay hidden unless authorized,
                         // so it only ever reveals UP or DOWN.
-                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-                        // Info carries only the build and commit that are live,
-                        // which is meant to be read without a token — the same
-                        // openness as the health probe beside it.
-                        .requestMatchers("/actuator/info").permitAll()
+                        // Every actuator endpoint is anonymous. Health still
+                        // hides its details unless authorized, and env-style
+                        // values are sanitized by default, so this opens the
+                        // operational surface without opening the secrets.
+                        .requestMatchers("/actuator/**").permitAll()
+                        // The API document and the Swagger UI that renders it.
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**",
+                                "/v3/api-docs", "/v3/api-docs/**").permitAll()
                         // Accepting an invitation happens before the recipient has
                         // an account: the token in the link is the only credential.
                         .requestMatchers(HttpMethod.GET, "/api/invitations/*").permitAll()

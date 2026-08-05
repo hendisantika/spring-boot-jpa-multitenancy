@@ -21,8 +21,10 @@ Nothing is built on the server and nothing is configured by hand there. The `.en
 from repository secrets and variables on every deploy, so **editing it on the server changes nothing that survives the
 next run** — change the secret or the variable instead.
 
-MySQL, Redis and MinIO are the server's own, already running; the containers reach them over
-`host.docker.internal`, which compose maps to the host gateway.
+MySQL is the server's own, reached at the address the URL template names. MinIO is an existing container on its
+`minio_minio-net` network, which the compose file joins so the bucket answers at `http://minio:9000`. Redis is this
+deployment's own — the box's shared Redis needs a password this app has no way to send — so the compose file brings up
+an isolated one rather than depending on the host.
 
 ```
 push to main ──► the pipeline whose paths changed:
@@ -65,11 +67,11 @@ everything else is a variable — an address masked into `***` only makes a fail
 | `APPLICATION_DATABASE_URL_TEMPLATE`       | see below; `{database}` is substituted per tenant                        |
 | `APPLICATION_DATABASE_USER`               | the MySQL user, which must be allowed to `CREATE DATABASE`               |
 | `APPLICATION_DATABASE_CENTRAL_DATABASE`   | optional, defaults to `db_default`                                        |
-| `APPLICATION_STORAGE_ENDPOINT`            | `http://host.docker.internal:9000` for a MinIO on the host               |
+| `APPLICATION_STORAGE_ENDPOINT`            | `http://minio:9000` — the MinIO container on the joined `minio_minio-net` network |
 | `APPLICATION_STORAGE_SIGNED_URL_ENDPOINT` | the address a *browser* can reach MinIO at; a signature covers the host, so a URL signed for the internal one cannot be repointed |
 | `APPLICATION_STORAGE_BUCKET`              | optional, defaults to `jvm-uploads`                                       |
 | `APPLICATION_TENANT_BASE_DOMAIN`          | optional, defaults to `jvm.my.id`                                         |
-| `REDIS_HOST` / `REDIS_PORT`               | optional, default `host.docker.internal` and `6379`                       |
+| `REDIS_HOST` / `REDIS_PORT`               | `redis` and `6379` — the compose service, not a host address              |
 | `APP_ORIGIN`                              | same as `PUBLIC_BASE_URL`; it is what sends a tenant subdomain to its pages |
 | `BREVO_SENDER_EMAIL` / `BREVO_SENDER_NAME`| the verified sender, if Brevo is configured                               |
 | `BIND_ADDRESS`                            | optional, defaults to `127.0.0.1`; `0.0.0.0` publishes the ports to the internet |

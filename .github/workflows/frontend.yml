@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: 'Existing tag to deploy, e.g. fe-41 or sha-1a2b3c4. Leave empty to build this commit. This is the rollback.'
+        description: 'Existing run number to deploy, e.g. 41. Leave empty to build this commit. This is the rollback.'
         required: false
         default: ''
   pull_request:
@@ -116,15 +116,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # The run number, which counts per workflow — so it is prefixed. The two
-      # pipelines have separate counters, and an unprefixed "41" from each
-      # would be two different commits wearing one tag, the second quietly
-      # overwriting the first.
+      # The run number alone. Each pipeline builds only its own image, into its
+      # own repository, so the two counters cannot collide — api:7 and
+      # frontend:7 are different images — and no prefix is needed.
       - name: Derive the image tag
         id: tag
-        run: |
-          echo "tag=fe-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
-          echo "sha=sha-$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+        run: echo "tag=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -134,29 +131,11 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Three tags on each image: the run number, which is what the server is
-      # told to run; the commit it was built from, so a deployed tag can always
-      # be traced back to source; and `dev`, a label for reading. Nothing is
-      # ever deployed by `dev` — a deployment that says "latest" cannot be
-      # rolled back to anything, because it does not say which build it was.
-      - name: Build and push the API image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          # The API image stamps these into /actuator/info; .git is not in the
-          # build context, so they are passed rather than read.
-          build-args: |
-            GIT_COMMIT=${{ github.sha }}
-            GIT_BRANCH=${{ github.ref_name }}
-          tags: |
-            ${{ env.API_IMAGE }}:${{ steps.tag.outputs.tag }}
-            ${{ env.API_IMAGE }}:${{ steps.tag.outputs.sha }}
-            ${{ env.API_IMAGE }}:dev
-          cache-from: type=gha,scope=api
-          cache-to: type=gha,mode=max,scope=api
-
+      # Only the front end image is built here; the API has its own pipeline.
+      # Three tags: the run number, which is what the server is told to run; the
+      # commit it was built from, for tracing a deployed tag back to source; and
+      # `dev`, a label for reading. Nothing is ever deployed by `dev` — it does
+      # not say which build it was, so it cannot be rolled back to.
       - name: Build and push the front end image
         uses: docker/build-push-action@v6
         with:
@@ -165,10 +144,7 @@ jobs:
           push: true
           build-args: |
             NEXT_PUBLIC_TENANT_BASE_DOMAIN=${{ vars.APPLICATION_TENANT_BASE_DOMAIN || 'jvm.my.id' }}
-          tags: |
-            ${{ env.FRONTEND_IMAGE }}:${{ steps.tag.outputs.tag }}
-            ${{ env.FRONTEND_IMAGE }}:${{ steps.tag.outputs.sha }}
-            ${{ env.FRONTEND_IMAGE }}:dev
+          tags: ${{ env.FRONTEND_IMAGE }}:${{ steps.tag.outputs.tag }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
@@ -238,7 +214,6 @@ jobs:
         env:
           # Suffixed rather than reusing the workflow level names, which would
           # be a step's env referring to itself.
-          API_IMAGE_REF: ${{ vars.DOCKERHUB_USERNAME }}/multitenancy-api:${{ steps.tag.outputs.tag }}
           FRONTEND_IMAGE_REF: ${{ vars.DOCKERHUB_USERNAME }}/multitenancy-frontend:${{ steps.tag.outputs.tag }}
           BIND_ADDRESS: ${{ vars.BIND_ADDRESS || '127.0.0.1' }}
           PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
@@ -269,7 +244,6 @@ jobs:
             echo "# Edits here are overwritten on the next deploy: change the repository"
             echo "# secret or variable instead."
             echo
-            echo "API_IMAGE=$API_IMAGE_REF"
             echo "FRONTEND_IMAGE=$FRONTEND_IMAGE_REF"
             echo "BIND_ADDRESS=$BIND_ADDRESS"
             echo
@@ -324,9 +298,27 @@ jobs:
           scp -i ~/.ssh/id_deploy -o BatchMode=yes -P "$SSH_PORT" \
             deploy/compose.dev.yaml "$SSH_USERNAME@$SSH_HOST:$DEPLOY_PATH/compose.dev.yaml"
           scp -i ~/.ssh/id_deploy -o BatchMode=yes -P "$SSH_PORT" \
-            .env.deploy "$SSH_USERNAME@$SSH_HOST:$DEPLOY_PATH/.env"
+            .env.deploy "$SSH_USERNAME@$SSH_HOST:$DEPLOY_PATH/.env.incoming"
+          # This pipeline owns only its own image line. The other service's tag
+          # is preserved from the .env already on the server — or, on a first
+          # deploy, read off its running container — so deploying one service
+          # never rewrites which build the other is running.
           ssh -i ~/.ssh/id_deploy -o BatchMode=yes -p "$SSH_PORT" "$SSH_USERNAME@$SSH_HOST" \
-            "chmod 600 $DEPLOY_PATH/.env"
+            "DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'EOF'
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+          other=$(grep -E '^API_IMAGE=' .env 2>/dev/null | tail -1 || true)
+          if [ -z "$other" ]; then
+            img=$(docker inspect -f '{{.Config.Image}}' multitenancy-api 2>/dev/null || true)
+            [ -n "$img" ] && other="API_IMAGE=$img"
+          fi
+          if [ -z "$other" ]; then
+            echo "::error::cannot determine the current API_IMAGE to preserve"; exit 1
+          fi
+          { cat .env.incoming; echo "$other"; } > .env
+          chmod 600 .env
+          rm -f .env.incoming
+          EOF
 
       - name: Pull and restart
         env:
@@ -350,10 +342,11 @@ jobs:
             "DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'EOF'
           set -euo pipefail
           cd "$DEPLOY_PATH"
-          docker compose -f compose.dev.yaml pull
-          # --remove-orphans so a service dropped from the compose file also
-          # stops running on the server.
-          docker compose -f compose.dev.yaml up -d --remove-orphans
+          # Only the front end is recreated. --no-deps so its api dependency,
+          # already running, is not reconciled or restarted by a front end
+          # deploy — the api keeps whatever build it is on.
+          docker compose -f compose.dev.yaml pull frontend
+          docker compose -f compose.dev.yaml up -d --no-deps frontend
           docker image prune -f
           EOF
 
@@ -366,19 +359,16 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_deploy -o BatchMode=yes -p "$SSH_PORT" "$SSH_USERNAME@$SSH_HOST" bash -s <<'EOF'
           set -uo pipefail
-          api= web=
-          # Flyway runs a migration per tenant database at startup, so this is
-          # generous on purpose.
+          code=
           for attempt in $(seq 1 40); do
-            api=$(curl -fsS -o /dev/null -w '%{http_code}' http://127.0.0.1:8010/actuator/health || true)
-            web=$(curl -fsS -o /dev/null -w '%{http_code}' http://127.0.0.1:5000/login || true)
-            if [ "$api" = "200" ] && [ "$web" = "200" ]; then
-              echo "Both answered after $((attempt * 5))s at most"
+            code=$(curl -fsS -o /dev/null -w '%{http_code}' http://127.0.0.1:5000/login || true)
+            if [ "$code" = "200" ]; then
+              echo "frontend answered after $((attempt * 5))s at most"
               exit 0
             fi
             sleep 5
           done
-          echo "Still not healthy: api=$api web=$web"
+          echo "frontend still not healthy: $code"
           exit 1
           EOF
 

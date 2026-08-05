@@ -1116,10 +1116,11 @@ prod profile against it needs a database user created for the purpose.
 
 The dev server is deployed by GitHub Actions once the checks pass on `main`. There are two pipelines, one per side —
 [`backend.yml`](.github/workflows/backend.yml) and [`frontend.yml`](.github/workflows/frontend.yml) — each watching
-the paths it owns and each carrying the deploy itself: two images built and pushed to Docker Hub, then pulled by the
-server, which builds nothing and holds no configuration of its own, the environment beside the compose file being
-written from repository secrets and variables on each run. See [docs/dev-deployment.md](docs/dev-deployment.md) for
-what to set. Rolling back is either workflow run by hand with the tag of a build that was good.
+the paths it owns and each building and deploying only its own image: pushed to Docker Hub, then pulled by the server,
+which builds nothing and holds no configuration of its own, the environment beside the compose file being written from
+repository secrets and variables on each run. Images are tagged with the workflow run number. See
+[docs/dev-deployment.md](docs/dev-deployment.md) for what to set. Rolling back is either workflow run by hand with the
+run number of a build that was good.
 
 Serving the tenant subdomains is the other half of a deployment: one wildcard DNS record, one wildcard certificate and
 one nginx server block, set up once, after which every organization that registers is reachable at

@@ -1,21 +1,23 @@
 # Deploying to the dev server
 
-A push to `main` that passes its checks builds two images, pushes them to Docker Hub and points the dev server at that
-pair. There are two pipelines, one per side, each complete in itself:
+A push to `main` that passes its checks builds one image, pushes it to Docker Hub and updates that one service on the
+dev server. There are two pipelines, one per side, each complete in itself:
 [`backend.yml`](../.github/workflows/backend.yml) and [`frontend.yml`](../.github/workflows/frontend.yml), with
 [`deploy/compose.dev.yaml`](../deploy/compose.dev.yaml) as what ends up running.
 
-Each watches the paths it owns — `src/`, `pom.xml`, the `Dockerfile` and `deploy/compose.dev.yaml` on one side, `frontend/` on the
-other — so a commit that only changes the front end does not wait for the Maven tests, and neither deploys until its
-own tests have passed. A commit touching both runs both pipelines, and the second deploy is the same pair of images
-being pulled again; the two deploy jobs share a concurrency group, so they queue rather than collide.
+Each watches the paths it owns — `src/`, `pom.xml`, the `Dockerfile` and `deploy/compose.dev.yaml` on one side,
+`frontend/` on the other — so a commit that only changes the front end does not wait for the Maven tests, and neither
+deploys until its own tests have passed. A commit touching both runs both pipelines; the two deploy jobs share a
+concurrency group, so they queue rather than collide.
 
 The deploy half of the two files is the same four jobs twice over, which is the price of each pipeline standing alone:
 **a change to how deployment works has to be made in both.**
 
-Both images are always built and always deployed together, whichever pipeline ran: the pair on the server then comes
-from one commit, and there is no combination running that was never tested as one. A front end change rebuilding the
-API image costs little — the build cache is keyed per image and nothing in `src/` moved.
+**Each pipeline builds and deploys only its own image.** Backend builds the API image and recreates only the `api`
+service; frontend builds the front end image and recreates only `frontend`. The other service's image tag is preserved
+from the `.env` already on the server, so a front end deploy never touches which build the API is running, and the
+API's tests can never be skipped by a front-end-only change. The trade is that the two services can be on different
+commits, and a change to shared configuration reaches a service only when that service is next deployed.
 
 Nothing is built on the server and nothing is configured by hand there. The `.env` beside the compose file is written
 from repository secrets and variables on every deploy, so **editing it on the server changes nothing that survives the
@@ -29,11 +31,8 @@ an isolated one rather than depending on the host.
 ```
 push to main ──► the pipeline whose paths changed:
 
-    backend.yml    test ──┐
-                          ├──► images (both) ──► push to Docker Hub ──► deploy ──► wait for 200s
-    frontend.yml   test ──┘         ▲                                     │
-                                    │                                     │
-                          check settings ─────────────────────────────────┘
+    backend.yml    test ──► check ──► build api image ─────► push ──► deploy api ──► wait api 200
+    frontend.yml   test ──► check ──► build frontend image ─► push ──► deploy frontend ──► wait web 200
 ```
 
 ## What to set on the repository
@@ -137,24 +136,19 @@ port it would let a caller name a tenant the host name did not.
 ## Deploying, and undeploying
 
 Push to `main`, and it goes once that side's tests are green. Or run either workflow by hand from Actions → Run
-workflow, which is also how a rollback works: give it the tag of a build that was good, and both the tests and the
-image build are skipped — it deploys what it is given without waiting for anything, which is the point of it. A
+workflow, which is also how a rollback works: give it the run number of a build that was good, and both the tests and
+the image build are skipped — it deploys what it is given without waiting for anything, which is the point of it. A
 rollback happens when something is already wrong.
 
 ```
-be-41                # the run number of Deploy Backend CI/CD to Dev
-fe-17                # the run number of Deploy Frontend CI/CD to Dev
-sha-1a2b3c4          # or the commit, which every image also carries
+41                   # the run number, which is the image tag
 ```
 
-The run number is what a deploy runs and what the run itself is called, so a deployment can be matched to its build at
-a glance. It counts **per workflow**, which is why it is prefixed: the two pipelines have separate counters, and an
-unprefixed `41` from each would be two different commits wearing one tag, the second quietly overwriting the first.
-Every image also carries `sha-<commit>`, so a tag on the server can always be traced back to source, and either form
-works for a rollback.
-
-Images carry `dev` as well, which moves with the latest deploy. Nothing is ever deployed by that tag — a deployment
-that says `dev` cannot be rolled back to anything, because it does not say which build it was.
+Each image is tagged with the run number of the workflow that built it, and nothing else. It is what a deploy runs and
+what the run itself is called, so a deployment can be matched to its build at a glance. No prefix is needed: each
+pipeline builds only into its own repository — `multitenancy-api` or `multitenancy-frontend` — so `api:41` and
+`frontend:41` are different images and the two counters cannot collide. Roll back the API to run 39 and the front end
+stays on whatever it was; the deploy preserves the other service's tag.
 
 The workflow prints `docker compose ps` and the last sixty log lines at the end of every run, successful or not, so a
 container that came up and died is visible without logging in.

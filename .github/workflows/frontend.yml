@@ -145,6 +145,11 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
+          # The API image stamps these into /actuator/info; .git is not in the
+          # build context, so they are passed rather than read.
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            GIT_BRANCH=${{ github.ref_name }}
           tags: |
             ${{ env.API_IMAGE }}:${{ steps.tag.outputs.tag }}
             ${{ env.API_IMAGE }}:${{ steps.tag.outputs.sha }}

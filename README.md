@@ -299,17 +299,32 @@ Heap is left to the container limit via `-XX:MaxRAMPercentage=75.0`; override `J
 
 ### Health
 
-Actuator exposes exactly one endpoint, and it needs no token because the container `HEALTHCHECK` and any orchestrator
-probe it anonymously:
+Actuator exposes two endpoints, both anonymous because the container `HEALTHCHECK`, any orchestrator and a person
+checking which build is live all read them without a token:
 
 ```bash
 curl http://localhost:8080/actuator/health              # {"status":"UP"}
 curl http://localhost:8080/actuator/health/liveness     # process is alive
 curl http://localhost:8080/actuator/health/readiness    # accepting traffic
+curl http://localhost:8080/actuator/info                # build, git and app
 ```
 
-Details are hidden unless the caller is authorized, so an anonymous probe learns `UP` or `DOWN` and nothing about the
-database behind it. Every other actuator endpoint is unexposed.
+Health details are hidden unless the caller is authorized, so an anonymous probe learns `UP` or `DOWN` and nothing
+about the database behind it. `/actuator/info` carries the build coordinates, the commit and branch the image was
+built from, and the app's name and version — deliberately public, since it only says which build is running:
+
+```json
+{
+  "app":   { "name": "spring-boot-jpa-multitenancy", "version": "0.0.1" },
+  "build": { "artifact": "multitenancy", "group": "id.my.hendisantika", "version": "0.0.1", "time": "…" },
+  "git":   { "branch": "main", "commit": { "id": "…" } }
+}
+```
+
+The commit and branch come from the image build: `.git` is not in the Docker context, so CI passes them as build
+arguments (`GIT_COMMIT`, `GIT_BRANCH`) that become environment in the image. A plain `docker build` without them, or a
+local run outside an image, shows `unknown` there — the honest answer when nothing stamped the build. Every other
+actuator endpoint stays unexposed.
 
 The container `HEALTHCHECK` deliberately probes `/actuator/health` rather than `/actuator/health/readiness`: the default
 readiness group contains only `readinessState` and **stays `UP` with the database unreachable**, while the overall group

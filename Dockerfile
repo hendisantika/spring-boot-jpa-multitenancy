@@ -44,6 +44,15 @@ USER app
 
 EXPOSE 8080
 
+# The commit and branch this image was built from. The build cannot read them
+# itself — .git is not in the context — so CI passes them, and they surface at
+# runtime in /actuator/info. They default to "unknown" for a plain `docker
+# build` with no arguments, which is the truthful answer then.
+ARG GIT_COMMIT=unknown
+ARG GIT_BRANCH=unknown
+ENV GIT_COMMIT=$GIT_COMMIT
+ENV GIT_BRANCH=$GIT_BRANCH
+
 # Leaves heap sizing to the container limits rather than a fixed value.
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0"
 

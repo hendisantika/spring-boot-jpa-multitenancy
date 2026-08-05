@@ -67,6 +67,10 @@ public class SecurityConfiguration {
                         // without credentials. Details stay hidden unless authorized,
                         // so it only ever reveals UP or DOWN.
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        // Info carries only the build and commit that are live,
+                        // which is meant to be read without a token — the same
+                        // openness as the health probe beside it.
+                        .requestMatchers("/actuator/info").permitAll()
                         // Accepting an invitation happens before the recipient has
                         // an account: the token in the link is the only credential.
                         .requestMatchers(HttpMethod.GET, "/api/invitations/*").permitAll()

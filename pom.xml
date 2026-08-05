@@ -10,7 +10,7 @@
     </parent>
     <groupId>id.my.hendisantika</groupId>
     <artifactId>multitenancy</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.1</version>
     <name>spring-boot-jpa-multitenancy</name>
     <description>spring-boot-jpa-multitenancy</description>
     <properties>
@@ -153,6 +153,19 @@
                         </exclude>
                     </excludes>
                 </configuration>
+                <executions>
+                    <!-- Writes META-INF/build-info.properties, which is what
+                         /actuator/info reads for its "build" section: the group,
+                         artifact, name, version and build time. Needs no git,
+                         so it populates inside the Docker build where .git is
+                         absent; the commit and branch arrive separately, as
+                         environment set from build arguments. -->
+                    <execution>
+                        <goals>
+                            <goal>build-info</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

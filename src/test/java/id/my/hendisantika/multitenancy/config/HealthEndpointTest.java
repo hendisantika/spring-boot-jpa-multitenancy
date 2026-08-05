@@ -7,14 +7,18 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * The container HEALTHCHECK probes this without credentials, so it has to answer
- * unauthenticated, and it must not leak anything while doing so.
+ * The actuator endpoints answer without credentials — the container HEALTHCHECK,
+ * an orchestrator and anyone reading which build is live all reach them
+ * anonymously — and opening them must not open the secrets behind them.
  * <p>
  * Created by IntelliJ IDEA.
  * Project : spring-boot-jpa-multitenancy
@@ -63,11 +67,40 @@ class HealthEndpointTest {
     }
 
     /**
-     * Only health is exposed; anything else must not be served at all.
+     * Info, and every other actuator endpoint, is exposed and anonymous.
      */
     @Test
-    void otherActuatorEndpointsAreNotExposed() throws Exception {
-        mvc().perform(get("/actuator/env")).andExpect(status().isUnauthorized());
-        mvc().perform(get("/actuator/beans")).andExpect(status().isUnauthorized());
+    void actuatorEndpointsAreReachableWithoutAToken() throws Exception {
+        mvc().perform(get("/actuator/info")).andExpect(status().isOk());
+        mvc().perform(get("/actuator/beans")).andExpect(status().isOk());
+        mvc().perform(get("/actuator/env")).andExpect(status().isOk());
+    }
+
+    /**
+     * Opening the endpoints does not open the credentials: env values for keys
+     * that name a secret are sanitized, so an anonymous caller reads the shape of
+     * the configuration but none of the values that would let them in.
+     */
+    @Test
+    void envDoesNotLeakSecretsToAnAnonymousCaller() throws Exception {
+        // The development JWT secret is the literal committed to
+        // application.properties; it must not appear in the response body.
+        mvc().perform(get("/actuator/env"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(not(containsString("change-this-development-only-secret-please-32b"))));
+        mvc().perform(get("/actuator/env/application.jwt.secret"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.property.value").value("******"));
+    }
+
+    /**
+     * The OpenAPI document backing the Swagger UI is public, so the UI can load
+     * it without a token.
+     */
+    @Test
+    void theOpenApiDocumentIsPublic() throws Exception {
+        mvc().perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.openapi").exists());
     }
 }

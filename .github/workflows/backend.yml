@@ -409,12 +409,14 @@ jobs:
             "DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'EOF'
           set -euo pipefail
           cd "$DEPLOY_PATH"
-          # Only api is recreated. redis is brought up first so the dependency
-          # is present, then api with --no-deps so nothing else — redis or the
-          # front end — is reconciled or restarted by this deploy.
+          # Only api is named, so the front end container is left running
+          # whatever build it was on — it is not a dependency of api. Plain
+          # `up -d api` (not `--no-deps`) ensures redis and recreates api: this
+          # server's compose v2.6.0 mishandles `--no-deps` when a service has a
+          # health-conditioned depends_on, reporting "no such service: redis"
+          # and leaving the new container created but not started.
           docker compose -f compose.dev.yaml pull api
-          docker compose -f compose.dev.yaml up -d redis
-          docker compose -f compose.dev.yaml up -d --no-deps api
+          docker compose -f compose.dev.yaml up -d api
           docker image prune -f
           EOF
 

@@ -342,11 +342,13 @@ jobs:
             "DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'EOF'
           set -euo pipefail
           cd "$DEPLOY_PATH"
-          # Only the front end is recreated. --no-deps so its api dependency,
-          # already running, is not reconciled or restarted by a front end
-          # deploy — the api keeps whatever build it is on.
+          # Only the front end is named, so the api container is left as it is —
+          # verified that `up -d frontend` does not recreate api. Plain
+          # `up -d frontend` (not `--no-deps`) is used because this server's
+          # compose v2.6.0 mishandles `--no-deps` with a health-conditioned
+          # depends_on, leaving the new container created but not started.
           docker compose -f compose.dev.yaml pull frontend
-          docker compose -f compose.dev.yaml up -d --no-deps frontend
+          docker compose -f compose.dev.yaml up -d frontend
           docker image prune -f
           EOF
 

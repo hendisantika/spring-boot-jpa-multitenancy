@@ -3,8 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Multitenancy",
-    template: "%s · Multitenancy",
+    default: "Kliniku",
+    template: "%s · Kliniku",
   },
   description:
     "Sign up, register an organization and get its own database and subdomain, then add people to it.",

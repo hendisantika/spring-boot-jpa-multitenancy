@@ -48,10 +48,12 @@ ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
 # The standalone output already excludes everything not reachable from the
-# server. Static assets are not part of it and have to come across separately;
-# there is no public/ directory in this project, so that is the whole of it.
+# server. Static assets are not part of it and have to come across separately:
+# .next/static for the built bundles, and public/ for the served files —
+# the landing carousel photos live there.
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
+COPY --from=build --chown=node:node /app/public ./public
 
 USER node
 

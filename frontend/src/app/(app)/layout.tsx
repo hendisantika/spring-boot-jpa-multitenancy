@@ -21,10 +21,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <header className="border-b border-line bg-surface">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <span className="grid size-7 place-items-center rounded-lg bg-brand text-xs font-bold text-brand-ink">
-              M
-            </span>
-            <span className="font-semibold tracking-tight text-ink">Multitenancy</span>
+            <span className="grid size-7 place-items-center rounded-lg bg-brand text-xs font-bold text-brand-ink">K</span>
+            <span className="font-semibold tracking-tight text-ink">Kliniku</span>
           </Link>
 
           <div className="flex items-center gap-3">

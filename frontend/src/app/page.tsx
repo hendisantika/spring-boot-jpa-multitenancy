@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { Carousel } from "@/components/Carousel";
 import { isSignedIn } from "@/lib/session";
 
 export const metadata = {
@@ -21,10 +22,8 @@ export default async function Home() {
       <header className="border-b border-line bg-surface/80 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
           <Link href="/" className="flex items-center gap-2">
-            <span className="grid size-8 place-items-center rounded-lg bg-brand text-sm font-bold text-brand-ink">
-              M
-            </span>
-            <span className="text-lg font-semibold tracking-tight text-ink">Multitenancy</span>
+            <span className="grid size-8 place-items-center rounded-lg bg-brand text-sm font-bold text-brand-ink">K</span>
+            <span className="text-lg font-semibold tracking-tight text-ink">Kliniku</span>
           </Link>
 
           <nav className="flex items-center gap-2">
@@ -86,44 +85,9 @@ export default async function Home() {
             </div>
           </div>
 
-          {/* A browser frame hinting at the per-clinic subdomain. */}
+          {/* A look inside a clinic on Kliniku. */}
           <div className="mx-auto mt-14 max-w-3xl">
-            <div className="overflow-hidden rounded-xl border border-line bg-surface shadow-sm">
-              <div className="flex items-center gap-2 border-b border-line bg-surface-muted px-4 py-2.5">
-                <span className="size-2.5 rounded-full bg-line" />
-                <span className="size-2.5 rounded-full bg-line" />
-                <span className="size-2.5 rounded-full bg-line" />
-                <span className="ml-3 truncate rounded-md bg-surface px-3 py-1 text-xs text-ink-muted">
-                  https://sehat.jvm.my.id
-                </span>
-              </div>
-              <div className="grid gap-4 p-6 sm:grid-cols-3">
-                <div className="sm:col-span-1">
-                  <div className="flex items-center gap-2">
-                    <span className="grid size-9 place-items-center rounded-lg bg-brand/12 text-sm font-bold text-brand">
-                      S
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold text-ink">Klinik Sehat</p>
-                      <p className="text-xs text-ink-muted">sehat.jvm.my.id</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3 sm:col-span-2">
-                  {[
-                    ["People", "128"],
-                    ["Units", "4"],
-                    ["Members", "9"],
-                    ["Status", "Active"],
-                  ].map(([label, value]) => (
-                    <div key={label} className="rounded-lg border border-line bg-surface-muted px-3 py-2">
-                      <p className="text-xs text-ink-muted">{label}</p>
-                      <p className="text-sm font-semibold text-ink">{value}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <Carousel />
           </div>
         </section>
 
@@ -211,11 +175,9 @@ export default async function Home() {
       <footer className="border-t border-line bg-surface">
         <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-3 px-4 py-8 sm:flex-row">
           <div className="flex items-center gap-2">
-            <span className="grid size-6 place-items-center rounded-md bg-brand text-xs font-bold text-brand-ink">
-              M
-            </span>
+            <span className="grid size-6 place-items-center rounded-md bg-brand text-xs font-bold text-brand-ink">K</span>
             <span className="text-sm text-ink-muted">
-              Multitenancy — clinic software, one account per team.
+              Kliniku — clinic software, one account per team.
             </span>
           </div>
           <div className="flex items-center gap-4 text-sm text-ink-muted">

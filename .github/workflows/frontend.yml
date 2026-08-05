@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: 'Existing tag to deploy, e.g. sha-1a2b3c4. Leave empty to build this commit. This is the rollback.'
+        description: 'Existing tag to deploy, e.g. fe-41 or sha-1a2b3c4. Leave empty to build this commit. This is the rollback.'
         required: false
         default: ''
   pull_request:
@@ -116,9 +116,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # The run number, which counts per workflow — so it is prefixed. The two
+      # pipelines have separate counters, and an unprefixed "41" from each
+      # would be two different commits wearing one tag, the second quietly
+      # overwriting the first.
       - name: Derive the image tag
         id: tag
-        run: echo "tag=sha-$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "tag=fe-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          echo "sha=sha-$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -128,9 +134,11 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Both images carry the commit tag and `dev`. The commit tag is what the
-      # server is actually told to run — `dev` is a label for reading, because a
-      # deployment that says "latest" cannot be rolled back to anything.
+      # Three tags on each image: the run number, which is what the server is
+      # told to run; the commit it was built from, so a deployed tag can always
+      # be traced back to source; and `dev`, a label for reading. Nothing is
+      # ever deployed by `dev` — a deployment that says "latest" cannot be
+      # rolled back to anything, because it does not say which build it was.
       - name: Build and push the API image
         uses: docker/build-push-action@v6
         with:
@@ -139,6 +147,7 @@ jobs:
           push: true
           tags: |
             ${{ env.API_IMAGE }}:${{ steps.tag.outputs.tag }}
+            ${{ env.API_IMAGE }}:${{ steps.tag.outputs.sha }}
             ${{ env.API_IMAGE }}:dev
           cache-from: type=gha,scope=api
           cache-to: type=gha,mode=max,scope=api
@@ -153,6 +162,7 @@ jobs:
             NEXT_PUBLIC_TENANT_BASE_DOMAIN=${{ vars.APPLICATION_TENANT_BASE_DOMAIN || 'jvm.my.id' }}
           tags: |
             ${{ env.FRONTEND_IMAGE }}:${{ steps.tag.outputs.tag }}
+            ${{ env.FRONTEND_IMAGE }}:${{ steps.tag.outputs.sha }}
             ${{ env.FRONTEND_IMAGE }}:dev
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend

@@ -137,11 +137,19 @@ image build are skipped — it deploys what it is given without waiting for anyt
 rollback happens when something is already wrong.
 
 ```
-sha-1a2b3c4          # the seven character commit, which is how every image is tagged
+be-41                # the run number of Deploy Backend CI/CD to Dev
+fe-17                # the run number of Deploy Frontend CI/CD to Dev
+sha-1a2b3c4          # or the commit, which every image also carries
 ```
 
-Images also carry `dev`, which moves with the latest deploy. Nothing is ever deployed by that tag — a deployment that
-says `dev` cannot be rolled back to anything, because it does not say which build it was.
+The run number is what a deploy runs and what the run itself is called, so a deployment can be matched to its build at
+a glance. It counts **per workflow**, which is why it is prefixed: the two pipelines have separate counters, and an
+unprefixed `41` from each would be two different commits wearing one tag, the second quietly overwriting the first.
+Every image also carries `sha-<commit>`, so a tag on the server can always be traced back to source, and either form
+works for a rollback.
+
+Images carry `dev` as well, which moves with the latest deploy. Nothing is ever deployed by that tag — a deployment
+that says `dev` cannot be rolled back to anything, because it does not say which build it was.
 
 The workflow prints `docker compose ps` and the last sixty log lines at the end of every run, successful or not, so a
 container that came up and died is visible without logging in.

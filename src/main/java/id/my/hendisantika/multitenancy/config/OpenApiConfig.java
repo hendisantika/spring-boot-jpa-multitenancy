@@ -5,6 +5,8 @@ import io.swagger.v3.oas.models.info.Info;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import static org.springframework.web.servlet.function.RequestPredicates.version;
+
 /**
  * The title, description and version at the top of /v3/api-docs and the Swagger
  * UI, replacing springdoc's default "OpenAPI definition". The per-controller
@@ -27,6 +29,15 @@ public class OpenApiConfig {
                         A parent login that issues JWTs, and per-tenant data served from a database and \
                         subdomain provisioned for each organization at registration. The tenant is resolved \
                         from the host name, or from the X-Tenant header where wildcard DNS is not available.""")
+                .contact(new io.swagger.v3.oas.models.info.Contact()
+                        .name("Hendi Santika")
+                        .url("https://s.id/hendisantika")
+                        .email("hendisantika@yahoo.co.id"))
+                .termsOfService("https://jvm.my.id/terms")
+                .license(new io.swagger.v3.oas.models.info.License()
+                        .name("Proprietary")
+                        .url("https://jvm.my.id/license"))
                 .version("0.0.1"));
+
     }
 }

@@ -5,7 +5,7 @@ pair. There are two pipelines, one per side, each complete in itself:
 [`backend.yml`](../.github/workflows/backend.yml) and [`frontend.yml`](../.github/workflows/frontend.yml), with
 [`deploy/compose.dev.yaml`](../deploy/compose.dev.yaml) as what ends up running.
 
-Each watches the paths it owns — `src/`, `pom.xml`, the `Dockerfile` and `deploy/` on one side, `frontend/` on the
+Each watches the paths it owns — `src/`, `pom.xml`, the `Dockerfile` and `deploy/compose.dev.yaml` on one side, `frontend/` on the
 other — so a commit that only changes the front end does not wait for the Maven tests, and neither deploys until its
 own tests have passed. A commit touching both runs both pipelines, and the second deploy is the same pair of images
 being pulled again; the two deploy jobs share a concurrency group, so they queue rather than collide.

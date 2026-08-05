@@ -21,7 +21,7 @@ on:
       - 'mvnw'
       - 'mvnw.cmd'
       - 'Dockerfile'
-      - 'deploy/**'
+      - 'deploy/compose.dev.yaml'
       - '.github/workflows/backend.yml'
   workflow_dispatch:
     inputs:

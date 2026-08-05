@@ -284,6 +284,12 @@ jobs:
           fi
           chmod 600 ~/.ssh/known_hosts
 
+          # The fingerprint of the key that is about to be offered. It is the
+          # public half, so it is safe to print, and it is the one thing that
+          # tells a rejected key apart from a wrong one: compare it against
+          # `ssh-keygen -lf ~deployer/.ssh/authorized_keys` on the server.
+          ssh-keygen -lf ~/.ssh/id_deploy || echo "::warning::The key in SSH_PRIVATE_KEY could not be read at all"
+
       # Assembled on the runner and copied across, so no secret is ever an
       # argument to a remote command, where it would be visible in the server's
       # process list to anyone with a shell there.
@@ -364,13 +370,13 @@ jobs:
           SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'multitenancy' }}
         run: |
-          ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_USERNAME@$SSH_HOST" \
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes -p "$SSH_PORT" "$SSH_USERNAME@$SSH_HOST" \
             "mkdir -p $DEPLOY_PATH"
-          scp -i ~/.ssh/id_deploy -P "$SSH_PORT" \
+          scp -i ~/.ssh/id_deploy -o BatchMode=yes -P "$SSH_PORT" \
             deploy/compose.dev.yaml "$SSH_USERNAME@$SSH_HOST:$DEPLOY_PATH/compose.dev.yaml"
-          scp -i ~/.ssh/id_deploy -P "$SSH_PORT" \
+          scp -i ~/.ssh/id_deploy -o BatchMode=yes -P "$SSH_PORT" \
             .env.deploy "$SSH_USERNAME@$SSH_HOST:$DEPLOY_PATH/.env"
-          ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_USERNAME@$SSH_HOST" \
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes -p "$SSH_PORT" "$SSH_USERNAME@$SSH_HOST" \
             "chmod 600 $DEPLOY_PATH/.env"
 
       - name: Pull and restart
@@ -384,14 +390,14 @@ jobs:
         run: |
           # The token arrives on the remote shell's stdin rather than in its
           # argument list, where `ps` would show it to anyone logged in.
-          printf '%s' "$DOCKERHUB_TOKEN" | ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" \
+          printf '%s' "$DOCKERHUB_TOKEN" | ssh -i ~/.ssh/id_deploy -o BatchMode=yes -p "$SSH_PORT" \
             "$SSH_USERNAME@$SSH_HOST" \
             "docker login -u '$DOCKERHUB_USERNAME' --password-stdin"
 
           # The script is expanded on the server, not here, so the only value
           # crossing over is the path — named on the command line rather than
           # interpolated into the script.
-          ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_USERNAME@$SSH_HOST" \
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes -p "$SSH_PORT" "$SSH_USERNAME@$SSH_HOST" \
             "DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'EOF'
           set -euo pipefail
           cd "$DEPLOY_PATH"
@@ -409,7 +415,7 @@ jobs:
           SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'multitenancy' }}
         run: |
-          ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_USERNAME@$SSH_HOST" bash -s <<'EOF'
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes -p "$SSH_PORT" "$SSH_USERNAME@$SSH_HOST" bash -s <<'EOF'
           set -uo pipefail
           api= web=
           # Flyway runs a migration per tenant database at startup, so this is
@@ -435,7 +441,7 @@ jobs:
           SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'multitenancy' }}
         run: |
-          ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_USERNAME@$SSH_HOST" \
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes -p "$SSH_PORT" "$SSH_USERNAME@$SSH_HOST" \
             "DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'EOF'
           cd "$DEPLOY_PATH"
           docker compose -f compose.dev.yaml ps

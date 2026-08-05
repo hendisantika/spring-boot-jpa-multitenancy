@@ -164,3 +164,16 @@ container that came up and died is visible without logging in.
 | Front end up, every page 500                           | `BACKEND_URL` — the compose file sets it, so suspect the API being unhealthy |
 | Mailed links point at `localhost`                      | `PUBLIC_BASE_URL` is unset or wrong                                       |
 | `permission denied while trying to connect to the Docker daemon` | `deployer` is not in the `docker` group                        |
+| `Permission denied (publickey)` on the first ssh                 | the deploy key is not in `~deployer/.ssh/authorized_keys`, or `SSH_PRIVATE_KEY` holds a different key |
+
+The deploy prints the fingerprint of the key it is about to offer, in the *Prepare SSH* step. Compare it against what
+the server accepts, and a rejected key tells its own story:
+
+```bash
+ssh-keygen -lf ~/.ssh/id_ed25519_deploy          # what you put in the secret
+ssh-keygen -lf ~deployer/.ssh/authorized_keys    # what the server will take
+ssh -o BatchMode=yes -i ~/.ssh/id_ed25519_deploy -p 2280 deployer@165.22.246.205 true
+```
+
+The last command answering nothing at all is the whole test. A key with a passphrase cannot be used here either —
+there is nobody to type it.

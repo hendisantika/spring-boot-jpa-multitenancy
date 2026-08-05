@@ -23,7 +23,12 @@ on:
       - 'Dockerfile'
       - 'deploy/**'
       - '.github/workflows/backend.yml'
-      - '.github/workflows/deploy-dev.yml'
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Existing tag to deploy, e.g. sha-1a2b3c4. Leave empty to build this commit. This is the rollback.'
+        required: false
+        default: ''
   pull_request:
     branches: [ "main" ]
     paths:
@@ -34,12 +39,18 @@ on:
       - 'mvnw.cmd'
       - 'Dockerfile'
       - '.github/workflows/backend.yml'
-      - '.github/workflows/deploy-dev.yml'
+
+env:
+  API_IMAGE: ${{ vars.DOCKERHUB_USERNAME }}/multitenancy-api
+  FRONTEND_IMAGE: ${{ vars.DOCKERHUB_USERNAME }}/multitenancy-frontend
 
 jobs:
-  build:
+  test:
     name: Test
     runs-on: ubuntu-latest
+    # A rollback names an image that already exists, so there is nothing
+    # here to prove about it.
+    if: ${{ inputs.image_tag == '' }}
 
     # The dependency submission API writes a snapshot to the repository, which
     # the default read-only GITHUB_TOKEN is not allowed to do.
@@ -119,11 +130,308 @@ jobs:
     - name: Update dependency graph
       uses: advanced-security/maven-dependency-submission-action@b275d12641ac2d2108b2cbb7598b154ad2f2cee8
 
-  # Nothing reaches the dev server until the tests above pass, and never from a
-  # pull request: the same commit deploys or it does not.
+  check:
+    name: Check the settings are all there
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+
+    steps:
+      # Missing configuration should stop here, with the name of what is
+      # missing, rather than eighty seconds later as a container that will not
+      # start or — worse — a link mailed to a user pointing at nothing.
+      - name: Every secret and variable this needs
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          APPLICATION_JWT_SECRET: ${{ secrets.APPLICATION_JWT_SECRET }}
+          APPLICATION_DATABASE_URL_TEMPLATE: ${{ vars.APPLICATION_DATABASE_URL_TEMPLATE }}
+          APPLICATION_DATABASE_USER: ${{ vars.APPLICATION_DATABASE_USER }}
+          APPLICATION_DATABASE_PASSWORD: ${{ secrets.APPLICATION_DATABASE_PASSWORD }}
+          APPLICATION_STORAGE_ENDPOINT: ${{ vars.APPLICATION_STORAGE_ENDPOINT }}
+          PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
+        run: |
+          missing=
+          for name in SSH_HOST SSH_PORT SSH_USERNAME SSH_PRIVATE_KEY \
+                      DOCKERHUB_USERNAME DOCKERHUB_TOKEN \
+                      APPLICATION_JWT_SECRET APPLICATION_DATABASE_URL_TEMPLATE \
+                      APPLICATION_DATABASE_USER APPLICATION_DATABASE_PASSWORD \
+                      APPLICATION_STORAGE_ENDPOINT PUBLIC_BASE_URL; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Not set, see docs/dev-deployment.md:$missing"
+            exit 1
+          fi
+
+  images:
+    name: Build and push images
+    runs-on: ubuntu-latest
+    needs: [ test, check ]
+    # Skipped entirely when a tag to deploy was named, which is what makes
+    # rolling back fast: the images already exist.
+    if: ${{ needs.check.result == 'success' && !failure() && !cancelled() && inputs.image_tag == '' }}
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Derive the image tag
+        id: tag
+        run: echo "tag=sha-$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Both images carry the commit tag and `dev`. The commit tag is what the
+      # server is actually told to run — `dev` is a label for reading, because a
+      # deployment that says "latest" cannot be rolled back to anything.
+      - name: Build and push the API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.API_IMAGE }}:${{ steps.tag.outputs.tag }}
+            ${{ env.API_IMAGE }}:dev
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build and push the front end image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          build-args: |
+            NEXT_PUBLIC_TENANT_BASE_DOMAIN=${{ vars.APPLICATION_TENANT_BASE_DOMAIN || 'jvm.my.id' }}
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:${{ steps.tag.outputs.tag }}
+            ${{ env.FRONTEND_IMAGE }}:dev
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
   deploy:
-    name: Deploy
-    needs: [ build ]
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    uses: ./.github/workflows/deploy-dev.yml
-    secrets: inherit
+    name: Deploy to the dev server
+    runs-on: ubuntu-latest
+    needs: [ test, check, images ]
+    # `always()` would deploy over a failed build; this runs when the images
+    # were built or skipped because a tag was named, and not otherwise.
+    if: ${{ needs.check.result == 'success' && !failure() && !cancelled() }}
+    environment: dev
+
+    # Shared with the other workflow's deploy job by name, so a push that
+    # touches both sides deploys twice in a row rather than twice at once.
+    concurrency:
+      group: deploy-dev
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve which tag to deploy
+        id: tag
+        run: |
+          tag="${{ inputs.image_tag }}"
+          [ -n "$tag" ] || tag="${{ needs.images.outputs.tag }}"
+          if [ -z "$tag" ]; then
+            echo "::error::No image tag to deploy"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Deploying $tag"
+
+      # Written here rather than through a third party action: this key opens a
+      # shell on the server, and the fewer things that handle it the better.
+      - name: Prepare SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          if [ -n "$SSH_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            # Trust on first use, every run: whatever answers is believed. Set
+            # the SSH_KNOWN_HOSTS secret and this branch stops being taken —
+            # see docs/dev-deployment.md for how to produce its value.
+            echo "::warning::SSH_KNOWN_HOSTS is not set; the host key is being accepted unverified"
+            ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      # Assembled on the runner and copied across, so no secret is ever an
+      # argument to a remote command, where it would be visible in the server's
+      # process list to anyone with a shell there.
+      - name: Compose the server's .env
+        env:
+          # Suffixed rather than reusing the workflow level names, which would
+          # be a step's env referring to itself.
+          API_IMAGE_REF: ${{ vars.DOCKERHUB_USERNAME }}/multitenancy-api:${{ steps.tag.outputs.tag }}
+          FRONTEND_IMAGE_REF: ${{ vars.DOCKERHUB_USERNAME }}/multitenancy-frontend:${{ steps.tag.outputs.tag }}
+          BIND_ADDRESS: ${{ vars.BIND_ADDRESS || '127.0.0.1' }}
+          PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
+          APPLICATION_JWT_SECRET: ${{ secrets.APPLICATION_JWT_SECRET }}
+          APPLICATION_DATABASE_URL_TEMPLATE: ${{ vars.APPLICATION_DATABASE_URL_TEMPLATE }}
+          APPLICATION_DATABASE_USER: ${{ vars.APPLICATION_DATABASE_USER }}
+          APPLICATION_DATABASE_PASSWORD: ${{ secrets.APPLICATION_DATABASE_PASSWORD }}
+          APPLICATION_DATABASE_CENTRAL_DATABASE: ${{ vars.APPLICATION_DATABASE_CENTRAL_DATABASE || 'db_default' }}
+          APPLICATION_TENANT_BASE_DOMAIN: ${{ vars.APPLICATION_TENANT_BASE_DOMAIN || 'jvm.my.id' }}
+          APPLICATION_STORAGE_ENDPOINT: ${{ vars.APPLICATION_STORAGE_ENDPOINT }}
+          APPLICATION_STORAGE_SIGNED_URL_ENDPOINT: ${{ vars.APPLICATION_STORAGE_SIGNED_URL_ENDPOINT }}
+          APPLICATION_STORAGE_BUCKET: ${{ vars.APPLICATION_STORAGE_BUCKET || 'jvm-uploads' }}
+          APPLICATION_STORAGE_ACCESS_KEY: ${{ secrets.APPLICATION_STORAGE_ACCESS_KEY }}
+          APPLICATION_STORAGE_SECRET_KEY: ${{ secrets.APPLICATION_STORAGE_SECRET_KEY }}
+          REDIS_HOST: ${{ vars.REDIS_HOST || 'host.docker.internal' }}
+          REDIS_PORT: ${{ vars.REDIS_PORT || '6379' }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          BREVO_SENDER_EMAIL: ${{ vars.BREVO_SENDER_EMAIL }}
+          BREVO_SENDER_NAME: ${{ vars.BREVO_SENDER_NAME }}
+          APP_ORIGIN: ${{ vars.APP_ORIGIN }}
+        run: |
+          umask 077
+          {
+            echo "# Written by .github/workflows/backend.yml on $(date -u +%FT%TZ)."
+            echo "# Edits here are overwritten on the next deploy: change the repository"
+            echo "# secret or variable instead."
+            echo
+            echo "API_IMAGE=$API_IMAGE_REF"
+            echo "FRONTEND_IMAGE=$FRONTEND_IMAGE_REF"
+            echo "BIND_ADDRESS=$BIND_ADDRESS"
+            echo
+            echo "APPLICATION_JWT_SECRET=$APPLICATION_JWT_SECRET"
+            echo "APPLICATION_DATABASE_URL_TEMPLATE=$APPLICATION_DATABASE_URL_TEMPLATE"
+            echo "APPLICATION_DATABASE_USER=$APPLICATION_DATABASE_USER"
+            echo "APPLICATION_DATABASE_PASSWORD=$APPLICATION_DATABASE_PASSWORD"
+            echo "APPLICATION_DATABASE_CENTRAL_DATABASE=$APPLICATION_DATABASE_CENTRAL_DATABASE"
+            echo "APPLICATION_TENANT_BASE_DOMAIN=$APPLICATION_TENANT_BASE_DOMAIN"
+            echo
+            echo "APPLICATION_STORAGE_ENDPOINT=$APPLICATION_STORAGE_ENDPOINT"
+            echo "APPLICATION_STORAGE_SIGNED_URL_ENDPOINT=$APPLICATION_STORAGE_SIGNED_URL_ENDPOINT"
+            echo "APPLICATION_STORAGE_BUCKET=$APPLICATION_STORAGE_BUCKET"
+            echo "APPLICATION_STORAGE_ACCESS_KEY=$APPLICATION_STORAGE_ACCESS_KEY"
+            echo "APPLICATION_STORAGE_SECRET_KEY=$APPLICATION_STORAGE_SECRET_KEY"
+            echo
+            # A Redis that failed to start must fail the deployment rather than
+            # leave every instance counting rate limits on its own.
+            echo "APPLICATION_RATE_LIMIT_BACKEND=REDIS"
+            echo "REDIS_HOST=$REDIS_HOST"
+            echo "REDIS_PORT=$REDIS_PORT"
+            echo
+            echo "BREVO_API_KEY=$BREVO_API_KEY"
+            echo "BREVO_SENDER_EMAIL=$BREVO_SENDER_EMAIL"
+            echo "BREVO_SENDER_NAME=$BREVO_SENDER_NAME"
+            echo
+            # The four links the backend mails out. They are read by a person in
+            # a browser, so they have to name the public address of this
+            # deployment and not a container port.
+            echo "APPLICATION_INVITATION_ACCEPT_BASE_URL=$PUBLIC_BASE_URL/invitations"
+            echo "APPLICATION_PASSWORD_RESET_BASE_URL=$PUBLIC_BASE_URL/reset-password"
+            echo "APPLICATION_VERIFY_BASE_URL=$PUBLIC_BASE_URL/verify-email"
+            echo "APPLICATION_EMAIL_CHANGE_BASE_URL=$PUBLIC_BASE_URL/confirm-email"
+            echo
+            echo "APP_ORIGIN=$APP_ORIGIN"
+          } > .env.deploy
+
+      - name: Copy the compose file and the environment across
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'multitenancy' }}
+        run: |
+          ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_USERNAME@$SSH_HOST" \
+            "mkdir -p $DEPLOY_PATH"
+          scp -i ~/.ssh/id_deploy -P "$SSH_PORT" \
+            deploy/compose.dev.yaml "$SSH_USERNAME@$SSH_HOST:$DEPLOY_PATH/compose.dev.yaml"
+          scp -i ~/.ssh/id_deploy -P "$SSH_PORT" \
+            .env.deploy "$SSH_USERNAME@$SSH_HOST:$DEPLOY_PATH/.env"
+          ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_USERNAME@$SSH_HOST" \
+            "chmod 600 $DEPLOY_PATH/.env"
+
+      - name: Pull and restart
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'multitenancy' }}
+          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          # The token arrives on the remote shell's stdin rather than in its
+          # argument list, where `ps` would show it to anyone logged in.
+          printf '%s' "$DOCKERHUB_TOKEN" | ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" \
+            "$SSH_USERNAME@$SSH_HOST" \
+            "docker login -u '$DOCKERHUB_USERNAME' --password-stdin"
+
+          # The script is expanded on the server, not here, so the only value
+          # crossing over is the path — named on the command line rather than
+          # interpolated into the script.
+          ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_USERNAME@$SSH_HOST" \
+            "DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'EOF'
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+          docker compose -f compose.dev.yaml pull
+          # --remove-orphans so a service dropped from the compose file also
+          # stops running on the server.
+          docker compose -f compose.dev.yaml up -d --remove-orphans
+          docker image prune -f
+          EOF
+
+      - name: Wait for it to answer
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'multitenancy' }}
+        run: |
+          ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_USERNAME@$SSH_HOST" bash -s <<'EOF'
+          set -uo pipefail
+          api= web=
+          # Flyway runs a migration per tenant database at startup, so this is
+          # generous on purpose.
+          for attempt in $(seq 1 40); do
+            api=$(curl -fsS -o /dev/null -w '%{http_code}' http://127.0.0.1:8010/actuator/health || true)
+            web=$(curl -fsS -o /dev/null -w '%{http_code}' http://127.0.0.1:5000/login || true)
+            if [ "$api" = "200" ] && [ "$web" = "200" ]; then
+              echo "Both answered after $((attempt * 5))s at most"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Still not healthy: api=$api web=$web"
+          exit 1
+          EOF
+
+      - name: Show what is running, and the logs if it is not
+        if: always()
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'multitenancy' }}
+        run: |
+          ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_USERNAME@$SSH_HOST" \
+            "DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'EOF'
+          cd "$DEPLOY_PATH"
+          docker compose -f compose.dev.yaml ps
+          docker compose -f compose.dev.yaml logs --tail=60
+          EOF
+
+      - name: Remove the key
+        if: always()
+        run: rm -f ~/.ssh/id_deploy .env.deploy

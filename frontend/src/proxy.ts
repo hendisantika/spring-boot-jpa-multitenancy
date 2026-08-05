@@ -2,27 +2,31 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * Makes a tenant's subdomain a working front door.
+ * Serves a tenant's own subdomain in place, so opening `namaklinik.jvm.my.id`
+ * shows that clinic and stays there.
  *
- * Wildcard DNS and a wildcard certificate get `namaklinik.jvm.my.id` as far as
- * this application, but the pages are addressed by path — `/organizations/
- * {slug}/…` — so without this the subdomain would land on whatever the root
- * happens to render, which is not that clinic. Here the host name is read back
- * into a slug and the request is sent to the canonical URL for it.
+ * The pages are addressed by path — `/organizations/{slug}/…` — so the bare
+ * root of a tenant host is rewritten to that clinic's landing page. The browser
+ * keeps the address it asked for; only the path the app renders is changed.
  *
- * A redirect rather than a rewrite, which is the whole reason this stays short:
- * the session cookies are httpOnly and scoped to the host that set them, so
- * serving the app from many hosts would mean widening them to `.jvm.my.id` —
- * one cookie shared by every tenant's origin. Sending the browser to one origin
- * keeps the session on one host and leaves that decision unmade.
+ * A rewrite, not a redirect: the host stays `namaklinik.jvm.my.id` rather than
+ * bouncing to one shared origin. The session that follows is therefore scoped
+ * to that host — each clinic is its own login. The central host (APP_ORIGIN,
+ * e.g. dev.jvm.my.id) is where accounts are made and organizations registered;
+ * it is deliberately excluded here so it is never mistaken for a tenant named
+ * "dev".
  *
- * Unset `APP_ORIGIN` and nothing happens, which is the local and preview case:
- * localhost carries no tenant anyway.
+ * Deeper paths are left untouched: `/login`, `/account`, and the clinic's own
+ * `/organizations/{slug}/…` pages are already real routes, served as they are
+ * on whichever host asked for them.
+ *
+ * Unset `APP_ORIGIN` and the central-host guard is skipped, which is the local
+ * and preview case: localhost carries no tenant anyway.
  */
 
 const BASE_DOMAIN = (process.env.NEXT_PUBLIC_TENANT_BASE_DOMAIN ?? "jvm.my.id").toLowerCase();
 
-/** Where the application is actually served, e.g. `https://app.jvm.my.id`. */
+/** The central host where accounts and registration live, e.g. dev.jvm.my.id. */
 const APP_ORIGIN = process.env.APP_ORIGIN?.trim();
 
 /**
@@ -38,27 +42,25 @@ const RESERVED = new Set([
 const VALID_SLUG = /^[a-z][a-z0-9]{2,29}$/;
 
 export function proxy(request: NextRequest) {
-  if (!APP_ORIGIN) return NextResponse.next();
-
   const host = hostOf(request);
   const slug = tenantOf(host);
   if (!slug) return NextResponse.next();
 
-  const target = new URL(APP_ORIGIN);
-  // A misconfiguration that pointed APP_ORIGIN at a tenant host would otherwise
-  // redirect to itself for ever.
-  if (target.host.toLowerCase() === host) return NextResponse.next();
+  // The central host reads as a valid slug ("dev") but is not a tenant. Skip it
+  // so its own pages are served rather than rewritten to /organizations/dev.
+  if (APP_ORIGIN && host === new URL(APP_ORIGIN).host.toLowerCase()) {
+    return NextResponse.next();
+  }
 
-  const { pathname, search } = request.nextUrl;
-  // The subdomain names the organization and nothing else, so only the root
-  // means "show me this clinic". Deeper paths are carried across untouched:
-  // a link that was shared with the wrong host still arrives where it meant to.
-  target.pathname = pathname === "/" ? `/organizations/${slug}` : pathname;
-  target.search = search;
-
-  // 307, so a form post that reached the wrong host is not silently turned
-  // into a GET on the right one.
-  return NextResponse.redirect(target, 307);
+  // Only the bare root means "show me this clinic". Everything else is already a
+  // real route and is served in place, so the session set on this host stays on
+  // this host.
+  if (request.nextUrl.pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = `/organizations/${slug}`;
+    return NextResponse.rewrite(url);
+  }
+  return NextResponse.next();
 }
 
 /** The requested host, lowercased and without its port. */
@@ -81,7 +83,6 @@ function tenantOf(host: string): string | null {
 }
 
 export const config = {
-  // Everything but the assets: a redirect on those would cost a round trip and
-  // reach the same file anyway.
+  // Everything but the assets: rewriting those would reach the same file anyway.
   matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|webp|ico|txt|xml)$).*)"],
 };

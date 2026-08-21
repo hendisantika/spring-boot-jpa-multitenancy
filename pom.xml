@@ -15,7 +15,7 @@
     <description>spring-boot-jpa-multitenancy</description>
     <properties>
         <java.version>25</java.version>
-        <awssdk.version>2.53.1</awssdk.version>
+        <awssdk.version>2.53.2</awssdk.version>
         <springdoc.version>3.1.0</springdoc.version>
     </properties>
 

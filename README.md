@@ -30,15 +30,19 @@ sideways at any of the three widths.
 
 | Component        | Version                        |
 |------------------|--------------------------------|
-| Java             | 25                             |
-| Spring Boot      | 4.1.0                          |
-| Hibernate ORM    | 7.4.1 (via Boot)               |
+| Java             | 25 (LTS, enforced at build)    |
+| Spring Boot      | 4.2.0                          |
+| Hibernate ORM    | 7.4.15 (via Boot)              |
 | Spring Data JPA  | via Boot                       |
 | Spring Security  | via Boot                       |
 | HikariCP         | 7.1.0                          |
-| Flyway           | 12.4.0                         |
+| Flyway           | 12.11.0                        |
+| AWS SDK (S3)     | 2.59.7                         |
+| springdoc        | 3.2.1                          |
 | Database         | MySQL 5.7+/8.x                 |
-| Build            | Maven (wrapper included)       |
+| Object storage   | MinIO (`pgsty/minio`) or S3    |
+| Build            | Maven 3.10 (wrapper included)  |
+| Frontend         | Next.js 16, React 19, Bun      |
 
 ## How it works
 
@@ -232,7 +236,11 @@ Tenants seeded from the previous enum-based setup keep their historical database
 
 ## Prerequisites
 
-* JDK 25
+* JDK 25 — the build refuses anything older. `maven-enforcer-plugin` checks it before compiling, so an older JDK
+  fails at once with `JDK 25 or newer is required to build this project.` rather than a compiler error about
+  `release 25`. With [SDKMAN!](https://sdkman.io), `sdk env install` in the project root picks up `.sdkmanrc`
+  (Temurin 25). The Docker images (`eclipse-temurin:25-jdk` / `25-jre`) and CI (`actions/setup-java`, Temurin 25)
+  use the same version.
 * MySQL on `localhost:3306` and an S3 compatible bucket — `docker compose up -d` provides both
 * Maven (or just use the bundled `./mvnw`)
 
@@ -270,6 +278,11 @@ docker compose up -d
 | `redis`      | 6379   | —                       | Shared rate limit counters                        |
 
 `minio-init` matters: the application does **not** create the bucket, so without it the first photo upload fails.
+
+The official `minio/minio` and `minio/mc` images are no longer published on Docker Hub — pulling them is denied. The
+compose file and CI use [`pgsty/minio`](https://hub.docker.com/r/pgsty/minio) and
+[`pgsty/mc`](https://hub.docker.com/r/pgsty/mc) instead: community builds of the same server and client, with the same
+command, the same bundled `mc` and the same `RELEASE.` tags, pinned so an upstream push cannot change what runs.
 
 **If MySQL is already installed on this machine** it will be holding port 3306 and the `mysql` service cannot start.
 Either stop the local server, or map the container to another port and point `application.database.url-template` at it.
@@ -941,6 +954,35 @@ endpoint, signing and path style settings are exercised rather than mocked. `doc
 
 Without it the test **skips**, so no one needs MinIO running to work on the rest. CI sets `S3_INTEGRATION_REQUIRED=true`,
 which turns "nothing is listening" into a failure — otherwise a MinIO that failed to start would look like a pass.
+
+## Continuous integration
+
+Two workflows, each triggered only by the paths it owns:
+
+| Workflow                                         | Runs on                                       | What it proves                                                       |
+|--------------------------------------------------|-----------------------------------------------|----------------------------------------------------------------------|
+| [`backend.yml`](.github/workflows/backend.yml)   | `src/`, `pom.xml`, `Dockerfile`, Maven wrapper | `mvn package` on Temurin 25 against real MySQL 8, Redis 7 and MinIO |
+| [`frontend.yml`](.github/workflows/frontend.yml) | `frontend/`                                   | `bun install --frozen-lockfile`, lint and `next build`              |
+
+Pull requests to `main` run the tests only; a push to `main` also builds the image and deploys it (see
+[Running in production](#running-in-production)).
+
+### Dependabot
+
+[`.github/dependabot.yml`](.github/dependabot.yml) covers every dependency the repository ships, checked weekly on
+Monday at 05:00 Asia/Jakarta:
+
+| Ecosystem        | Where                                | Notes                                                                    |
+|------------------|--------------------------------------|--------------------------------------------------------------------------|
+| `maven`          | `/`                                  | Spring and springdoc grouped; other minor/patch bumps grouped           |
+| `bun`            | `/frontend`                          | Minor/patch bumps grouped                                                |
+| `docker`         | `/` and `/frontend`                  | `eclipse-temurin` majors ignored — the JDK stays on the 25 LTS line      |
+| `docker-compose` | `compose.yaml`, `deploy/`            | Majors ignored: a MySQL or Redis major changes the on-disk format        |
+| `github-actions` | `.github/workflows`                  | All actions grouped into one pull request                                |
+
+Major versions (other than those ignored above) arrive as their own pull requests, because they are the ones worth
+reading. For Maven and Bun a three-day cooldown skips releases younger than that. Pull requests are labelled per ecosystem with
+conventional commit messages (`build(deps)`, `ci(deps)`).
 
 ## Database migrations
 

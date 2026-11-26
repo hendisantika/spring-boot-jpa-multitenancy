@@ -1,13 +1,152 @@
+# Dependabot keeps every dependency this repository ships on current:
+# the backend (Maven), the frontend (Bun), the container base images, the
+# compose files and the GitHub Actions the workflows run.
+#
+# Conventions shared by every entry:
+# - Weekly on Monday morning, Jakarta time, so updates land together at the
+#   start of the week instead of a trickle of pull requests every day.
+# - Minor and patch bumps are grouped into one pull request per ecosystem;
+#   majors stay separate because they are the ones that need reading.
+# - A short cooldown skips releases that are only a few days old, which is
+#   when a broken or yanked release is most likely to be caught upstream.
+# - Commit messages follow conventional commits: build(deps) for what ships,
+#   ci(deps) for the workflows.
 version: 2
+
 updates:
+  # Backend: Spring Boot, AWS SDK, springdoc, the Maven wrapper and plugins.
   - package-ecosystem: maven
     directory: "/"
     schedule:
-      interval: daily
-      time: '05:00'
+      interval: weekly
+      day: monday
+      time: "05:00"
       timezone: Asia/Jakarta
     open-pull-requests-limit: 10
-  - package-ecosystem: "github-actions"
+    cooldown:
+      default-days: 3
+    labels:
+      - dependencies
+      - java
+    commit-message:
+      prefix: "build(deps)"
+    groups:
+      spring:
+        patterns:
+          - "org.springframework*"
+          - "org.springdoc*"
+        update-types:
+          - minor
+          - patch
+      maven-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  # Frontend: Next.js and the rest of package.json, resolved through bun.lock.
+  - package-ecosystem: bun
+    directory: "/frontend"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Asia/Jakarta
+    open-pull-requests-limit: 10
+    cooldown:
+      default-days: 3
+    labels:
+      - dependencies
+      - javascript
+    commit-message:
+      prefix: "build(deps)"
+    groups:
+      frontend-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  # Base images of the backend Dockerfile. Pinned to the Java 25 LTS line:
+  # moving to a newer JDK is a deliberate change to pom.xml, the workflow and
+  # this image together, not something to take from a bot.
+  - package-ecosystem: docker
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Asia/Jakarta
+    labels:
+      - dependencies
+      - docker
+    commit-message:
+      prefix: "build(deps)"
+    ignore:
+      - dependency-name: "eclipse-temurin"
+        update-types:
+          - version-update:semver-major
+
+  # Base images of the frontend Dockerfile (Bun for the build, Node to run).
+  - package-ecosystem: docker
+    directory: "/frontend"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Asia/Jakarta
+    labels:
+      - dependencies
+      - docker
+    commit-message:
+      prefix: "build(deps)"
+    groups:
+      frontend-images:
+        patterns:
+          - "*"
+
+  # MySQL, Redis and MinIO in the local and dev compose files. Majors are
+  # ignored: a new MySQL or Redis major changes the on-disk data format, which
+  # needs a migration plan rather than a merged pull request.
+  - package-ecosystem: docker-compose
+    directories:
+      - "/"
+      - "/deploy"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Asia/Jakarta
+    labels:
+      - dependencies
+      - docker
+    commit-message:
+      prefix: "build(deps)"
+    groups:
+      compose-images:
+        patterns:
+          - "*"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+
+  # Actions used by the workflows in .github/workflows.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Asia/Jakarta
+    labels:
+      - dependencies
+      - github_actions
+    commit-message:
+      prefix: "ci(deps)"
+    groups:
+      github-actions:
+        patterns:
+          - "*"

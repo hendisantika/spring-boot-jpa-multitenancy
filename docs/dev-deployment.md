@@ -45,9 +45,6 @@ everything else is a variable — an address masked into `***` only makes a fail
 
 | Name                             | Value                                                            |
 |----------------------------------|------------------------------------------------------------------|
-| `SSH_HOST`                       | `165.22.246.205`                                                 |
-| `SSH_PORT`                       | `2280`                                                           |
-| `SSH_USERNAME`                   | `deployer`                                                       |
 | `SSH_PRIVATE_KEY`                | the whole private key, `-----BEGIN` line to `-----END` line      |
 | `SSH_KNOWN_HOSTS`                | optional but wanted; see below                                   |
 | `DOCKERHUB_TOKEN`                | an access token from Docker Hub, with Read & Write               |
@@ -62,6 +59,9 @@ everything else is a variable — an address masked into `***` only makes a fail
 
 | Name                                      | Value                                                                    |
 |-------------------------------------------|--------------------------------------------------------------------------|
+| `SSH_HOST`                                | `165.22.246.205` — the droplet's public IP, not a Cloudflare-proxied name |
+| `SSH_PORT`                                | `2280`                                                                   |
+| `SSH_USERNAME`                            | `mhdcdev`                                                                |
 | `DOCKERHUB_USERNAME`                      | `hendisantika`, or whichever account owns the images                     |
 | `PUBLIC_BASE_URL`                         | where a browser reaches this deployment, e.g. `https://dev.jvm.my.id` — no trailing slash |
 | `APPLICATION_DATABASE_URL_TEMPLATE`       | see below; `{database}` is substituted per tenant                        |

@@ -145,9 +145,9 @@ jobs:
       # start or — worse — a link mailed to a user pointing at nothing.
       - name: Every secret and variable this needs
         env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_HOST: ${{ vars.SSH_HOST }}
+          SSH_PORT: ${{ vars.SSH_PORT }}
+          SSH_USERNAME: ${{ vars.SSH_USERNAME }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -255,8 +255,8 @@ jobs:
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_HOST: ${{ vars.SSH_HOST }}
+          SSH_PORT: ${{ vars.SSH_PORT }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_deploy
@@ -367,9 +367,9 @@ jobs:
 
       - name: Copy the compose file and the environment across
         env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_HOST: ${{ vars.SSH_HOST }}
+          SSH_PORT: ${{ vars.SSH_PORT }}
+          SSH_USERNAME: ${{ vars.SSH_USERNAME }}
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'multitenancy' }}
         run: |
           ssh -i ~/.ssh/id_deploy -o BatchMode=yes -p "$SSH_PORT" "$SSH_USERNAME@$SSH_HOST" \
@@ -401,9 +401,9 @@ jobs:
 
       - name: Pull and restart
         env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_HOST: ${{ vars.SSH_HOST }}
+          SSH_PORT: ${{ vars.SSH_PORT }}
+          SSH_USERNAME: ${{ vars.SSH_USERNAME }}
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'multitenancy' }}
           DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -441,9 +441,9 @@ jobs:
 
       - name: Wait for it to answer
         env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_HOST: ${{ vars.SSH_HOST }}
+          SSH_PORT: ${{ vars.SSH_PORT }}
+          SSH_USERNAME: ${{ vars.SSH_USERNAME }}
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'multitenancy' }}
         run: |
           ssh -i ~/.ssh/id_deploy -o BatchMode=yes -p "$SSH_PORT" "$SSH_USERNAME@$SSH_HOST" bash -s <<'EOF'
@@ -466,9 +466,9 @@ jobs:
       - name: Show what is running, and the logs if it is not
         if: always()
         env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_HOST: ${{ vars.SSH_HOST }}
+          SSH_PORT: ${{ vars.SSH_PORT }}
+          SSH_USERNAME: ${{ vars.SSH_USERNAME }}
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'multitenancy' }}
         run: |
           ssh -i ~/.ssh/id_deploy -o BatchMode=yes -p "$SSH_PORT" "$SSH_USERNAME@$SSH_HOST" \

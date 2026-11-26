@@ -61,6 +61,20 @@ updates:
       - javascript
     commit-message:
       prefix: "build(deps)"
+    # Toolchain majors the rest of the stack cannot take yet: eslint-config-next
+    # (eslint-plugin-react) breaks on ESLint 10, typescript-eslint rejects
+    # TypeScript 7, and @types/node should follow the node:22 runtime image,
+    # not the newest Node. Move these by hand when the ecosystem catches up.
+    ignore:
+      - dependency-name: "eslint"
+        update-types:
+          - version-update:semver-major
+      - dependency-name: "typescript"
+        update-types:
+          - version-update:semver-major
+      - dependency-name: "@types/node"
+        update-types:
+          - version-update:semver-major
     groups:
       frontend-minor-patch:
         patterns:

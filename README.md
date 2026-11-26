@@ -975,7 +975,7 @@ Monday at 05:00 Asia/Jakarta:
 | Ecosystem        | Where                                | Notes                                                                    |
 |------------------|--------------------------------------|--------------------------------------------------------------------------|
 | `maven`          | `/`                                  | Spring and springdoc grouped; other minor/patch bumps grouped           |
-| `bun`            | `/frontend`                          | Minor/patch bumps grouped                                                |
+| `bun`            | `/frontend`                          | Minor/patch grouped; `eslint`, `typescript`, `@types/node` majors held   |
 | `docker`         | `/` and `/frontend`                  | `eclipse-temurin` majors ignored — the JDK stays on the 25 LTS line      |
 | `docker-compose` | `compose.yaml`, `deploy/`            | Majors ignored: a MySQL or Redis major changes the on-disk format        |
 | `github-actions` | `.github/workflows`                  | All actions grouped into one pull request                                |

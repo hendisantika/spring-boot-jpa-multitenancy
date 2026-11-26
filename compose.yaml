@@ -31,7 +31,9 @@ services:
     restart: unless-stopped
 
   minio:
-    image: minio/minio:latest
+    # minio/minio is no longer published on Docker Hub; pgsty/minio is a drop-in
+    # community build of the same server (same command, same bundled mc).
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     container_name: multitenancy-minio
     # The image has no default command; without this it exits immediately.
     command: server /data --console-address ":9001"
@@ -68,7 +70,7 @@ services:
   # Creates the bucket once MinIO is up. The application does not create it, so
   # without this the first photo upload fails.
   minio-init:
-    image: minio/mc:latest
+    image: pgsty/mc:RELEASE.2026-11-12T00-00-00Z
     container_name: multitenancy-minio-init
     depends_on:
       minio:

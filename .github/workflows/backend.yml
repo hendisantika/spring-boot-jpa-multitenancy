@@ -98,13 +98,17 @@ jobs:
     # command and services have no way to supply one. The storage tests upload
     # to it for real, so the endpoint, signing and path style settings are
     # covered rather than mocked.
+    #
+    # minio/minio is no longer published on Docker Hub (the pull is denied), so
+    # this uses pgsty/minio, a drop-in community build of the same server,
+    # pinned to a release so an upstream push cannot break an unrelated commit.
     - name: Start MinIO
       run: |
         docker run -d --name minio \
           -p 9000:9000 \
           -e MINIO_ROOT_USER=minioadmin \
           -e MINIO_ROOT_PASSWORD=minioadmin \
-          minio/minio:latest server /data
+          pgsty/minio:RELEASE.2026-08-04T00-00-00Z server /data
         for attempt in $(seq 1 30); do
           if curl -sf http://localhost:9000/minio/health/live > /dev/null; then
             echo "MinIO is up after ${attempt} attempt(s)"

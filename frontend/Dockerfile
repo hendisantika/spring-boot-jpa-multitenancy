@@ -5,7 +5,7 @@
 # server only ever pulls it. To build it by hand:
 #
 #   docker build -t multitenancy-frontend frontend/
-FROM oven/bun:1.3.13 AS deps
+FROM oven/bun:1.4.5 AS deps
 
 WORKDIR /app
 
@@ -14,7 +14,7 @@ COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
 
-FROM oven/bun:1.3.13 AS build
+FROM oven/bun:1.4.5 AS build
 
 WORKDIR /app
 
@@ -36,7 +36,7 @@ RUN bun run build
 
 
 # Runtime: Node, no bun, no sources, no node_modules beyond what was traced.
-FROM node:22-alpine
+FROM node:26-alpine
 
 WORKDIR /app
 
